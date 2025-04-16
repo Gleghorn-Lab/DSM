@@ -1,0 +1,190 @@
+#! /usr/bin/env python3
+# py -m trainers.train_esm_diff
+import argparse
+import torch
+import torch.nn.functional as F
+from torchinfo import summary
+from transformers import TrainingArguments, EvalPrediction
+from sklearn.metrics import (
+    f1_score,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    matthews_corrcoef,
+)
+from huggingface_hub import login, hf_hub_download
+from datasets import load_dataset, Dataset
+
+from models.esm_diff.modeling_esm_diff import ESM_Diff
+from data.dataset_classes import SequenceDatasetFromList
+from data.data_collators import SequenceCollator
+from trainers.iterable_trainer import get_iterable_trainer
+from protein_helpers.alignment_helpers import AlignmentLossLike
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+### Check for wandb
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    wandb = None
+    WANDB_AVAILABLE = False
+
+
+def compute_esm_diff_metrics(eval_preds: EvalPrediction):
+    lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
+    labels = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+    
+    alignment_loss = AlignmentLossLike()(lm_logits, labels)
+
+    labels[labels == 1] = -100 # pad tokens
+    lm_logits_torch = torch.tensor(lm_logits)
+    labels_torch = torch.tensor(labels)
+    cross_entropy_loss = F.cross_entropy(lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), labels_torch.view(-1))
+
+    y_pred = lm_logits.argmax(axis=-1).flatten()
+    y_true = labels.flatten()
+    valid_indices = y_true != -100
+    y_pred = y_pred[valid_indices]
+    y_true = y_true[valid_indices]
+    f1 = f1_score(y_true, y_pred, average='weighted')
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, average='weighted')
+    rec = recall_score(y_true, y_pred, average='weighted')
+    mcc = matthews_corrcoef(y_true, y_pred)
+
+    return {
+        "cross_entropy_loss": cross_entropy_loss,
+        "alignment_loss": alignment_loss,
+        "f1": f1,
+        "acc": acc,
+        "prec": prec,
+        "rec": rec,
+        "mcc": mcc,
+    }
+
+
+def get_eval_data():
+    local_file = hf_hub_download(
+        repo_id="Synthyra/omg_prot50",
+        filename=f"data/valid-00000-of-00001.parquet",
+        repo_type="dataset"
+    )
+    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
+    print(data)
+    valid_seqs = data['sequence']
+    local_file = hf_hub_download(
+        repo_id="Synthyra/omg_prot50",
+        filename=f"data/test-00000-of-00001.parquet",
+        repo_type="dataset"
+    )
+    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
+    print(data)
+    test_seqs = data['sequence']
+    return valid_seqs, test_seqs
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Synthyra Trainer")
+    parser.add_argument("--token", type=str, default=None, help="Huggingface token")
+    parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-150M", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="Synthyra/esm_diff_no_rl", help="Path to save the model and report to wandb")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
+    parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
+    parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
+    parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
+    parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    args = parser.parse_args()
+    return args
+
+
+def main(args):
+    ### Load model
+    model = ESM_Diff.from_pretrained(args.model_path)
+    tokenizer = model.tokenizer
+    summary(model)
+
+    ### Load Dataset
+    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True)
+    valid_seqs, test_seqs = get_eval_data()
+    if args.bugfix:
+        valid_seqs = valid_seqs[:10]
+        test_seqs = test_seqs[:10]
+    
+    valid_dataset = SequenceDatasetFromList(valid_seqs)
+    test_dataset = SequenceDatasetFromList(test_seqs)
+    data_collator = SequenceCollator(tokenizer, args.max_length)
+
+    ### Define Training Arguments
+    training_args = TrainingArguments(
+        output_dir=args.save_path.split('/')[-1],
+        overwrite_output_dir=True,
+        per_device_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
+        max_steps=args.max_steps,
+        gradient_accumulation_steps=args.grad_accum,
+        logging_steps=100,
+        save_strategy="steps",
+        eval_strategy="steps",
+        save_steps=args.save_every,
+        eval_steps=args.save_every,
+        warmup_steps=args.save_every // 10,
+        logging_dir="./logs",
+        learning_rate=args.lr,
+        fp16=args.fp16,
+        dataloader_num_workers=4 if not args.bugfix else 0,
+        report_to="wandb" if WANDB_AVAILABLE else 'none',
+        save_total_limit=3,
+        max_grad_norm=10.0,
+        label_names=['input_ids'],
+    )
+
+    ### Create a trainer
+    trainer = get_iterable_trainer(
+        model=model,
+        hf_dataset=train_dataset,
+        data_collator=data_collator,
+        training_args=training_args,
+        batch_size=args.batch_size,
+        col_name="sequence",
+        num_workers=4,
+        prefetch_factor=10,
+        compute_metrics=compute_esm_diff_metrics,
+        callbacks=None,
+        eval_dataset=valid_dataset,
+    )
+
+    ### Train
+    metrics = trainer.evaluate(test_dataset)
+    print('Initial Metrics: \n', metrics)
+    trainer.train()
+    metrics = trainer.evaluate(test_dataset)
+    print('Final Metrics: \n', metrics)
+    trainer.model.push_to_hub(args.save_path, private=True)
+    if WANDB_AVAILABLE:
+        wandb.finish()
+
+
+if __name__ == "__main__":
+    # py -m trainers.train_esm_diff
+    args = parse_args()
+
+    if WANDB_AVAILABLE:
+        run_name = args.save_path.split('/')[-1]
+        wandb.init(project=args.wandb_project, name=run_name, config=vars(args))
+
+    if args.token is not None:
+        login(args.token)    
+
+    if args.bugfix:
+        args.batch_size = 2
+        args.max_length = 32
+        args.save_every = 1000
+
+    main(args)
