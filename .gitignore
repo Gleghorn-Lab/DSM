@@ -1,1 +1,7 @@
 .qodo
+*.pyc
+*.safetensors
+*.json
+*.pt
+*.pth
+*.bin

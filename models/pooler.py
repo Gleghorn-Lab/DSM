@@ -1,10 +1,13 @@
 import torch
-from typing import Optional, List
+from typing import Optional, List, Union
 
 
 class Pooler:
-    def __init__(self, pooling_types: List[str]):
-        self.pooling_types = pooling_types
+    def __init__(self, pooling_types: Union[List[str], str]):
+        if isinstance(pooling_types, str):
+            self.pooling_types = [pooling_types]
+        else:
+            self.pooling_types = pooling_types
         self.pooling_options = {
             'mean': self.mean_pooling,
             'max': self.max_pooling,

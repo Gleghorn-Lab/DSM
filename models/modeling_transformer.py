@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from typing import Optional
-from attention.self_attention import MultiHeadAttention
-from MLP import swiglu_ffn
+from .attention.self_attention import MultiHeadAttention
+from .MLP import swiglu_ffn
 
 
 class TransformerBlock(nn.Module):

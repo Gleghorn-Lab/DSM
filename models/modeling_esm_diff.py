@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
-from .NWTransformer import NWTransformerCross
+from .modeling_nw_transformer import NWTransformerCross
 
 
 class ESMDiffConfig(FastEsmConfig):
@@ -105,6 +105,9 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
+        labels = input_ids.clone()
+        non_mask_indices = ~mask_indices & (attention_mask == 0)
+        labels[non_mask_indices] = -100
 
         x = super().forward(
             input_ids=noisy_batch,
@@ -135,9 +138,17 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
             ce_alpha = alignment_loss.clone().detach()
             loss = alignment_loss + ce_alpha * loss
 
+            with torch.no_grad():
+                pred_alignment = self.alignment_scorer(
+                    input_ids_a=input_ids,
+                    input_ids_b=lm_logits.argmax(dim=-1),
+                    attention_mask_a=attention_mask,
+                    attention_mask_b=attention_mask,
+                )
+
             return EsmDiffOutput(
                 loss=loss,
-                logits=(lm_logits, pred_alignment),
+                logits=(lm_logits, labels, pred_alignment),
                 last_hidden_state=x,
                 hidden_states=None,
                 attentions=None,
@@ -146,7 +157,7 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
 
         return EsmDiffOutput(
             loss=loss,
-            logits=lm_logits,
+            logits=(lm_logits, labels),
             last_hidden_state=x,
             hidden_states=None,
             attentions=None,
@@ -214,6 +225,9 @@ class ESM_Diff_AV(ESM_Diff):
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
+        labels = input_ids.clone()
+        non_mask_indices = ~mask_indices & (attention_mask == 0)
+        labels[non_mask_indices] = -100
         x = self.esm.embeddings.word_embeddings(noisy_batch)
 
         x_hat = torch.cat([x_at, x], dim=1)
@@ -235,7 +249,7 @@ class ESM_Diff_AV(ESM_Diff):
 
         return EsmDiffOutput(
             loss=loss,
-            logits=logits,
+            logits=(logits, labels),
             last_hidden_state=x,
             hidden_states=None,
             attentions=None,

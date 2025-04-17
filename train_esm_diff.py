@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
-# py -m trainers.train_esm_diff
+# py -m train_esm_diff
 import argparse
 import torch
 import torch.nn.functional as F
+import numpy as np
 from torchinfo import summary
 from transformers import TrainingArguments, EvalPrediction
 from sklearn.metrics import (
@@ -11,15 +12,20 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     matthews_corrcoef,
+    r2_score,
+    mean_absolute_error,
 )
+from scipy.stats import spearmanr, pearsonr
 from huggingface_hub import login, hf_hub_download
 from datasets import load_dataset, Dataset
 
-from models.esm_diff.modeling_esm_diff import ESM_Diff
+from models.modeling_nw_transformer import NWTransformerCross
+from models.modeling_esm_diff import ESM_Diff
+from models.alignment_helpers import AlignmentLossLike
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
-from trainers.iterable_trainer import get_iterable_trainer
-from protein_helpers.alignment_helpers import AlignmentLossLike
+from iterable_trainer import get_iterable_trainer
+
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -34,15 +40,27 @@ except ImportError:
 
 
 def compute_esm_diff_metrics(eval_preds: EvalPrediction):
+    ### NOTE the eval mask percentage is fixed at 15%
+    metrics = {}
     lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
-    labels = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
     
-    alignment_loss = AlignmentLossLike()(lm_logits, labels)
+    if len(lm_logits) == 3:
+        lm_logits, labels, pred_alignment = lm_logits
+    else:
+        lm_logits, labels = lm_logits
+        pred_alignment = None
 
-    labels[labels == 1] = -100 # pad tokens
+    alignment_loss, scores = AlignmentLossLike()(lm_logits, input_ids)
+
+    # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
     labels_torch = torch.tensor(labels)
+    # We need ot do this because the eval loss is scaled by the mask rate
     cross_entropy_loss = F.cross_entropy(lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), labels_torch.view(-1))
+
+    metrics['cross_entropy_loss'] = cross_entropy_loss
+    metrics['alignment_loss'] = alignment_loss
 
     y_pred = lm_logits.argmax(axis=-1).flatten()
     y_true = labels.flatten()
@@ -50,20 +68,32 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     y_pred = y_pred[valid_indices]
     y_true = y_true[valid_indices]
     f1 = f1_score(y_true, y_pred, average='weighted')
-    acc = accuracy_score(y_true, y_pred)
     prec = precision_score(y_true, y_pred, average='weighted')
     rec = recall_score(y_true, y_pred, average='weighted')
+    acc = accuracy_score(y_true, y_pred)
     mcc = matthews_corrcoef(y_true, y_pred)
+    metrics["f1"] = f1
+    metrics["prec"] = prec
+    metrics["rec"] = rec
+    metrics["acc"] = acc
+    metrics["mcc"] = mcc
 
-    return {
-        "cross_entropy_loss": cross_entropy_loss,
-        "alignment_loss": alignment_loss,
-        "f1": f1,
-        "acc": acc,
-        "prec": prec,
-        "rec": rec,
-        "mcc": mcc,
-    }
+    if pred_alignment is not None:
+        # regression metrics between pred_alignment and scores
+        # mae, r2, spearman, pearson
+        y_pred = np.array(pred_alignment).flatten()
+        y_true = np.array(scores).flatten()
+        mae = mean_absolute_error(y_pred, y_true)
+        r2 = r2_score(y_pred, y_true)
+        spearman, spearman_pval = spearmanr(y_pred, y_true)
+        pearson, pearson_pval = pearsonr(y_pred, y_true)
+        metrics["mae"] = mae
+        metrics["r2"] = r2
+        metrics["spearman_rho"] = spearman
+        metrics["spearman_pval"] = spearman_pval
+        metrics["pearson_rho"] = pearson
+        metrics["pearson_pval"] = pearson_pval
+    return metrics
 
 
 def get_eval_data():
@@ -100,13 +130,19 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    parser.add_argument("--alignment_loss", action="store_true", help="Use alignment loss")
     args = parser.parse_args()
     return args
 
 
 def main(args):
     ### Load model
-    model = ESM_Diff.from_pretrained(args.model_path)
+    model = ESM_Diff.from_pretrained(args.model_path, alignment_loss=args.alignment_loss)
+    if args.alignment_loss:
+        model.alignment_scorer = NWTransformerCross.from_pretrained('GleghornLab/AlignmentTransformer')
+        for param in model.alignment_scorer.parameters():
+            param.requires_grad = False
+        model.alignment_scorer.eval()
     tokenizer = model.tokenizer
     summary(model)
 
@@ -172,7 +208,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m trainers.train_esm_diff
+    # py -m train_esm_diff
     args = parse_args()
 
     if WANDB_AVAILABLE:

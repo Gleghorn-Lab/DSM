@@ -58,9 +58,8 @@ class AlignmentLossLike:
             labels = labels.cpu().numpy()
         for logit, label in zip(logits, labels):
             pred = logit.argmax(axis=-1)
-            mask = label != -100
-            pred = pred[mask].flatten().tolist()
-            label = label[mask].flatten().tolist()
+            pred = pred.flatten().tolist()
+            label = label.flatten().tolist()
             pred = self.tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
             label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
             score = self.scorer(pred, label)
@@ -68,7 +67,7 @@ class AlignmentLossLike:
         scores = np.array(scores)
         ideal_labels = np.ones_like(scores)
         loss = ideal_labels - scores
-        return loss.mean()
+        return loss.mean(), scores
 
 
 class SequenceComparator:
