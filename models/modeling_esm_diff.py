@@ -106,7 +106,7 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
-        non_mask_indices = ~mask_indices & (attention_mask == 0)
+        non_mask_indices = ~mask_indices or (attention_mask == 0)
         labels[non_mask_indices] = -100
 
         x = super().forward(

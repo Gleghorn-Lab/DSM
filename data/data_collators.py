@@ -3,6 +3,7 @@ from typing import Tuple, List, Dict, Union
 
 from models.alignment_helpers import AlignmentScorer
 
+
 def standard_data_collator(batch):
     batch = {k: torch.stack([ex[k] for ex in batch]) for k in batch[0].keys()}
     return batch
