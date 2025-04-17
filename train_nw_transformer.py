@@ -175,7 +175,7 @@ class NWCollatorCross:
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--save_path", type=str, default="Gleghorn/AlignmentTransformer", help="Path to save the model and report to wandb")
+    parser.add_argument("--save_path", type=str, default="GleghornLab/AlignmentTransformer", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs")
