@@ -9,7 +9,7 @@ from huggingface_hub import login
 from datasets import load_dataset
 
 from metrics.regression import compute_metrics_regression
-from models.alignment_helpers import NWScorer
+from models.alignment_helpers import AlignmentScorer
 from models.modeling_nw_transformer import NWTransformerFull, NWTransformerCross, NWTransformerConfig
 
 import warnings
@@ -63,7 +63,7 @@ class NWCollatorFull:
     def __init__(self, tokenizer, max_length=2048, asinh=False):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.nw_scorer = NWScorer()
+        self.scorer = AlignmentScorer()
         self.asinh = asinh
 
     def __call__(self, batch: List[Tuple[str, str]]) -> Dict[str, torch.Tensor]:
@@ -94,7 +94,7 @@ class NWCollatorFull:
             truncated_seqs_b.append(trunc_b)
         
         # Calculate NW scores using the truncated sequences
-        labels = [self.nw_scorer(seq_a, seq_b) for seq_a, seq_b in zip(truncated_seqs_a, truncated_seqs_b)]
+        labels = [self.scorer(seq_a, seq_b) for seq_a, seq_b in zip(truncated_seqs_a, truncated_seqs_b)]
         labels = torch.tensor(labels, dtype=torch.float32)
         if self.asinh:
             labels = torch.asinh(labels)
@@ -116,7 +116,7 @@ class NWCollatorCross:
     def __init__(self, tokenizer, max_length=2048, asinh=False):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.nw_scorer = NWScorer()
+        self.scorer = AlignmentScorer()
         self.asinh = asinh
 
     def __call__(self, batch: List[Tuple[str, str]]) -> Dict[str, torch.Tensor]:
@@ -147,7 +147,7 @@ class NWCollatorCross:
             truncated_seqs_b.append(trunc_b)
         
         # Calculate NW scores using the truncated sequences
-        labels = [self.nw_scorer(seq_a, seq_b) for seq_a, seq_b in zip(truncated_seqs_a, truncated_seqs_b)]
+        labels = [self.scorer(seq_a, seq_b) for seq_a, seq_b in zip(truncated_seqs_a, truncated_seqs_b)]
         labels = torch.tensor(labels, dtype=torch.float32)
         if self.asinh:
             labels = torch.asinh(labels)
@@ -190,6 +190,7 @@ def parse_args():
     parser.add_argument("--head_dim", type=int, default=256, help="Head dimension of the model")
     parser.add_argument("--num_workers", type=int, default=4, help="Number of workers for dataloader")
     parser.add_argument("--model_type", type=str, default="cross", help="Type of model to train")
+    parser.add_argument("--pooling_type", type=str, default="max", help="Type of pooling to use")
     parser.add_argument("--asinh", action="store_true", help="Use asinh transform for labels")
     args = parser.parse_args()
     return args
@@ -205,7 +206,8 @@ def main(args):
         hidden_size=args.hidden_size,
         n_heads=2,
         n_layers=1,
-        head_dim=args.head_dim
+        head_dim=args.head_dim,
+        pooling_type=args.pooling_type
     ))
     summary(model)
     ### Load Dataset
