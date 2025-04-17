@@ -4,6 +4,7 @@ from typing import Optional
 from transformers import PreTrainedModel, PretrainedConfig
 from transformers.modeling_outputs import SequenceClassifierOutput
 from .attention.cross_attention import CrossAttention
+from .attention.attention_pooler import AttentionPooler
 from .MLP import swiglu_ffn
 from .modeling_transformer import TransformerBlock
 from .utils import pad_and_concatenate_dimer
@@ -22,7 +23,7 @@ class NWTransformerConfig(PretrainedConfig):
         expansion_ratio: float = 8/3,
         dropout: float = 0.1,
         loss_type: str = "l1",
-        pooling_type: str = "max",
+        pooling_type: str = "attention",
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -51,7 +52,15 @@ class NWTransformerFull(PreTrainedModel):
             rotary=True,
             causal=False
         )
-        self.pooler = Pooler(config.pooling_type)
+        self.pooling_type = config.pooling_type
+        if config.pooling_type == 'attention':
+            self.pooler = AttentionPooler(
+                hidden_size=config.hidden_size,
+                n_tokens=1,
+                n_heads=config.n_heads
+            )
+        else:
+            self.pooler = Pooler(config.pooling_type)
         self.regression_head = nn.Sequential(
             nn.Linear(config.hidden_size, config.head_dim),
             nn.ReLU(),
@@ -71,7 +80,10 @@ class NWTransformerFull(PreTrainedModel):
     ) -> SequenceClassifierOutput:
         x = self.embedding(input_ids)
         x = self.transformer(x, attention_mask)
-        x = self.pooler(x, attention_mask)
+        if self.pooling_type == 'attention':
+            x = self.pooler(x, attention_mask).squeeze(1)
+        else:
+            x = self.pooler(x, attention_mask)
         
         logits = self.regression_head(x)
 
@@ -96,7 +108,15 @@ class NWTransformerCross(PreTrainedModel):
         self.cross_ab = CrossAttention(config.hidden_size, config.n_heads)
         self.cross_ba = CrossAttention(config.hidden_size, config.n_heads)
         self.ffn = swiglu_ffn(config.hidden_size, config.expansion_ratio, config.dropout)
-        self.pooler = Pooler(config.pooling_type)
+        self.pooling_type = config.pooling_type
+        if config.pooling_type == 'attention':
+            self.pooler = AttentionPooler(
+                hidden_size=config.hidden_size,
+                n_tokens=1,
+                n_heads=config.n_heads
+            )
+        else:
+            self.pooler = Pooler(config.pooling_type)
         self.regression_head = nn.Sequential(
             nn.Linear(config.hidden_size, config.head_dim),
             nn.ReLU(),
@@ -121,7 +141,10 @@ class NWTransformerCross(PreTrainedModel):
         x_b = self.cross_ba(x_b, x_a, attention_mask_b, attention_mask_a)
         x, attention_mask = pad_and_concatenate_dimer(x_a, x_b, attention_mask_a, attention_mask_b)
         x = self.ffn(x)
-        x = self.pooler(x, attention_mask)
+        if self.pooling_type == 'attention':
+            x = self.pooler(x, attention_mask).squeeze(1)
+        else:
+            x = self.pooler(x, attention_mask)
         
         logits = self.regression_head(x)
         return logits
