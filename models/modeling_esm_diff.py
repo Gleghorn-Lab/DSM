@@ -103,6 +103,10 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         
         p_mask = t[:, None].repeat(1, seq_len)
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
+        # prevent cls and eos from being masked
+        cls_mask = input_ids == self.cls_token_id
+        eos_mask = input_ids == self.eos_token_id
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
@@ -223,10 +227,14 @@ class ESM_Diff_AV(ESM_Diff):
         t = (1 - eps) * t + eps
         p_mask = t[:, None].repeat(1, seq_len)
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
+        # prevent cls and eos from being masked
+        cls_mask = input_ids == self.cls_token_id
+        eos_mask = input_ids == self.eos_token_id
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
-        non_mask_indices = ~mask_indices & (attention_mask == 0)
+        non_mask_indices = ~mask_indices or (attention_mask == 0)
         labels[non_mask_indices] = -100
         x = self.esm.embeddings.word_embeddings(noisy_batch)
 
