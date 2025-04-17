@@ -157,3 +157,51 @@ class PairDatasetTestHF(TorchDataset):
 
     def __getitem__(self, idx):
         return self.seqs_a[idx], self.seqs_b[idx], self.labels[idx]
+    
+
+class NWDataset(TorchDataset):
+    def __init__(self, dataset, sequence_col: str = 'Sequence'):
+        self.sequences = list(set(dataset[sequence_col]))
+
+    def __len__(self):
+        return len(self.sequences)
+
+    def _mutate_seq(self, seq: str) -> str:
+        # pick to random indicies, then shuffle in between
+        if len(seq) < 3:
+            return seq
+        
+        idx1 = random.randint(0, len(seq) - 3)
+        idx2 = random.randint(idx1 + 2, len(seq) - 1)
+        
+        # Extract the segment to shuffle
+        segment = list(seq[idx1:idx2])
+        random.shuffle(segment)
+        shuffled_segment = ''.join(segment)
+        # Reconstruct the sequence with the shuffled segment
+        return seq[:idx1] + shuffled_segment + seq[idx2:]
+        
+    def __getitem__(self, idx):
+        seq_a = random.choice(self.sequences)
+        if random.random() < 0.5:
+            seq_b = random.choice(self.sequences)
+        else:
+            seq_b = self._mutate_seq(seq_a)
+        
+        if random.random() < 0.5:
+            seq_a, seq_b = seq_b, seq_a
+
+        return seq_a, seq_b
+
+
+class NWDatasetEval(TorchDataset):
+    def __init__(self, dataset, seq_a_col: str = 'SeqA', seq_b_col: str = 'SeqB'):
+        self.seq_a = dataset[seq_a_col]
+        self.seq_b = dataset[seq_b_col]
+
+    def __len__(self):
+        return len(self.seq_a)
+    
+    def __getitem__(self, idx):
+        return self.seq_a[idx], self.seq_b[idx]
+    
