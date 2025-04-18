@@ -49,7 +49,13 @@ class AlignmentLossLike:
     def __init__(self, gap_score=-10):
         self.scorer = AlignmentScorer(gap_score)
         self.tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")
+        self.canonical_aa = set("ACDEFGHIKLMNPQRSTVWY")
+        self.canonical_tokens = set([self.tokenizer.encode(aa, add_special_tokens=False)[0] for aa in list(self.canonical_aa)])
+        self.alanine_token = self.tokenizer.encode('A', add_special_tokens=False)[0]
         self.vocab_size = len(self.tokenizer)
+
+    def _sanitize_pred(self, pred: list[int]) -> list[int]:
+        return [token for token in pred if token in self.canonical_tokens else self.alanine_token]
 
     def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
@@ -64,6 +70,7 @@ class AlignmentLossLike:
             pred = logit.argmax(axis=-1)
             pred = pred.flatten().tolist()
             pred = pred[1:len(label)+1] # remove cls and padding
+            pred = self._sanitize_pred(pred)
             pred = self.tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
             score = self.scorer(label, pred)
             scores.append(score)
