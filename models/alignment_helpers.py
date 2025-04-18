@@ -58,12 +58,13 @@ class AlignmentLossLike:
         if isinstance(labels, torch.Tensor):
             labels = labels.cpu().numpy()
         for logit, label in zip(logits, labels):
+            label = label.flatten().tolist()
+            label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
             logit = logit.reshape(-1, self.vocab_size)
             pred = logit.argmax(axis=-1)
             pred = pred.flatten().tolist()
-            label = label.flatten().tolist()
+            pred = pred[1:len(label)+1] # remove cls and padding
             pred = self.tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
-            label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
             score = self.scorer(label, pred)
             scores.append(score)
         print('-' * 100)
