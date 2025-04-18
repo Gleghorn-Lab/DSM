@@ -152,8 +152,8 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
                 ).logits
                 _, scores = AlignmentLossLike()(lm_logits, input_ids)
                 print('-' * 100)
+                print(pred_alignment.flatten()[:10])
                 print(pred_labels.flatten()[:10])
-                print(labels.flatten()[:10])
                 print(scores.flatten()[:10])
                 print('-' * 100)
 
