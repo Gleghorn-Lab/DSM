@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from datasets import load_dataset
 from transformers import EsmTokenizer, EvalPrediction
 from scipy import stats
+from tqdm import tqdm
 
 from metrics.regression import compute_metrics_regression
 from models.modeling_nw_transformer import NWTransformerCross
@@ -120,7 +121,7 @@ def main(args):
     data = load_dataset(args.dataset_name, split='test').filter(
         lambda x: len(x['SeqA']) + len(x['SeqB']) <= args.max_length
     )
-    data = data.shuffle(seed=42)
+    data = data.shuffle(seed=42).select(range(1000))
     print(data)
 
     tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")   
@@ -140,7 +141,7 @@ def main(args):
     all_preds, all_labels = [], []
 
     with torch.no_grad():
-        for batch in eval_dataloader:
+        for batch in tqdm(eval_dataloader, total=len(eval_dataloader)):
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model(**batch)
             preds = outputs.logits.cpu().numpy()
@@ -149,8 +150,8 @@ def main(args):
             all_labels.extend(labels)
 
     # Concatenate all predictions and labels
-    all_preds = np.concatenate(all_preds).flatten()
-    all_labels = np.concatenate(all_labels).flatten()
+    all_preds = np.stack(all_preds).flatten()
+    all_labels = np.stack(all_labels).flatten()
     
     # Compute evaluation metrics
     metrics = compute_metrics_regression(EvalPrediction(predictions=all_preds, label_ids=all_labels))
