@@ -67,12 +67,13 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         self.cls_token_id = self.tokenizer.cls_token_id
         self.eos_token_id = self.tokenizer.eos_token_id
         self.alignment_loss = config.alignment_loss
+        self.do_alignment_loss = False
         if self.alignment_loss:
             self.alignment_scorer = NWTransformerCross.from_pretrained('GleghornLab/AlignmentTransformer')
             for param in self.alignment_scorer.parameters():
                 param.requires_grad = False
             self.l1_loss = nn.L1Loss()
-
+        
     def _get_logits(
         self,
         input_ids: torch.Tensor,
@@ -130,7 +131,10 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
 
         loss = token_loss.sum() / (batch_size * seq_len)
 
-        if self.alignment_loss and loss < 1.0:
+        if loss < 1.0 and not self.do_alignment_loss:
+            self.do_alignment_loss = True
+
+        if self.alignment_loss and self.do_alignment_loss:
             self.alignment_scorer.eval()
             pred_alignment = self.alignment_scorer.scoring(
                 input_ids_a=input_ids,
