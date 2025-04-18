@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
-from .modeling_nw_transformer import NWTransformerCross
-from .alignment_helpers import AlignmentLossLike
 
 
 class ESMDiffConfig(FastEsmConfig):
@@ -16,13 +14,11 @@ class ESMDiffConfig(FastEsmConfig):
         self,
         num_at_layers: int = 1,
         at_vocab_size: int = 30000,
-        alignment_loss: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.num_at_layers = num_at_layers
         self.at_vocab_size = at_vocab_size
-        self.alignment_loss = alignment_loss
 
 
 @dataclass
@@ -66,14 +62,7 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         self.mask_token_id = self.tokenizer.mask_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
         self.eos_token_id = self.tokenizer.eos_token_id
-        self.alignment_loss = config.alignment_loss
-        self.do_alignment_loss = False
-        if self.alignment_loss:
-            self.alignment_scorer = NWTransformerCross.from_pretrained('GleghornLab/AlignmentTransformer')
-            for param in self.alignment_scorer.parameters():
-                param.requires_grad = False
-            self.l1_loss = nn.L1Loss()
-        
+
     def _get_logits(
         self,
         input_ids: torch.Tensor,
@@ -130,31 +119,6 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
             input_ids[joint_mask].view(-1)) / p_mask[joint_mask]
 
         loss = token_loss.sum() / (batch_size * seq_len)
-
-        if loss < 1.0 and not self.do_alignment_loss:
-            self.do_alignment_loss = True
-
-        if self.alignment_loss and self.do_alignment_loss:
-            self.alignment_scorer.eval()
-            pred_alignment = self.alignment_scorer.scoring(
-                input_ids_a=input_ids,
-                logits_b=lm_logits,
-                attention_mask_a=attention_mask,
-                attention_mask_b=attention_mask,
-            )
-            ideal_labels = torch.ones_like(pred_alignment, device=device)
-            alignment_loss = self.l1_loss(pred_alignment.view(-1), ideal_labels.view(-1))
-            ce_alpha = alignment_loss.clone().detach()
-            loss = alignment_loss + ce_alpha * loss
-
-            return EsmDiffOutput(
-                loss=loss,
-                logits=(lm_logits, labels, pred_alignment),
-                last_hidden_state=x,
-                hidden_states=None,
-                attentions=None,
-                t=t,
-            )
 
         return EsmDiffOutput(
             loss=loss,
@@ -265,7 +229,7 @@ class ESM_Diff_AV(ESM_Diff):
 if __name__ == "__main__":
     # py -m models.esm_diff.modeling_esm_diff
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff.from_pretrained('Synthyra/ESM2-8M', alignment_loss=True).to(device)
+    model = ESM_Diff.from_pretrained('Synthyra/ESM2-8M').to(device)
     print(model)
 
     # test forward

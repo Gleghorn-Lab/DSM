@@ -45,7 +45,7 @@ class AlignmentScorer:
         return max_len / (aa - ab + max_len)
     
 
-class AlignmentLossLike:
+class GetAlignmentScoreFromLogits:
     def __init__(self, gap_score=-10):
         self.scorer = AlignmentScorer(gap_score)
         self.tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")
@@ -165,8 +165,8 @@ def analyze_two_seqs(label, pred, gap_score=-10):
     matrix = align.SubstitutionMatrix.std_protein_matrix()
     
     # Convert to biotite sequences
-    label_obj = seq.ProteinSequence(label)
-    pred_obj = seq.ProteinSequence(pred)
+    label_obj = ProteinSequence(label)
+    pred_obj = ProteinSequence(pred)
     
     # Get alignment
     alignment = align.align_optimal(label_obj, pred_obj, 

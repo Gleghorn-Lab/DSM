@@ -3,7 +3,6 @@
 import argparse
 import torch
 import torch.nn.functional as F
-import numpy as np
 from torchinfo import summary
 from transformers import TrainingArguments, EvalPrediction
 from sklearn.metrics import (
@@ -12,16 +11,13 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     matthews_corrcoef,
-    r2_score,
-    mean_absolute_error,
 )
-from scipy.stats import spearmanr, pearsonr
 from huggingface_hub import login, hf_hub_download
 from datasets import load_dataset, Dataset
 
 from models.modeling_nw_transformer import NWTransformerCross
 from models.modeling_esm_diff import ESM_Diff
-from models.alignment_helpers import AlignmentLossLike
+from models.alignment_helpers import GetAlignmentScoreFromLogits
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
 from iterable_trainer import get_iterable_trainer
@@ -44,14 +40,9 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     metrics = {}
     lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
     input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
-    
-    if len(lm_logits) == 3:
-        lm_logits, labels, pred_alignment = lm_logits
-    else:
-        lm_logits, labels = lm_logits
-        pred_alignment = None
+    lm_logits, labels = lm_logits
 
-    scores = AlignmentLossLike()(lm_logits, input_ids)
+    scores = GetAlignmentScoreFromLogits()(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
@@ -82,21 +73,6 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     metrics["acc"] = acc
     metrics["mcc"] = mcc
 
-    if pred_alignment is not None:
-        # regression metrics between pred_alignment and scores
-        # mae, r2, spearman, pearson
-        y_pred = np.array(pred_alignment).flatten()
-        y_true = np.array(scores).flatten()
-        mae = mean_absolute_error(y_pred, y_true)
-        r2 = r2_score(y_pred, y_true)
-        spearman, spearman_pval = spearmanr(y_pred, y_true)
-        pearson, pearson_pval = pearsonr(y_pred, y_true)
-        metrics["mae"] = mae
-        metrics["r2"] = r2
-        metrics["spearman_rho"] = spearman
-        metrics["spearman_pval"] = spearman_pval
-        metrics["pearson_rho"] = pearson
-        metrics["pearson_pval"] = pearson_pval
     return metrics
 
 
@@ -134,19 +110,13 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
-    parser.add_argument("--alignment_loss", action="store_true", help="Use alignment loss")
     args = parser.parse_args()
     return args
 
 
 def main(args):
     ### Load model
-    model = ESM_Diff.from_pretrained(args.model_path, alignment_loss=args.alignment_loss)
-    if args.alignment_loss:
-        model.alignment_scorer = NWTransformerCross.from_pretrained('GleghornLab/AlignmentTransformer')
-        for param in model.alignment_scorer.parameters():
-            param.requires_grad = False
-        model.alignment_scorer.eval()
+    model = ESM_Diff.from_pretrained(args.model_path)
     tokenizer = model.tokenizer
     summary(model)
 
