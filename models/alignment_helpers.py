@@ -64,7 +64,7 @@ class AlignmentLossLike:
             logits = logits.cpu().numpy()
         if isinstance(labels, torch.Tensor):
             labels = labels.cpu().numpy()
-            
+
         for logit, label in zip(logits, labels):
             label = label.flatten().tolist()
             label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
@@ -80,7 +80,7 @@ class AlignmentLossLike:
         print(pred)
         print(label)
         print('-' * 100)
-        return scores
+        return np.array(scores)
 
 
 class SequenceComparator:
