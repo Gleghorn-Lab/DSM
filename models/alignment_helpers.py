@@ -49,6 +49,7 @@ class AlignmentLossLike:
     def __init__(self, gap_score=-10):
         self.scorer = AlignmentScorer(gap_score)
         self.tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")
+        self.vocab_size = len(self.tokenizer)
 
     def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
@@ -57,6 +58,7 @@ class AlignmentLossLike:
         if isinstance(labels, torch.Tensor):
             labels = labels.cpu().numpy()
         for logit, label in zip(logits, labels):
+            logit = logit.reshape(-1, self.vocab_size)
             pred = logit.argmax(axis=-1)
             pred = pred.flatten().tolist()
             label = label.flatten().tolist()
