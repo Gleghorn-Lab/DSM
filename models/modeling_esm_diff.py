@@ -142,20 +142,6 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
             alignment_loss = self.l1_loss(pred_alignment.view(-1), ideal_labels.view(-1))
             ce_alpha = alignment_loss.clone().detach()
             loss = alignment_loss + ce_alpha * loss
-            
-            with torch.no_grad():
-                pred_labels = self.alignment_scorer(
-                input_ids_a=input_ids,
-                input_ids_b=lm_logits.argmax(dim=-1),
-                attention_mask_a=attention_mask,
-                    attention_mask_b=attention_mask,
-                ).logits
-                _, scores = AlignmentLossLike()(lm_logits, input_ids)
-                print('-' * 100)
-                print(pred_alignment.flatten()[:10])
-                print(pred_labels.flatten()[:10])
-                print(scores.flatten()[:10])
-                print('-' * 100)
 
             return EsmDiffOutput(
                 loss=loss,

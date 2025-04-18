@@ -51,7 +51,7 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
         lm_logits, labels = lm_logits
         pred_alignment = None
 
-    alignment_loss, scores = AlignmentLossLike()(lm_logits, input_ids)
+    scores = AlignmentLossLike()(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
@@ -64,7 +64,7 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     )
 
     metrics['cross_entropy_loss'] = cross_entropy_loss
-    metrics['alignment_loss'] = alignment_loss
+    metrics['alignment_score'] = scores.mean()
 
     y_pred = lm_logits.argmax(axis=-1).flatten()
     y_true = labels.flatten()

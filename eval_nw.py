@@ -121,7 +121,7 @@ def main(args):
     data = load_dataset(args.dataset_name, split='test').filter(
         lambda x: len(x['SeqA']) + len(x['SeqB']) <= args.max_length
     )
-    data = data.shuffle(seed=42).select(range(1000))
+    data = data.shuffle(seed=42)
     print(data)
 
     tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")   

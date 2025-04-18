@@ -59,10 +59,12 @@ class AlignmentLossLike:
 
     def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
+
         if isinstance(logits, torch.Tensor):
             logits = logits.cpu().numpy()
         if isinstance(labels, torch.Tensor):
             labels = labels.cpu().numpy()
+            
         for logit, label in zip(logits, labels):
             label = label.flatten().tolist()
             label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
@@ -78,10 +80,7 @@ class AlignmentLossLike:
         print(pred)
         print(label)
         print('-' * 100)
-        scores = np.array(scores)
-        ideal_labels = np.ones_like(scores)
-        loss = ideal_labels - scores
-        return loss.mean(), scores
+        return scores
 
 
 class SequenceComparator:

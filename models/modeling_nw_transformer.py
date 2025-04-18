@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Optional
-from transformers import PreTrainedModel, PretrainedConfig
+from transformers import PreTrainedModel, PretrainedConfig, EsmTokenizer
 from transformers.modeling_outputs import SequenceClassifierOutput
 from .attention.cross_attention import CrossAttention
 from .attention.attention_pooler import AttentionPooler
@@ -157,7 +157,6 @@ class NWTransformerCross(PreTrainedModel):
             attention_mask_b: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         x_a = self.embedding(input_ids_a)
-        logits_b = logits_b[:, :, :self.vocab_size]
         soft_argmax_b = self._low_temp_softmax(logits_b) # (b, l, v)
         x_b = soft_argmax_b @ self.embedding.weight # (b, l, d)
         logits = self._get_logits(x_a, x_b, attention_mask_a, attention_mask_b)
