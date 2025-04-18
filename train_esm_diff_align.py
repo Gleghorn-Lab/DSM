@@ -398,7 +398,6 @@ def main(args):
             wandb.log({
                 "train/model_loss": model_loss.item(),
                 "train/alignment_loss": alignment_loss.item(),
-                "train/spearman_rho": spearman_rho,
                 "train/train_together": int(train_together)
             }, step=global_step)
         
