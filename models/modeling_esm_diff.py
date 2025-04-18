@@ -130,7 +130,7 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
 
         loss = token_loss.sum() / (batch_size * seq_len)
 
-        if self.alignment_loss:
+        if self.alignment_loss and loss < 1.0:
             self.alignment_scorer.eval()
             pred_alignment = self.alignment_scorer.scoring(
                 input_ids_a=input_ids,
