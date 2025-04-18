@@ -62,7 +62,7 @@ class AlignmentLossLike:
             label = label.flatten().tolist()
             pred = self.tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
             label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
-            score = self.scorer(pred, label)
+            score = self.scorer(label, pred)
             scores.append(score)
         scores = np.array(scores)
         ideal_labels = np.ones_like(scores)
