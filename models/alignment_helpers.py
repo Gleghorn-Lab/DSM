@@ -55,7 +55,7 @@ class AlignmentLossLike:
         self.vocab_size = len(self.tokenizer)
 
     def _sanitize_pred(self, pred: list[int]) -> list[int]:
-        return [token for token in pred if token in self.canonical_tokens else self.alanine_token]
+        return [token if token in self.canonical_tokens else self.alanine_token for token in pred]
 
     def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
