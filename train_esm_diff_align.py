@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# py -m trainers.train_esm_diff_align
+# py -m train_esm_diff_align
 import os
 import argparse
 import copy
@@ -197,16 +197,15 @@ def training_step(
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-150M", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="Synthyra/test-esm-diff", help="Path to save the model and report to wandb")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/eval_diff_150", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="Synthyra/eval_diff_150_align", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
-    parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
+    parser.add_argument("--max_steps", type=int, default=10000, help="Maximum number of steps to train for")
     parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
-    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience in terms of evaluation rounds")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
     args = parser.parse_args()
     return args
@@ -327,7 +326,7 @@ def main(args):
     
     # Setup optimizers with different learning rates
     model_optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    alignment_optimizer = torch.optim.AdamW(alignment_module.parameters(), lr=args.lr * 10)
+    alignment_optimizer = torch.optim.AdamW(alignment_module.parameters(), lr=args.lr * 25)
     
     # Evaluate initial metrics
     print("Evaluating initial metrics...")
@@ -357,7 +356,6 @@ def main(args):
     alignment_module.train()
     global_step = 0
     best_score = float('-inf')
-    patience_counter = 0
     train_together = False
     model_loss_tally, alignment_loss_tally = 0, 0
     
@@ -437,11 +435,10 @@ def main(args):
             model.save_pretrained(output_dir)
             torch.save(alignment_module.state_dict(), os.path.join(output_dir, "alignment_module.pt"))
             
-            # Check for best model and early stopping
+            # Track best model
             current_score = eval_metrics.get("alignment_score", 0) + eval_metrics.get("acc", 0)
             if current_score > best_score:
                 best_score = current_score
-                patience_counter = 0
                 
                 # Save best model
                 best_dir = os.path.join(args.save_path.split('/')[-1], "best")
@@ -449,14 +446,17 @@ def main(args):
                 model.save_pretrained(best_dir)
                 torch.save(alignment_module.state_dict(), os.path.join(best_dir, "alignment_module.pt"))
                 print(f"New best model saved with score: {current_score:.4f}")
-            else:
-                patience_counter += 1
-                print(f"No improvement for {patience_counter} evaluations")
-                if patience_counter >= args.patience:
-                    print(f"Early stopping triggered after {patience_counter} evaluations without improvement")
-                    break
         
         global_step += 1
+    
+    # Load the best model for final evaluation and pushing to hub
+    best_dir = os.path.join(args.save_path.split('/')[-1], "best")
+    if os.path.exists(best_dir):
+        print("\nLoading best model for final evaluation and pushing to hub...")
+        model = ESM_Diff.from_pretrained(best_dir)
+        model.to(device)
+        alignment_module.load_state_dict(torch.load(os.path.join(best_dir, "alignment_module.pt")))
+        alignment_module.to(device)
     
     # Final evaluation
     print("\nEvaluating final metrics...")
@@ -474,7 +474,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m trainers.train_esm_diff_rl
+    # py -m train_esm_diff_align
     args = parse_args()
 
     if WANDB_AVAILABLE:
