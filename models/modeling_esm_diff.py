@@ -7,6 +7,7 @@ from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
 from .modeling_nw_transformer import NWTransformerCross
+from .alignment_helpers import AlignmentLossLike
 
 
 class ESMDiffConfig(FastEsmConfig):
@@ -141,6 +142,14 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
             alignment_loss = self.l1_loss(pred_alignment.view(-1), ideal_labels.view(-1))
             ce_alpha = alignment_loss.clone().detach()
             loss = alignment_loss + ce_alpha * loss
+
+            with torch.no_grad():
+                alignment_loss, scores = AlignmentLossLike()(lm_logits, input_ids)
+
+            print('-' * 100)
+            print(pred_alignment.flatten())
+            print(scores.flatten())
+            print('-' * 100)
 
             return EsmDiffOutput(
                 loss=loss,

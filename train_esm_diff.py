@@ -57,7 +57,11 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     lm_logits_torch = torch.tensor(lm_logits)
     labels_torch = torch.tensor(labels)
     # We need ot do this because the eval loss is scaled by the mask rate
-    cross_entropy_loss = F.cross_entropy(lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), labels_torch.view(-1))
+    cross_entropy_loss = F.cross_entropy(
+        lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
+        labels_torch.view(-1),
+        ignore_index=-100
+    )
 
     metrics['cross_entropy_loss'] = cross_entropy_loss
     metrics['alignment_loss'] = alignment_loss
