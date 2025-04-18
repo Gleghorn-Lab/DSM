@@ -120,7 +120,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
     parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-150M", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="Synthyra/esm_diff_no_rl", help="Path to save the model and report to wandb")
+    parser.add_argument("--save_path", type=str, default="GleghornLab/esm_diff_no_rl", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
