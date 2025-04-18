@@ -51,7 +51,7 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
         lm_logits, labels = lm_logits
         pred_alignment = None
 
-    alignment_loss, scores = AlignmentLossLike()(lm_logits, input_ids)
+    alignment_loss, scores = AlignmentLossLike()(input_ids, lm_logits)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
