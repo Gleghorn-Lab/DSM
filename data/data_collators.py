@@ -2,6 +2,7 @@ import torch
 from typing import Tuple, List, Dict, Union
 
 from models.alignment_helpers import AlignmentScorer
+from .utils import ProteinMasker
 
 
 def standard_data_collator(batch):
@@ -56,6 +57,24 @@ class SequenceCollator:
                           max_length=self.max_length,
                           return_tensors='pt',
                           add_special_tokens=True)
+        return batch
+    
+
+class SequenceCollator_mask:
+    def __init__(self, tokenizer, max_length=512, mask_rate=0.15):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.masker = ProteinMasker(tokenizer, mask_rate)
+
+    def __call__(self, batch: Tuple[List[str], List[str]]) -> Dict[str, torch.Tensor]:
+        batch = self.tokenizer(batch,
+                          padding='longest',
+                          truncation=True,
+                          max_length=self.max_length,
+                          return_tensors='pt',
+                          add_special_tokens=True)
+        batch['original_ids'] = batch['input_ids'].clone()
+        batch['input_ids'], batch['labels'] = self.masker(batch['input_ids'], batch['attention_mask'])
         return batch
 
 

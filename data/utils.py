@@ -7,7 +7,7 @@ Standardized MLM masking approach for consistency
 """
 
 class ProteinMasker(nn.Module):
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, mask_rate=0.15):
         """
         Implements the masking scheme from ESM_Diff with a default 15% mask probability.
         """
@@ -15,18 +15,17 @@ class ProteinMasker(nn.Module):
         self.mask_token_id = tokenizer.mask_token_id
         self.cls_token_id = tokenizer.cls_token_id
         self.eos_token_id = tokenizer.eos_token_id
+        self.mask_rate = mask_rate
 
     def forward(
         self,
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
-        t: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             input_ids: The input token IDs.
             attention_mask: Optional attention mask.
-            t: Optional masking probability. If None, uses 0.15.
             
         Returns:
             Tuple of (masked_input_ids, labels)
@@ -39,11 +38,8 @@ class ProteinMasker(nn.Module):
             attention_mask = torch.ones_like(input_ids, device=device)
 
         # Default to 15% masking if t not provided
-        if t is None:
-            t = torch.full((batch_size,), 0.15, device=device)
-        else:
-            # Ensure t is in proper range if provided
-            t = (1 - eps) * t + eps
+        t = torch.full((batch_size,), self.mask_rate, device=device)
+
         
         p_mask = t[:, None].repeat(1, seq_len)
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
