@@ -3,7 +3,7 @@ import torch.nn as nn
 from typing import Optional, Tuple, Any, Union
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
-from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmConfig
+from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
 
@@ -97,7 +97,7 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         # prevent cls and eos from being masked
         cls_mask = input_ids == self.cls_token_id
         eos_mask = input_ids == self.eos_token_id
-        mask_indices = mask_indices & ~cls_mask & ~eos_mask
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask & attention_mask.bool()
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
@@ -191,7 +191,7 @@ class ESM_Diff_AV(ESM_Diff):
         # prevent cls and eos from being masked
         cls_mask = input_ids == self.cls_token_id
         eos_mask = input_ids == self.eos_token_id
-        mask_indices = mask_indices & ~cls_mask & ~eos_mask
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask & attention_mask.bool()
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
@@ -226,8 +226,29 @@ class ESM_Diff_AV(ESM_Diff):
         )
 
 
+class ESM_Diff_ESM2(FastEsmForMaskedLM, GenerateMixin):
+    config_class = ESMDiffConfig
+    def __init__(self, config: ESMDiffConfig, **kwargs):
+        FastEsmForMaskedLM.__init__(self, config, **kwargs)
+        GenerateMixin.__init__(self, self.tokenizer)
+        self.config = config
+        
+    def _get_logits(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        **kwargs: Any
+    ) -> torch.Tensor:
+        with torch.no_grad():
+            logits = super().forward(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            ).logits
+        return logits
+
+
 if __name__ == "__main__":
-    # py -m models.esm_diff.modeling_esm_diff
+    # py -m models.modeling_esm_diff
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ESM_Diff.from_pretrained('Synthyra/ESM2-8M').to(device)
     print(model)
@@ -237,10 +258,12 @@ if __name__ == "__main__":
     attention_mask = torch.ones_like(input_ids).to(device)
 
     output = model(input_ids, attention_mask)
-    lm_logits, module_pred, module_labels = output.logits
-    print(output.loss, lm_logits.shape, module_pred.shape, module_labels.shape, output.t)
+    lm_logits, lm_labels = output.logits
+    print(output.loss, lm_logits.shape, lm_labels.shape, output.t)
     
-    # test generate
-    length = 64
-    steps = 16
-    block_length = 16
+    model = ESM_Diff_ESM2.from_pretrained('Synthyra/ESM2-8M').to(device)
+    print(model)
+
+    logits = model._get_logits(input_ids, attention_mask)
+    print(logits.shape)
+

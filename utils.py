@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Tuple
+from typing import Tuple, Optional
 
 """
 Standardized MLM masking approach for consistency
@@ -9,55 +9,72 @@ Standardized MLM masking approach for consistency
 class ProteinMasker(nn.Module):
     def __init__(self, tokenizer):
         """
-        Baseline: 80% replaced with [MASK], 10% replaced with a random token, and 10% unchanged.
+        Implements the masking scheme from ESM_Diff with a default 15% mask probability.
         """
         super().__init__()
         self.mask_token_id = tokenizer.mask_token_id
-        standard_tokens = [tokenizer.convert_tokens_to_ids(tok) for tok in tokenizer.all_tokens if tok not in tokenizer.all_special_tokens]
-        canonical_amino_acids = 'ACDEFGHIKLMNPQRSTVWY'
-        canonical_amino_acids_ids = tokenizer.convert_tokens_to_ids(list(canonical_amino_acids))
-        low_range = min(canonical_amino_acids_ids)
-        high_range = max(canonical_amino_acids_ids)
-        self.register_buffer("standard_tokens", torch.tensor(standard_tokens, dtype=torch.int32))
-        self.register_buffer("special_tokens", torch.tensor(tokenizer.all_special_ids, dtype=torch.int32))
-        self.register_buffer("low_range", torch.tensor(low_range, dtype=torch.int32))
-        self.register_buffer("high_range", torch.tensor(high_range, dtype=torch.int32))
+        self.cls_token_id = tokenizer.cls_token_id
+        self.eos_token_id = tokenizer.eos_token_id
 
-    def __call__(
-            self, input_ids: torch.Tensor, mask_prob: torch.Tensor, keep_replace_prob: torch.Tensor
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        t: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args:
+            input_ids: The input token IDs.
+            attention_mask: Optional attention mask.
+            t: Optional masking probability. If None, uses 0.15.
+            
+        Returns:
+            Tuple of (masked_input_ids, labels)
+        """
+        eps = 1e-3
+        batch_size, seq_len = input_ids.shape
+        device = input_ids.device
+
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids, device=device)
+
+        # Default to 15% masking if t not provided
+        if t is None:
+            t = torch.full((batch_size,), 0.15, device=device)
+        else:
+            # Ensure t is in proper range if provided
+            t = (1 - eps) * t + eps
+        
+        p_mask = t[:, None].repeat(1, seq_len)
+        mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
+        
+        # Prevent cls and eos from being masked
+        cls_mask = input_ids == self.cls_token_id
+        eos_mask = input_ids == self.eos_token_id
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask & attention_mask.bool()
+        
+        # Ensure at least one token is masked per sequence
+        for i in range(batch_size):
+            if not mask_indices[i].any() and attention_mask[i].sum() > 2:  # More than just CLS/EOS
+                # Find valid positions (not CLS/EOS and has attention)
+                valid_positions = (~cls_mask[i]) & (~eos_mask[i]) & attention_mask[i].bool()
+                if valid_positions.any():
+                    # Get indices of valid positions
+                    valid_indices = valid_positions.nonzero(as_tuple=True)[0]
+                    # Randomly select one position to mask
+                    random_idx = valid_indices[torch.randint(0, valid_indices.size(0), (1,), device=device)]
+                    mask_indices[i, random_idx] = True
+        
+        # Create masked input
+        masked_input_ids = torch.where(mask_indices, self.mask_token_id, input_ids)
+        
+        # Create labels for loss computation
         labels = input_ids.clone()
-
-        # Create special tokens mask using broadcasting
-        special_tokens_mask = (input_ids[..., None] == self.special_tokens).any(-1)
-
-        mlm_prob = mask_prob + keep_replace_prob * 2
-        mask_portion = mask_prob / mlm_prob
-
-        # Create probability matrix and mask special tokens
-        probability_matrix = torch.ones_like(labels, dtype=torch.float) * mlm_prob
-        probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
-
-        # Create masked indices
-        masked_indices = torch.bernoulli(probability_matrix).bool()
-        labels[~masked_indices] = -100  # We only compute loss on masked tokens
-
-        # mask_prob% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
-        indices_replaced = torch.bernoulli(torch.full_like(probability_matrix, mask_portion)).bool() & masked_indices
-        input_ids[indices_replaced] = self.mask_token_id
-
-        # keep_replace_prob% of the time, we replace masked input tokens with random word
-        replacement_idxs = torch.bernoulli(
-            torch.full_like(probability_matrix, 0.5)
-        ).bool() & masked_indices & ~indices_replaced
-        random_token_idxs = torch.randint(
-            self.low_range, self.high_range, (replacement_idxs.sum(),),
-            dtype=input_ids.dtype, device=replacement_idxs.device
-        )
-        input_ids[replacement_idxs] = self.standard_tokens[random_token_idxs]
-
-        # The rest of the time (keep_replace_prob% of the time again) we keep the masked input tokens unchanged
-        return input_ids, labels
+            
+        non_mask_indices = ~mask_indices | (attention_mask == 0)
+        labels[non_mask_indices] = -100
+        
+        return masked_input_ids, labels
 
 
 if __name__ == "__main__":
@@ -67,31 +84,40 @@ if __name__ == "__main__":
         'MNFKYKLYSYITIFQIILILPTIVASNERCIALGGVCKDFSDCTGNYKPIDKHCDGSNNIKCCIRKIECPTSQNSNFTISGKNKEDEALPFIFKSEGGCQNDKNDNGNKINGKIGYTCAGITPMVGWKNKENYFSYAIKECTNDTNFTYCAYKLNENKFREGAKNIYIDKYAVAGKCNNLPQPAYYVCFDTSVNHGSGWSSKTITANPIGNMDGREYGLLLNKKSREKYINIVKNDSSQEKYLNGWLSRADDREKYCNNYCTSNCNCDNSASKASVSSNTNTTDIYNSVNTVDSDICNCDDNEPTDFLDDDYINNEEEIDEEIIDQEEY',
         'MYRTALYFTVCSIWLCQIITGVLSLKCKCDLCKDKNYTCITDGYCYTSATLKDGVILYNYRCLDLNFPMRNPMFCHKQIPIHHEFTLECCNDRDFCNIRLVPKLTPKDNATSDTSLGTIEIAVVIILPTLVICIIAMAIYLYYQNKRSTHHHLGLGDDSIEAPDHPILNGVSLKHMIEMTTSGSGSGLPLLVQRSIARQIQLVEIIGQGRYGEVWRGRWRGENVAVKIFSSREERSWFREAEIYQTVMLRHDNILGFIAADNKGVLSLKCKCDLCKDKNYTCITDGYCYTSATLKDGVILYNYRQLGASLNRFXVYALGLIFWEISRRCNVGGIYDEYQLPFYDAVPSDPTIEEMRRVVCVERQRPSIPNRWQSCEALHVMSKLMKECWYHNATARLTALRIKKTLANFRASEELKM'
     ]
-    test_ids = tokenizer(test_seqs, return_tensors="pt", padding=True).input_ids.to(torch.int32)
+    tokenized = tokenizer(test_seqs, return_tensors="pt", padding=True)
+    test_ids = tokenized.input_ids
+    attention_mask = tokenized.attention_mask
+    
     masker = ProteinMasker(tokenizer)
-    print(masker.mask_token_id)
-    print(masker.special_tokens)
-
-    # First set of masking with different probabilities
-    mask_prob = torch.tensor(0.4)
-    keep_replace_prob = torch.tensor(0.1)
-    masked_ids1, labels1 = masker(test_ids.clone(), mask_prob, keep_replace_prob)
-    masked_ids2, labels2 = masker(test_ids.clone(), mask_prob, keep_replace_prob)
-
-    print("Before setting seed:")
-    print("Original: ", test_ids[0][:20].tolist())
-    print("Masking 1:", masked_ids1[0][:20].tolist()) 
-    print("Masking 2:", masked_ids2[0][:20].tolist())
-    print("Are they equal?", torch.equal(masked_ids1, masked_ids2))
-
-    # Now with seed
+    
+    # Test with default 15% masking
+    masked_ids1, labels1 = masker.forward(test_ids.clone(), attention_mask)
+    
+    # Test with custom probability
+    custom_t = torch.tensor([0.2, 0.3])
+    masked_ids2, labels2 = masker.forward(test_ids.clone(), attention_mask, custom_t)
+    
+    print("Original:")
+    print(f'Start: {test_ids[0][:20].tolist()}')
+    print(f'End:   {test_ids[0][-20:].tolist()}')
+    print(f'Start: {test_ids[1][:20].tolist()}')
+    print(f'End:   {test_ids[1][-20:].tolist()}')
+    print("Masked (15%):")
+    print(f'Start: {masked_ids1[0][:20].tolist()}')
+    print(f'End:   {masked_ids1[0][-20:].tolist()}')
+    print(f'Start: {masked_ids1[1][:20].tolist()}')
+    print(f'End:   {masked_ids1[1][-20:].tolist()}')
+    print("Masked (custom):")
+    print(f'Start: {masked_ids2[0][:20].tolist()}')
+    print(f'End:   {masked_ids2[0][-20:].tolist()}')
+    print(f'Start: {masked_ids2[1][:20].tolist()}')
+    print(f'End:   {masked_ids2[1][-20:].tolist()}')
+    
+    # Test with seed
     torch.manual_seed(42)
-    masked_ids3, labels3 = masker(test_ids.clone(), mask_prob, keep_replace_prob)
+    masked_ids4, labels4 = masker.forward(test_ids.clone())
     torch.manual_seed(42)
-    masked_ids4, labels4 = masker(test_ids.clone(), mask_prob, keep_replace_prob)
-
+    masked_ids5, labels5 = masker.forward(test_ids.clone())
+    
     print("\nAfter setting seed:")
-    print("Original: ", test_ids[0][:20].tolist())
-    print("Masking 3:", masked_ids3[0][:20].tolist())
-    print("Masking 4:", masked_ids4[0][:20].tolist()) 
-    print("Are they equal?", torch.equal(masked_ids3, masked_ids4))
+    print("Are they equal?", torch.equal(masked_ids4, masked_ids5))
