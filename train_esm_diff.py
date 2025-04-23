@@ -99,14 +99,14 @@ def get_eval_data():
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-150M", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="GleghornLab/esm_diff_no_rl", help="Path to save the model and report to wandb")
-    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
+    parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-650M", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="GleghornLab/ESM_diff_650", help="Path to save the model and report to wandb")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
     parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
@@ -144,7 +144,7 @@ def main(args):
         eval_strategy="steps",
         save_steps=args.save_every,
         eval_steps=args.save_every,
-        warmup_steps=args.save_every // 10,
+        warmup_steps=args.save_every,
         logging_dir="./logs",
         learning_rate=args.lr,
         fp16=args.fp16,
