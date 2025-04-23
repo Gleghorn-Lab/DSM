@@ -68,7 +68,8 @@ def main():
         'GleghornLab/eval_diff_150': 'ESMdiff-150M',
         'Synthyra/ESMplusplus_small': 'ESMC-300M',
         'Synthyra/ESMplusplus_large': 'ESMC-600M',
-        'Synthyra/ESM2-650M': 'ESM2-650M'
+        'Synthyra/ESM2-650M': 'ESM2-650M',
+        'Synthyra/ESM2-3B': 'ESM2-3B'
     }
 
     all_results = {}
@@ -83,7 +84,7 @@ def main():
             print(data)
             sequences = data['sequence']
             sequences = sorted(sequences, key=len, reverse=True)
-            sequences = sequences[:10]
+            #sequences = sequences[:10]
             print(sequences[-1])
             total_tokens = sum(len(seq[:1022]) for seq in sequences)
             print(f"Total tokens: {total_tokens}")
