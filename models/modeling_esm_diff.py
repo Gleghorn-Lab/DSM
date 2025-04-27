@@ -86,6 +86,9 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         batch_size, seq_len = input_ids.shape
         device = input_ids.device
 
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids, device=device)
+
         if self.training: # sample uniform between 0 and 1
             t = torch.rand(batch_size, device=device)
             t = (1 - eps) * t + eps
@@ -109,9 +112,6 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
             attention_mask=attention_mask,
         ).last_hidden_state # (b, L, d)
         lm_logits = self.lm_head(x) # (b, L, v)
-
-        if attention_mask is None:
-            attention_mask = torch.ones_like(input_ids, device=device)
 
         joint_mask = mask_indices & attention_mask.bool()
         token_loss = self.ce_loss(
