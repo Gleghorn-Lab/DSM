@@ -246,11 +246,13 @@ class AlignmentModule(PreTrainedModel):
 
     def get_logits(
             self,
-            x_a: torch.Tensor,
-            x_b: torch.Tensor,
+            input_ids_a: torch.Tensor,
+            logits_b: torch.Tensor,
             attention_mask_a: torch.Tensor,
             attention_mask_b: torch.Tensor
         ) -> torch.Tensor:
+        x_a = self.embedding(input_ids_a)
+        x_b = self.logit_input(logits_b)
         x_a = self.cross_ab(x_a, x_b, attention_mask_a, attention_mask_b)
         x_b = self.cross_ba(x_b, x_a, attention_mask_b, attention_mask_a)
         x, attention_mask = pad_and_concatenate_dimer(x_a, x_b, attention_mask_a, attention_mask_b)
@@ -269,9 +271,7 @@ class AlignmentModule(PreTrainedModel):
         attention_mask_a: Optional[torch.Tensor] = None,
         attention_mask_b: Optional[torch.Tensor] = None,
     ) -> AlignmentOutput:
-        x_a = self.embedding(input_ids_a)
-        x_b = self.logit_input(logits_b)
-        logits = self.get_logits(x_a, x_b, attention_mask_a, attention_mask_b)
+        logits = self.get_logits(input_ids_a, logits_b, attention_mask_a, attention_mask_b)
         labels = self._get_alignment_label(input_ids_a, logits_b)
         loss = self.loss_fct(logits.view(-1), labels.view(-1))
 

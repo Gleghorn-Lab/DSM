@@ -57,7 +57,7 @@ class GetAlignmentScoreFromLogits:
     def _sanitize_pred(self, pred: list[int]) -> list[int]:
         return [token if token in self.canonical_tokens else self.alanine_token for token in pred]
 
-    def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
+    def batched_call(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
 
         if isinstance(logits, torch.Tensor):
@@ -76,11 +76,24 @@ class GetAlignmentScoreFromLogits:
             pred = self.tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
             score = self.scorer(label, pred)
             scores.append(score)
-        print('-' * 100)
-        print(pred)
-        print(label)
-        print('-' * 100)
         return np.array(scores)
+
+    def __call__(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
+        if isinstance(logits, torch.Tensor):
+            logits = logits.cpu().numpy()
+        if isinstance(labels, torch.Tensor):
+            labels = labels.cpu().numpy()
+
+        labels = labels.flatten().tolist()
+        labels = self.tokenizer.decode(labels, skip_special_tokens=True).replace(' ', '')
+        logits = logits.reshape(-1, self.vocab_size)
+        preds = logits.argmax(axis=-1)
+        preds = preds.flatten().tolist()
+        preds = preds[1:len(labels)+1] # remove cls and padding
+        preds = self._sanitize_pred(preds)
+        preds = self.tokenizer.decode(preds, skip_special_tokens=True).replace(' ', '')
+        score = self.scorer(labels, preds)
+        return score
 
 
 class SequenceComparator:

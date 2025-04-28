@@ -121,7 +121,7 @@ def main(args):
     summary(model)
 
     ### Load Dataset
-    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True)
+    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True).shuffle(seed=42)
     valid_seqs, test_seqs = get_eval_data()
     if args.bugfix:
         valid_seqs = valid_seqs[:10]

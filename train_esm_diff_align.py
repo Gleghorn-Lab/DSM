@@ -4,7 +4,7 @@ import os
 import argparse
 import copy
 import torch
-import torch.nn.functional as F
+import numpy as np
 from torch.utils.data import DataLoader
 from torchinfo import summary
 from tqdm import tqdm, trange
@@ -59,42 +59,126 @@ def get_eval_data():
     return valid_seqs, test_seqs
 
 
-def compute_model_metrics(logits, labels, input_ids):
-    """Compute metrics similar to train_esm_diff.py"""
-    metrics = {}
-    scores = GetAlignmentScoreFromLogits()(logits, input_ids)
-    
-    # Calculate cross entropy loss
-    cross_entropy_loss = F.cross_entropy(
-        logits.view(-1, logits.shape[-1]), 
-        labels.view(-1),
-        ignore_index=-100
+def evaluate(model,
+             dataloader,
+             device,
+             alignment_module=None,
+        ):
+    """
+    Run a full evaluation pass.
+
+    • Cross-entropy and alignment scores are accumulated **position-by-position**  
+      (logit-by-logit) and averaged at the end.  
+    • The remaining classification metrics are computed **once**, after all logits
+      and labels have been concatenated.
+
+    Parameters
+    ----------
+    model : PreTrainedModel
+    dataloader : torch.utils.data.DataLoader
+    device : torch.device
+    get_alignment_score : callable, optional
+        Callable that returns per-position alignment scores given (logits, input_ids).
+    alignment_module : nn.Module, optional
+        If supplied, its metrics are appended under the key-prefix ``alignment_``.
+    """
+
+    get_alignment_score = GetAlignmentScoreFromLogits()
+
+    model.eval()
+    if alignment_module is not None:
+        alignment_module.eval()
+
+    # --- per-position accumulators ------------------------------------------------
+    ce_losses = []          # cross-entropy loss per valid position
+    align_scores = []       # alignment score    per valid position
+
+    # --- per-sample collectors (needed for the “global” metrics) ------------------
+    all_logits, all_labels, all_input_ids = [], [], []
+    all_align_logits, all_align_labels = [], []
+
+    # cross-entropy with no reduction so we can keep the per-position values
+    ce_criterion = torch.nn.CrossEntropyLoss(
+        ignore_index=-100,
+        reduction="none"
     )
 
-    metrics['cross_entropy_loss'] = cross_entropy_loss.item()
-    metrics['alignment_score'] = scores.mean().item()
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Evaluating"):
+            batch = {k: v.to(device) for k, v in batch.items()}
+            input_ids      = batch["input_ids"]
+            attention_mask = batch["attention_mask"]
 
-    # Convert tensors to numpy for sklearn metrics
-    y_pred = logits.argmax(dim=-1).flatten().cpu().numpy()
-    y_true = labels.flatten().cpu().numpy()
-    valid_indices = y_true != -100
-    y_pred = y_pred[valid_indices]
-    y_true = y_true[valid_indices]
-    
-    # Calculate classification metrics
-    f1 = f1_score(y_true, y_pred, average='weighted')
-    prec = precision_score(y_true, y_pred, average='weighted')
-    rec = recall_score(y_true, y_pred, average='weighted')
-    acc = accuracy_score(y_true, y_pred)
-    mcc = matthews_corrcoef(y_true, y_pred)
-    
-    metrics["f1"] = f1
-    metrics["prec"] = prec
-    metrics["rec"] = rec
-    metrics["acc"] = acc
-    metrics["mcc"] = mcc
+            # ---------------- main model forward pass ---------------------------
+            outputs = model(**batch)
+            logits, labels = outputs.logits
+
+            # --------- logit-by-logit cross-entropy & alignment score ----------
+            ce = ce_criterion(
+                logits.view(-1, logits.size(-1)),
+                labels.view(-1)
+            ).view_as(labels)
+            valid_mask = labels.ne(-100)
+
+            ce_losses.append(ce[valid_mask].cpu())
+            align_scores.append(get_alignment_score.batched_call(logits, input_ids))
+
+            # ---------------- collect for global metrics -----------------------
+            all_logits.append(logits.cpu().reshape(-1, logits.size(-1)))
+            all_labels.append(labels.cpu().flatten())
+            all_input_ids.append(input_ids.cpu().flatten())
+
+            # ---------------- optional alignment module ------------------------
+            if alignment_module is not None:
+                aln_out = alignment_module(
+                    input_ids,
+                    logits,
+                    attention_mask,
+                    attention_mask
+                )
+                all_align_logits.append(aln_out.logits.cpu().flatten())
+                all_align_labels.append(aln_out.labels.cpu().flatten())
+
+    # ---------------------------------------------------------------------------
+    # averaged “per-logit” metrics
+    cross_entropy_loss = torch.cat(ce_losses).mean().item()
+    alignment_score    = np.array(align_scores).mean()
+
+    # classification-style metrics on the whole set
+    logits_cat = torch.cat(all_logits)                       # (b*L, v)
+    labels_cat = torch.cat(all_labels)                       # (b*L)
+
+    y_pred = logits_cat.argmax(dim=-1).flatten().numpy()
+    y_true = labels_cat.flatten().numpy()
+    valid  = y_true != -100
+    y_pred, y_true = y_pred[valid], y_true[valid]
+
+    metrics = {
+        "cross_entropy_loss": cross_entropy_loss,
+        "alignment_score":    alignment_score,
+        "f1":   f1_score(y_true, y_pred, average="weighted"),
+        "prec": precision_score(y_true, y_pred, average="weighted"),
+        "rec":  recall_score(y_true, y_pred, average="weighted"),
+        "acc":  accuracy_score(y_true, y_pred),
+        "mcc":  matthews_corrcoef(y_true, y_pred),
+    }
+
+    # optional alignment-module metrics
+    if alignment_module is not None and all_align_logits:
+        aln_pred  = torch.cat(all_align_logits).numpy()
+        aln_gold  = torch.cat(all_align_labels).numpy()
+        eval_pred = EvalPrediction(predictions=aln_pred, label_ids=aln_gold)
+
+        for k, v in compute_alignment_metrics(eval_pred).items():
+            metrics[f"alignment_{k}"] = v
+
+    # reset model(s) to training mode before returning
+    model.train()
+    if alignment_module is not None:
+        alignment_module.train()
 
     return metrics
+
 
 
 def training_step(
@@ -116,7 +200,7 @@ def training_step(
     """
     model.train()
     alignment_module.train()
-    old_alignment_module.eval()  # Always in eval mode
+    old_alignment_module.train()
 
     # Move batch to device
     batch = {k: v.to(device) for k, v in batch.items()}
@@ -132,16 +216,11 @@ def training_step(
         # Get model outputs
         model_output = model(**batch)
         model_logits, model_labels = model_output.logits
-        
-        # Get alignment prediction from old module (fixed reference)
-        with torch.no_grad():
-            alignment_pred = old_alignment_module.get_logits(
-                input_ids, model_logits, attention_mask, attention_mask
-            )
-        
-        # Compute model loss based on alignment score
-        ideal_labels = torch.ones_like(alignment_pred)
-        model_loss = F.l1_loss(alignment_pred.view(-1), ideal_labels.view(-1))
+        alignment_pred = old_alignment_module.get_logits(
+            input_ids, model_logits, attention_mask, attention_mask
+        )
+
+        model_loss = -alignment_pred.mean()
         
         # Backward pass for model
         model_loss.backward()
@@ -165,15 +244,17 @@ def training_step(
         alignment_scheduler.step()
     else:
         # Separate training
-        # Train model
-        model_output = model(**batch)
-        model_loss = model_output.loss
-        model_logits, model_labels = model_output.logits
+        # Frozen base model
+        model.eval()
+        with torch.no_grad():
+            model_output = model(**batch)
+            model_loss = model_output.loss
+            model_logits, model_labels = model_output.logits
         
         # Backward pass for model
-        model_loss.backward()
-        model_optimizer.step()
-        model_scheduler.step()
+        #model_loss.backward()
+        #model_optimizer.step()
+        #model_scheduler.step()
         
         # Train alignment module on detached outputs
         alignment_output = alignment_module(
@@ -207,84 +288,10 @@ def parse_args():
     parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    parser.add_argument("--threshold", type=float, default=0.9, help="Threshold for Spearman's rho to start joint training")
     args = parser.parse_args()
     return args
 
-
-def evaluate(model, dataset, data_collator, device, batch_size=32, alignment_module=None):
-    """Evaluate the model and optionally the alignment module on a dataset"""
-    # Set models to evaluation mode
-    model.eval()
-    if alignment_module is not None:
-        alignment_module.eval()
-        
-    dataloader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        collate_fn=data_collator,
-        shuffle=False
-    )
-    
-    # Initialize collectors for all predictions and labels
-    all_model_logits = []
-    all_model_labels = []
-    all_input_ids = []
-    all_alignment_preds = []
-    all_alignment_labels = []
-    
-    with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Evaluating"):
-            # Process batch
-            batch = {k: v.to(device) for k, v in batch.items()}
-            input_ids = batch["input_ids"]
-            attention_mask = batch["attention_mask"]
-            
-            # Run model forward pass
-            outputs = model(**batch)
-            logits, labels = outputs.logits
-            
-            # Collect predictions and labels
-            all_model_logits.append(logits.cpu())
-            all_model_labels.append(labels.cpu())
-            all_input_ids.append(input_ids.cpu())
-            
-            # Collect alignment predictions if module provided
-            if alignment_module is not None:
-                # Run alignment module forward pass
-                alignment_output = alignment_module(input_ids, logits, attention_mask, attention_mask)
-                all_alignment_preds.append(alignment_output.logits.cpu())
-                all_alignment_labels.append(alignment_output.labels.cpu())
-
-    # Concatenate all tensors
-    model_logits = torch.cat(all_model_logits, dim=0)
-    model_labels = torch.cat(all_model_labels, dim=0)
-    input_ids = torch.cat(all_input_ids, dim=0)
-    
-    # Compute metrics on entire dataset
-    metrics = compute_model_metrics(model_logits, model_labels, input_ids)
-    
-    # Compute alignment metrics if module provided
-    if alignment_module is not None and all_alignment_preds:
-        alignment_preds = torch.cat(all_alignment_preds, dim=0)
-        alignment_labels = torch.cat(all_alignment_labels, dim=0)
-        
-        # Prepare data for metrics computation
-        eval_pred = EvalPrediction(
-            predictions=alignment_preds.numpy(),
-            label_ids=alignment_labels.numpy()
-        )
-        
-        # Add alignment metrics
-        alignment_metrics = compute_alignment_metrics(eval_pred)
-        for key, value in alignment_metrics.items():
-            metrics[f"alignment_{key}"] = value
-    
-    # Reset models to training mode
-    model.train()
-    if alignment_module is not None:
-        alignment_module.train()
-        
-    return metrics
 
 
 def main(args):
@@ -295,6 +302,8 @@ def main(args):
     model = ESM_Diff.from_pretrained(args.model_path)
     alignment_module = AlignmentModule(NWTransformerConfig())
     old_alignment_module = copy.deepcopy(alignment_module)
+    for param in old_alignment_module.parameters():
+        param.requires_grad = False
     
     # Move models to device
     model.to(device)
@@ -304,7 +313,7 @@ def main(args):
     summary(model)
     
     # Load datasets
-    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True)
+    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True).shuffle(seed=888)
     valid_seqs, test_seqs = get_eval_data()
     if args.bugfix:
         valid_seqs = valid_seqs[:10]
@@ -323,6 +332,18 @@ def main(args):
         num_workers=4 if not args.bugfix else 0,
         prefetch_factor=10 if not args.bugfix else None,
     )
+    valid_dataloader = DataLoader(
+        valid_dataset,
+        batch_size=args.batch_size,
+        collate_fn=data_collator,
+        #num_workers=4 if not args.bugfix else 0,
+    )
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=args.batch_size,
+        collate_fn=data_collator,
+        #num_workers=4 if not args.bugfix else 0,
+    )
     
     # Setup optimizers with different learning rates
     model_optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -330,7 +351,7 @@ def main(args):
     
     # Evaluate initial metrics
     print("Evaluating initial metrics...")
-    initial_metrics = evaluate(model, test_dataset, data_collator, device, args.batch_size, alignment_module)
+    initial_metrics = evaluate(model, test_dataloader, device, alignment_module)
     print('Initial Metrics: \n', initial_metrics)
     
     if WANDB_AVAILABLE:
@@ -391,6 +412,8 @@ def main(args):
         # Copy alignment module to old_alignment_module every 100 steps after train_together is True
         if train_together and global_step % 100 == 0 and global_step > 0:
             old_alignment_module.load_state_dict(alignment_module.state_dict())
+            for param in old_alignment_module.parameters():
+                param.requires_grad = False
             print(f"Updated old_alignment_module at step {global_step}")
         
         # Log metrics
@@ -414,13 +437,13 @@ def main(args):
         if (step + 1) % args.save_every == 0 or step + 1 == args.max_steps:
             # Run evaluation
             print(f"\nEvaluating at step {global_step}...")
-            eval_metrics = evaluate(model, valid_dataset, data_collator, device, args.batch_size, alignment_module)
+            eval_metrics = evaluate(model, valid_dataloader, device, alignment_module)
             print(f"Validation Metrics at step {global_step}: \n", eval_metrics)
             
             spearman_rho = eval_metrics.get("alignment_spearman_rho", 0)
 
             # Check if we should start training together
-            if not train_together and spearman_rho > 0.9:
+            if not train_together and spearman_rho > args.threshold:
                 train_together = True
                 print(f"\nStarting joint training at step {global_step} with Spearman's rho: {spearman_rho}")
                 old_alignment_module.load_state_dict(alignment_module.state_dict())
@@ -459,7 +482,7 @@ def main(args):
     
     # Final evaluation
     print("\nEvaluating final metrics...")
-    final_metrics = evaluate(model, test_dataset, data_collator, device, args.batch_size, alignment_module)
+    final_metrics = evaluate(model, test_dataloader, device, alignment_module)
     print('Final Metrics: \n', final_metrics)
     
     if WANDB_AVAILABLE:
