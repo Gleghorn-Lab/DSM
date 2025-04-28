@@ -121,7 +121,7 @@ def evaluate(model,
             valid_mask = labels.ne(-100)
 
             ce_losses.append(ce[valid_mask].cpu())
-            align_scores.append(get_alignment_score.batched_call(logits, input_ids))
+            align_scores.extend(get_alignment_score.batched_call(logits, input_ids).flatten())
 
             # ---------------- collect for global metrics -----------------------
             all_logits.append(logits.cpu().reshape(-1, logits.size(-1)))
@@ -142,7 +142,7 @@ def evaluate(model,
     # ---------------------------------------------------------------------------
     # averaged “per-logit” metrics
     cross_entropy_loss = torch.cat(ce_losses).mean().item()
-    alignment_score    = np.array(align_scores).mean()
+    alignment_score = align_scores.mean()
 
     # classification-style metrics on the whole set
     logits_cat = torch.cat(all_logits)                       # (b*L, v)
@@ -171,11 +171,6 @@ def evaluate(model,
 
         for k, v in compute_alignment_metrics(eval_pred).items():
             metrics[f"alignment_{k}"] = v
-
-    # reset model(s) to training mode before returning
-    model.train()
-    if alignment_module is not None:
-        alignment_module.train()
 
     return metrics
 
@@ -336,13 +331,13 @@ def main(args):
         valid_dataset,
         batch_size=args.batch_size,
         collate_fn=data_collator,
-        #num_workers=4 if not args.bugfix else 0,
+        num_workers=4 if not args.bugfix else 0,
     )
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=args.batch_size,
         collate_fn=data_collator,
-        #num_workers=4 if not args.bugfix else 0,
+        num_workers=4 if not args.bugfix else 0,
     )
     
     # Setup optimizers with different learning rates

@@ -91,17 +91,18 @@ class GenerateMixin:
         
     def mask_diffusion_generate(
         self,
+        template_tokens: Optional[torch.LongTensor] = None,
         prompt_tokens: Optional[torch.LongTensor] = None,
-        batch_size: int = 1,
-        block_wise: bool = False,
-        block_length: int = 32,
-        length: int = 128,
-        steps: int = 20,
-        temperature: float = 0.5,
-        remasking: str = "random",
-        start_with_methionine: bool = False,
-        preview: bool = False,
-        slow: bool = False,
+        batch_size: Optional[int] = 1,
+        block_wise: Optional[bool] = False,
+        block_length: Optional[int] = 32,
+        length: Optional[int] = 128,
+        steps: Optional[int] = 20,
+        temperature: Optional[float] = 0.5,
+        remasking: Optional[str] = "random",
+        start_with_methionine: Optional[bool] = False,
+        preview: Optional[bool] = False,
+        slow: Optional[bool] = False,
     ) -> torch.LongTensor:
         """
         Mask diffusion generation that combines all aspects of different generation methods.
@@ -122,16 +123,27 @@ class GenerateMixin:
         Returns:
             Generated token IDs
         """
+
+        assert template_tokens is None or prompt_tokens is None, "Cannot provide both template and prompt tokens"
+        assert template_tokens is None or length is None, "Cannot provide both template and length"
+
         device = next(self.parameters()).device
-        batch_size = batch_size if prompt_tokens is None else prompt_tokens.shape[0]
-        has_prompt = prompt_tokens is not None
+
+        if template_tokens is not None:
+            batch_size = template_tokens.shape[0]
+        else:
+            batch_size = batch_size if prompt_tokens is None else prompt_tokens.shape[0]
 
         # Add 2 for CLS and EOS tokens
-        total_length = length + 2
-        
-        # Initialize with all mask tokens and add CLS/EOS tokens
-        x = torch.full((batch_size, total_length), self.mask_token_id, dtype=torch.long, device=device)
-        x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
+
+        if template_tokens is not None:
+            total_length = template_tokens.shape[1]
+            x = template_tokens
+        else:
+            total_length = length + 2
+            # Initialize with all mask tokens and add CLS/EOS tokens
+            x = torch.full((batch_size, total_length), self.mask_token_id, dtype=torch.long, device=device)
+            x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
         
         if start_with_methionine:
             x[:, 1] = self.methionine_token_id        
