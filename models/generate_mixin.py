@@ -125,7 +125,6 @@ class GenerateMixin:
         """
 
         assert template_tokens is None or prompt_tokens is None, "Cannot provide both template and prompt tokens"
-        assert template_tokens is None or length is None, "Cannot provide both template and length"
 
         device = next(self.parameters()).device
 
@@ -139,11 +138,13 @@ class GenerateMixin:
         if template_tokens is not None:
             total_length = template_tokens.shape[1]
             x = template_tokens
+            has_prompt = False
         else:
             total_length = length + 2
             # Initialize with all mask tokens and add CLS/EOS tokens
             x = torch.full((batch_size, total_length), self.mask_token_id, dtype=torch.long, device=device)
             x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
+            has_prompt = True
         
         if start_with_methionine:
             x[:, 1] = self.methionine_token_id        

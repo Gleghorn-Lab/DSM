@@ -142,7 +142,7 @@ def evaluate(model,
     # ---------------------------------------------------------------------------
     # averaged “per-logit” metrics
     cross_entropy_loss = torch.cat(ce_losses).mean().item()
-    alignment_score = align_scores.mean()
+    alignment_score = np.concatenate(align_scores).mean()
 
     # classification-style metrics on the whole set
     logits_cat = torch.cat(all_logits)                       # (b*L, v)

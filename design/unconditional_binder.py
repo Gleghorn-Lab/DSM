@@ -29,14 +29,11 @@ if __name__ == '__main__':
     model = ESM_Diff.from_pretrained(MODEL_PATH).to(device)
     tokenizer = model.tokenizer
 
-
-    steps = 4
-    block_length = steps // 4
     temperature = 1.0
     remasking = 'random'
     slow = False
     preview = True
-    mask_percentage = 0.25
+    mask_percentage = 0.50
 
     template_tokens = tokenizer.encode(TEMPLATE, add_special_tokens=True, return_tensors='pt').to(device)
     # randomly mask 25% of the template tokens, do not mask CLS or EOS tokens
@@ -44,6 +41,13 @@ if __name__ == '__main__':
     mask_index[:, 0], mask_index[:, -1] = False, False
     template_tokens[mask_index] = tokenizer.mask_token_id
 
+    print('-' * 100)
+    print('Template tokens: \n', model._decode_seq(template_tokens[0]))
+    print('-' * 100)
+
+    # number of masked tokens
+    steps = (template_tokens == tokenizer.mask_token_id).sum().item()
+    print('Number of masked tokens / diffusion steps: ', steps)
 
     output_tokens = model.mask_diffusion_generate(
         template_tokens=template_tokens,
@@ -57,6 +61,5 @@ if __name__ == '__main__':
     )
 
     prediction = model._decode_seq(output_tokens[0])
-    print(prediction)
 
-    analyze_two_seqs(TARGET, prediction)
+    analyze_two_seqs(TEMPLATE, prediction)
