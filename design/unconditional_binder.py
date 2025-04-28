@@ -33,7 +33,7 @@ if __name__ == '__main__':
     remasking = 'random'
     slow = False
     preview = True
-    mask_percentage = 0.50
+    mask_percentage = 0.70
 
     template_tokens = tokenizer.encode(TEMPLATE, add_special_tokens=True, return_tensors='pt').to(device)
     # randomly mask 25% of the template tokens, do not mask CLS or EOS tokens
