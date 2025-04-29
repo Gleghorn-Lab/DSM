@@ -40,7 +40,7 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
     lm_logits, labels = lm_logits
 
-    scores = GetAlignmentScoreFromLogits()(lm_logits, input_ids)
+    scores = GetAlignmentScoreFromLogits().batched_forward(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
