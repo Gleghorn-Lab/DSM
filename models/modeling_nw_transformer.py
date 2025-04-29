@@ -252,7 +252,7 @@ class AlignmentModule(PreTrainedModel):
             attention_mask_b: torch.Tensor
         ) -> torch.Tensor:
         x_a = self.embedding(input_ids_a)
-        x_b = self.logit_input(logits_b)
+        x_b = self.logit_input(logits_b.softmax(dim=-1))
         x_a = self.cross_ab(x_a, x_b, attention_mask_a, attention_mask_b)
         x_b = self.cross_ba(x_b, x_a, attention_mask_b, attention_mask_a)
         x, attention_mask = pad_and_concatenate_dimer(x_a, x_b, attention_mask_a, attention_mask_b)
