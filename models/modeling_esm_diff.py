@@ -65,8 +65,8 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         # LoRA wrapping
         lora = getattr(config, 'lora', False)
         if lora:
-            self.esm.encoder = wrap_lora(
-                self.esm.encoder,
+            self.esm = wrap_lora(
+                self.esm,
                 r=config.lora_r,
                 lora_alpha=config.lora_alpha,
                 lora_dropout=config.lora_dropout
@@ -164,8 +164,8 @@ class ESM_Diff_Binders(FastEsmModel, GenerateMixin):
         # LoRA wrapping
         lora = getattr(config, 'lora', False)
         if lora:
-            self.esm.encoder = wrap_lora(
-                self.esm.encoder,
+            self.esm = wrap_lora(
+                self.esm,
                 r=config.lora_r,
                 lora_alpha=config.lora_alpha,
                 lora_dropout=config.lora_dropout
