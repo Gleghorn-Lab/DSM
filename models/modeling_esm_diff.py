@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
-from .utils import wrap_lora
 
 
 class ESMDiffConfig(FastEsmConfig):
@@ -62,23 +61,11 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
     def __init__(self, config: ESMDiffConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self, self.tokenizer)
-        # LoRA wrapping
-        lora = getattr(config, 'lora', False)
-        if lora:
-            self.esm = wrap_lora(
-                self.esm,
-                r=config.lora_r,
-                lora_alpha=config.lora_alpha,
-                lora_dropout=config.lora_dropout
-            )
         self.config = config
         self.vocab_size = config.vocab_size
         self.lm_head = LMHead(config.hidden_size, config.vocab_size)
         # tie to word embeddings
         self.lm_head.decoder.weight = self.esm.embeddings.word_embeddings.weight
-        if lora:
-            for param in self.lm_head.parameters():
-                param.requires_grad = False
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
         self.mask_token_id = self.tokenizer.mask_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
@@ -161,23 +148,11 @@ class ESM_Diff_Binders(FastEsmModel, GenerateMixin):
     def __init__(self, config: ESMDiffConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self, self.tokenizer)
-        # LoRA wrapping
-        lora = getattr(config, 'lora', False)
-        if lora:
-            self.esm = wrap_lora(
-                self.esm,
-                r=config.lora_r,
-                lora_alpha=config.lora_alpha,
-                lora_dropout=config.lora_dropout
-            )
         self.config = config
         self.vocab_size = config.vocab_size
         self.lm_head = LMHead(config.hidden_size, config.vocab_size)
         # tie to word embeddings
         self.lm_head.decoder.weight = self.esm.embeddings.word_embeddings.weight
-        if lora:
-            for param in self.lm_head.parameters():
-                param.requires_grad = False
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
         self.mask_token_id = self.tokenizer.mask_token_id
         self.cls_token_id = self.tokenizer.cls_token_id

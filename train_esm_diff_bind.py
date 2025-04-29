@@ -17,6 +17,7 @@ from datasets import load_dataset
 
 from models.modeling_esm_diff import ESM_Diff_Binders
 from models.alignment_helpers import GetAlignmentScoreFromLogits
+from models.utils import wrap_lora
 from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
 from data.data_collators import PairCollator_input_ids
 
@@ -94,7 +95,8 @@ def parse_args():
 
 def main(args):
     ### Load model
-    model = ESM_Diff_Binders.from_pretrained(args.model_path, lora=True)
+    model = ESM_Diff_Binders.from_pretrained(args.model_path)
+    model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
     tokenizer = model.tokenizer
     summary(model)
 
