@@ -89,8 +89,6 @@ class PairCollator_input_ids:
         tokenized = self.tokenizer(
             seqs_a, seqs_b,
             padding='longest',
-            truncation=True,
-            max_length=self.max_length,
             return_tensors='pt'
         )
         return {

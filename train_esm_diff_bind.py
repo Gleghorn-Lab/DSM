@@ -4,7 +4,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
-from transformers import TrainingArguments, EvalPrediction
+from transformers import TrainingArguments, Trainer, EvalPrediction
 from sklearn.metrics import (
     f1_score,
     accuracy_score,
@@ -12,14 +12,13 @@ from sklearn.metrics import (
     recall_score,
     matthews_corrcoef,
 )
-from huggingface_hub import login, hf_hub_download
-from datasets import load_dataset, Dataset
+from huggingface_hub import login
+from datasets import load_dataset
 
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_esm_diff import ESM_Diff_Binders
 from models.alignment_helpers import GetAlignmentScoreFromLogits
-from data.dataset_classes import SequenceDatasetFromList
-from data.data_collators import SequenceCollator
-from iterable_trainer import get_iterable_trainer
+from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
+from data.data_collators import PairCollator_input_ids
 
 
 import warnings
@@ -75,35 +74,15 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     return metrics
 
 
-def get_eval_data():
-    local_file = hf_hub_download(
-        repo_id="Synthyra/omg_prot50",
-        filename=f"data/valid-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
-    print(data)
-    valid_seqs = data['sequence']
-    local_file = hf_hub_download(
-        repo_id="Synthyra/omg_prot50",
-        filename=f"data/test-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
-    print(data)
-    test_seqs = data['sequence']
-    return valid_seqs, test_seqs
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-650M", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="GleghornLab/ESM_diff_650", help="Path to save the model and report to wandb")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/esm_diff_150", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="lhallee/esm_diff_bind_150", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
-    parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
+    parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
@@ -115,20 +94,30 @@ def parse_args():
 
 def main(args):
     ### Load model
-    model = ESM_Diff.from_pretrained(args.model_path)
+    model = ESM_Diff_Binders.from_pretrained(args.model_path, lora=True)
     tokenizer = model.tokenizer
     summary(model)
 
     ### Load Dataset
-    train_dataset = load_dataset("Synthyra/omg_prot50", split="train", streaming=True).shuffle(seed=42)
-    valid_seqs, test_seqs = get_eval_data()
-    if args.bugfix:
-        valid_seqs = valid_seqs[:10]
-        test_seqs = test_seqs[:10]
+    train_dataset = load_dataset("lhallee/string_model_org_90_90_split")
+
+    train_dataset = train_dataset.filter(lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < args.max_length)
+    train_dataset = train_dataset.shuffle(seed=42)
+
+    valid_dataset = train_dataset['valid']
+    test_dataset = train_dataset['test']
+    train_dataset = train_dataset['train']
     
-    valid_dataset = SequenceDatasetFromList(valid_seqs)
-    test_dataset = SequenceDatasetFromList(test_seqs)
-    data_collator = SequenceCollator(tokenizer, args.max_length)
+    if args.bugfix:
+        train_dataset = train_dataset.select(range(10000))
+        valid_dataset = valid_dataset.select(range(10))
+        test_dataset = test_dataset.select(range(10))
+    
+    # the labels are not actually used, we include them to play nice with existing collators
+    train_dataset = PairDatasetTrainHF(train_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
+    valid_dataset = PairDatasetTestHF(valid_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
+    test_dataset = PairDatasetTestHF(test_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
+    data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
     training_args = TrainingArguments(
@@ -136,7 +125,7 @@ def main(args):
         overwrite_output_dir=True,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        max_steps=args.max_steps,
+        num_train_epochs=args.num_epochs,
         gradient_accumulation_steps=args.grad_accum,
         logging_steps=100,
         save_strategy="steps",
@@ -155,18 +144,13 @@ def main(args):
     )
 
     ### Create a trainer
-    trainer = get_iterable_trainer(
+    trainer = Trainer(
         model=model,
-        hf_dataset=train_dataset,
-        data_collator=data_collator,
-        training_args=training_args,
-        batch_size=args.batch_size,
-        col_name="sequence",
-        num_workers=4,
-        prefetch_factor=10,
-        compute_metrics=compute_esm_diff_metrics,
-        callbacks=None,
+        args=training_args,
+        train_dataset=train_dataset,
         eval_dataset=valid_dataset,
+        data_collator=data_collator,
+        compute_metrics=compute_esm_diff_metrics,
     )
 
     ### Train
@@ -181,7 +165,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m train_esm_diff
+    # py -m train_esm_diff_bind
     args = parse_args()
 
     if WANDB_AVAILABLE:
@@ -193,7 +177,7 @@ if __name__ == "__main__":
 
     if args.bugfix:
         args.batch_size = 2
-        args.max_length = 32
-        args.save_every = 1000
+        args.max_length = 256
+        args.save_every = 10
 
     main(args)
