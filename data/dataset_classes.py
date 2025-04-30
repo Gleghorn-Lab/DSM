@@ -143,6 +143,22 @@ class PairDatasetTrainHF(TorchDataset):
         return seq_a, seq_b, self.labels[idx]
     
 
+class PairDatasetTestHF(TorchDataset):
+    def __init__(self, data, col_a, col_b, label_col, **kwargs):
+        self.seqs_a = data[col_a]
+        self.seqs_b = data[col_b]
+        self.labels = data[label_col]
+
+    def avg(self):
+        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
+
+    def __len__(self):
+        return len(self.seqs_a)
+
+    def __getitem__(self, idx):
+        return self.seqs_a[idx], self.seqs_b[idx], self.labels[idx]
+    
+
 class NWDataset(TorchDataset):
     def __init__(self, dataset, sequence_col: str = 'Sequence', **kwargs):
         self.sequences = list(set(dataset[sequence_col]))
