@@ -81,9 +81,9 @@ def main(args):
 
     train, valid, test = split_dataset(data, args.eval_size)
 
-    train_dataset = DiffATDataset(train, max_seq_length=args.max_length)
-    valid_dataset = DiffATDataset(valid, max_seq_length=args.max_length)
-    test_dataset = DiffATDataset(test, max_seq_length=args.max_length)
+    train_dataset = DiffATDataset(train)
+    valid_dataset = DiffATDataset(valid)
+    test_dataset = DiffATDataset(test)
 
     config = ESMDiffConfig.from_pretrained(args.model_path)
     config.at_vocab_size = at_vocab_size
@@ -138,7 +138,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m trainers.train_esm_diff_av
+    # py -m train_esm_diff_av
     args = parse_args()
 
     if WANDB_AVAILABLE:
