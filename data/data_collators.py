@@ -1,6 +1,5 @@
 import torch
 from typing import Tuple, List, Dict, Union
-
 from models.alignment_helpers import AlignmentScorer
 from .utils import ProteinMasker
 
@@ -11,7 +10,7 @@ def standard_data_collator(batch):
 
 
 class AutoencoderCollator:
-    def __init__(self, tokenizer, max_length):
+    def __init__(self, tokenizer, max_length, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -30,7 +29,7 @@ class AutoencoderCollator:
 
 
 class SequenceLabelCollator:
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, **kwargs):
         self.tokenizer = tokenizer
 
     def __call__(self, batch: List[Tuple[str, List[float]]]) -> Dict[str, torch.Tensor]:
@@ -46,7 +45,7 @@ class SequenceLabelCollator:
 
 
 class SequenceCollator:
-    def __init__(self, tokenizer, max_length=512):
+    def __init__(self, tokenizer, max_length=512, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -61,7 +60,7 @@ class SequenceCollator:
     
 
 class SequenceCollator_mask:
-    def __init__(self, tokenizer, max_length=512, mask_rate=0.15):
+    def __init__(self, tokenizer, max_length=512, mask_rate=0.15, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.masker = ProteinMasker(tokenizer, mask_rate)
@@ -79,7 +78,7 @@ class SequenceCollator_mask:
 
 
 class PairCollator_input_ids:
-    def __init__(self, tokenizer, max_length=2048):
+    def __init__(self, tokenizer, max_length=2048, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -96,10 +95,29 @@ class PairCollator_input_ids:
             'attention_mask': tokenized['attention_mask'],
             'labels': labels
         }
+    
+
+class DummyPairCollator_input_ids:
+    def __init__(self, tokenizer, max_length=2048, **kwargs):
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def __call__(self, batch: List[Tuple[str, str, Union[float, int]]]) -> Dict[str, torch.Tensor]:
+        _, seqs_b, labels = zip(*batch)
+        labels = torch.tensor(labels, dtype=torch.float)
+        tokenized = self.tokenizer(seqs_b,
+            padding='longest',
+            return_tensors='pt'
+        )
+        return {
+            'input_ids': tokenized['input_ids'],
+            'attention_mask': tokenized['attention_mask'],
+            'labels': labels
+        }
 
 
 class PairCollator_ab:
-    def __init__(self, tokenizer, max_length=2048):
+    def __init__(self, tokenizer, max_length=2048, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -130,7 +148,7 @@ class PairCollator_ab:
 
 
 class NWCollatorFull:
-    def __init__(self, tokenizer, max_length=2048, asinh=False):
+    def __init__(self, tokenizer, max_length=2048, asinh=False, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.scorer = AlignmentScorer()
@@ -183,7 +201,7 @@ class NWCollatorFull:
 
 
 class NWCollatorCross:
-    def __init__(self, tokenizer, max_length=2048, asinh=False):
+    def __init__(self, tokenizer, max_length=2048, asinh=False, **kwargs):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.scorer = AlignmentScorer()

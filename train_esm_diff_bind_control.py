@@ -16,8 +16,8 @@ from huggingface_hub import login
 from datasets import load_dataset
 
 from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
-from data.data_collators import PairCollator_input_ids
-from models.modeling_esm_diff import ESM_Diff_Binders
+from data.data_collators import DummyPairCollator_input_ids
+from models.modeling_esm_diff import ESM_Diff
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 from models.utils import wrap_lora
 from utils import set_seed
@@ -79,7 +79,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
     parser.add_argument("--model_path", type=str, default="GleghornLab/esm_diff_150", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/esm_diff_bind_150", help="Path to save the model and report to wandb")
+    parser.add_argument("--save_path", type=str, default="lhallee/esm_diff_bind_150_control", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=8, help="Gradient accumulation steps")
@@ -96,7 +96,7 @@ def parse_args():
 def main(args):
     set_seed(42)
     ### Load model
-    model = ESM_Diff_Binders.from_pretrained(args.model_path)
+    model = ESM_Diff.from_pretrained(args.model_path)
     model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
     tokenizer = model.tokenizer
     summary(model)
@@ -122,7 +122,7 @@ def main(args):
     train_dataset = PairDatasetTrainHF(train_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
     valid_dataset = PairDatasetTestHF(valid_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
     test_dataset = PairDatasetTestHF(test_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
-    data_collator = PairCollator_input_ids(tokenizer, args.max_length)
+    data_collator = DummyPairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
     training_args = TrainingArguments(
@@ -170,7 +170,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m train_esm_diff_bind
+    # py -m train_esm_diff_bind_control
     args = parse_args()
 
     if WANDB_AVAILABLE:

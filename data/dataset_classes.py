@@ -10,7 +10,7 @@ FromDisk takes data from a SQLite database
 
 
 class IterableDatasetFromHF(IterableDataset):
-    def __init__(self, dataset, col_name='seqs'):
+    def __init__(self, dataset, col_name='seqs', **kwargs):
         """
         Wrap a streaming Hugging Face dataset (IterableDataset) into a PyTorch IterableDataset.
         
@@ -27,7 +27,7 @@ class IterableDatasetFromHF(IterableDataset):
 
 
 class SequenceDatasetFromList(TorchDataset):
-    def __init__(self, sequences):
+    def __init__(self, sequences, **kwargs):
         self.sequences = sequences
 
     def __len__(self):
@@ -38,7 +38,7 @@ class SequenceDatasetFromList(TorchDataset):
 
 
 class SequenceDatasetFromHF(TorchDataset):    
-    def __init__(self, dataset, col_name='seqs'):
+    def __init__(self, dataset, col_name='seqs', **kwargs):
         self.seqs = dataset[col_name]
         self.lengths = [len(seq) for seq in self.seqs]
 
@@ -54,7 +54,7 @@ class SequenceDatasetFromHF(TorchDataset):
 
 
 class SequenceLabelDatasetFromLists(TorchDataset):
-    def __init__(self, seqs, labels):
+    def __init__(self, seqs, labels, **kwargs):
         self.seqs = seqs
         self.labels = labels
         self.lengths = [len(seq) for seq in self.seqs]
@@ -72,7 +72,7 @@ class SequenceLabelDatasetFromLists(TorchDataset):
 
 
 class SequenceLabelDatasetFromHF(TorchDataset):    
-    def __init__(self, dataset, col_name='seqs', label_col='labels'):
+    def __init__(self, dataset, col_name='seqs', label_col='labels', **kwargs):
         self.seqs = dataset[col_name]
         self.labels = dataset[label_col]
         self.lengths = [len(seq) for seq in self.seqs]
@@ -90,7 +90,7 @@ class SequenceLabelDatasetFromHF(TorchDataset):
 
 
 class PairDatasetTrainFromLists(TorchDataset):
-    def __init__(self, seqs_a, seqs_b, labels):
+    def __init__(self, seqs_a, seqs_b, labels, **kwargs):
         self.seqs_a = seqs_a
         self.seqs_b = seqs_b
         self.labels = labels
@@ -109,7 +109,7 @@ class PairDatasetTrainFromLists(TorchDataset):
 
 
 class PairDatasetTestFromLists(TorchDataset):
-    def __init__(self, seqs_a, seqs_b, labels):
+    def __init__(self, seqs_a, seqs_b, labels, **kwargs):
         self.seqs_a = seqs_a
         self.seqs_b = seqs_b
         self.labels = labels
@@ -125,7 +125,7 @@ class PairDatasetTestFromLists(TorchDataset):
 
 
 class PairDatasetTrainHF(TorchDataset):
-    def __init__(self, data, col_a, col_b, label_col):
+    def __init__(self, data, col_a, col_b, label_col, **kwargs):
         self.seqs_a = data[col_a]
         self.seqs_b = data[col_b]
         self.labels = data[label_col]
@@ -141,26 +141,10 @@ class PairDatasetTrainHF(TorchDataset):
         if random.random() < 0.5:
             seq_a, seq_b = seq_b, seq_a
         return seq_a, seq_b, self.labels[idx]
-
-
-class PairDatasetTestHF(TorchDataset):
-    def __init__(self, data, col_a, col_b, label_col):
-        self.seqs_a = data[col_a]
-        self.seqs_b = data[col_b]
-        self.labels = data[label_col]
-
-    def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
-
-    def __len__(self):
-        return len(self.seqs_a)
-
-    def __getitem__(self, idx):
-        return self.seqs_a[idx], self.seqs_b[idx], self.labels[idx]
     
 
 class NWDataset(TorchDataset):
-    def __init__(self, dataset, sequence_col: str = 'Sequence'):
+    def __init__(self, dataset, sequence_col: str = 'Sequence', **kwargs):
         self.sequences = list(set(dataset[sequence_col]))
 
     def __len__(self):
@@ -195,7 +179,7 @@ class NWDataset(TorchDataset):
 
 
 class NWDatasetEval(TorchDataset):
-    def __init__(self, dataset, seq_a_col: str = 'SeqA', seq_b_col: str = 'SeqB'):
+    def __init__(self, dataset, seq_a_col: str = 'SeqA', seq_b_col: str = 'SeqB', **kwargs):
         self.seq_a = dataset[seq_a_col]
         self.seq_b = dataset[seq_b_col]
 
