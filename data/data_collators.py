@@ -1,5 +1,5 @@
 import torch
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Any
 from models.alignment_helpers import AlignmentScorer
 from .utils import ProteinMasker
 
@@ -258,3 +258,33 @@ class NWCollatorCross:
             'attention_mask_b': tokenized_b['attention_mask'],
             'labels': labels
         }
+    
+
+class DiffATCollator:
+    def __init__(self, tokenizer, at_vocab_size: int):
+        self.tokenizer = tokenizer
+        self.pad_token_id = 0
+        self.at_vocab_size = at_vocab_size
+
+    def _pad_sequences(self, sequences: List[List[int]]) -> torch.Tensor:
+        max_length = max(len(seq) for seq in sequences)
+        padded_sequences = [seq + [self.pad_token_id] * (max_length - len(seq)) for seq in sequences]
+        return torch.tensor(padded_sequences, dtype=torch.long)
+
+    def _create_attention_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
+        attention_mask = (input_ids != self.pad_token_id).long()
+        return attention_mask
+
+    def __call__(self, examples: List[Dict[str, Any]]) -> Dict[str, Any]:
+        seqs = [example[0] for example in examples]
+        anns = [example[1] for example in examples]
+        tokenized = self.tokenizer(seqs, padding='longest', return_tensors='pt')
+        at_ids = self._pad_sequences(anns)
+        at_attention_mask = self._create_attention_mask(at_ids)
+        batch = {
+            'input_ids': tokenized['input_ids'],
+            'attention_mask': tokenized['attention_mask'],
+            'at_ids': at_ids,
+            'at_attention_mask': at_attention_mask,
+        }
+        return batch

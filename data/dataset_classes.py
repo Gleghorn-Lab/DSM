@@ -204,4 +204,31 @@ class NWDatasetEval(TorchDataset):
     
     def __getitem__(self, idx):
         return self.seq_a[idx], self.seq_b[idx]
-    
+
+
+class DiffATDataset(TorchDataset):
+    def __init__(self, data, max_seq_length: int = 512, max_ann_length: int = 64):
+        self.seqs = data['sequence']
+        self.annotations = data['annotations']
+        self.max_seq_length = max_seq_length
+        self.max_ann_length = max_ann_length
+
+    def _get_total_length(self, sequence: str, annotations: List[int]) -> int:
+        return len(sequence) + len(annotations)
+
+    def _get_ann(self, idx: int) -> List[int]:
+        ann = self.annotations[idx]
+        length = randint(8, self.max_ann_length)
+        shuffle(ann)
+        return sorted(ann[:length])
+
+    def avg(self):
+        total_len = sum(self._get_total_length(self.seqs[i], self.anns[i]) for i in range(len(self)))
+        return total_len / len(self)
+
+    def __len__(self):
+        return len(self.seqs)
+
+    def __getitem__(self, idx):
+        seq = self.seqs[idx][:self.max_seq_length]
+        return seq, self._get_ann(idx)
