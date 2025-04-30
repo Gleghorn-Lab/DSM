@@ -15,12 +15,11 @@ from sklearn.metrics import (
 from huggingface_hub import login
 from datasets import load_dataset
 
+from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
+from data.data_collators import PairCollator_input_ids
 from models.modeling_esm_diff import ESM_Diff_Binders
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 from models.utils import wrap_lora
-from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
-from data.data_collators import PairCollator_input_ids
-
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -103,7 +102,9 @@ def main(args):
     ### Load Dataset
     train_dataset = load_dataset("lhallee/string_model_org_90_90_split")
 
-    train_dataset = train_dataset.filter(lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < args.max_length)
+    train_dataset = train_dataset.filter(
+        lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < args.max_length
+    )
     train_dataset = train_dataset.shuffle(seed=42)
 
     valid_dataset = train_dataset['valid']

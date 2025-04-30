@@ -21,9 +21,9 @@ from sklearn.metrics import (
 
 from metrics.regression import compute_metrics_regression as compute_alignment_metrics # takes EvalPrediction object
 from data.dataset_classes import IterableDatasetFromHF, SequenceDatasetFromList
+from data.data_collators import SequenceCollator
 from models.modeling_esm_diff import ESM_Diff
 from models.modeling_nw_transformer import AlignmentModule, NWTransformerConfig
-from data.data_collators import SequenceCollator
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 
 import warnings

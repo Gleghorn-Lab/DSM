@@ -108,6 +108,20 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         time.sleep(2)
 
 
+def predict_against_target(target: str, designs: List[str]) -> pd.DataFrame:
+    """
+    Predict the affinity of a list of designs against a target sequence.
+    Sort by predicted affinity.
+    """
+    data = [{'SeqA': target, 'SeqB': design} for design in designs]
+    df = send_request(data, 'ppi')
+    df = df.sort_values(by='predicted-pKd', ascending=True)
+    # drop the target column and rename SeqB to design
+    df = df.drop(columns=['SeqA'])
+    df = df.rename(columns={'SeqB': 'Design'})
+    return df
+
+
 if __name__ == "__main__":
     # py -m design.affinity_pred
     import argparse
