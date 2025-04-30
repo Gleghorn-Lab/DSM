@@ -59,7 +59,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
     if task_type == 'ppi':
         data = {
             'name': name,
-            'options': '["ppi", "affinity"]'
+            'options': '["ppi", "affinity", "binding"]'
         }
     elif task_type == 'annotation':
         data = {
@@ -115,10 +115,6 @@ def predict_against_target(target: str, designs: List[str]) -> pd.DataFrame:
     """
     data = [{'SeqA': target, 'SeqB': design} for design in designs]
     df = send_request(data, 'ppi')
-    df = df.sort_values(by='predicted-pKd', ascending=True)
-    # drop the target column and rename SeqB to design
-    df = df.drop(columns=['SeqA'])
-    df = df.rename(columns={'SeqB': 'Design'})
     return df
 
 
