@@ -12,7 +12,7 @@ from typing import List, Dict, Any
 from random import shuffle, randint
 from metrics.LM import compute_lm_metrics_with_logits
 
-from models.esm_diff.modeling_esm_diff import ESM_Diff_AV, ESMDiffConfig
+from models.modeling_esm_diff import ESM_Diff_AV, ESMDiffConfig
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -122,7 +122,7 @@ def parse_args():
 
 def main(args):
     data = load_dataset(args.dataset_name, split='train')
-    data = data.map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
+    #data = data.map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
     num_annotations = get_max_from_list_of_lists(data['annotations'])
     print(num_annotations)
     at_vocab_size = num_annotations + 3
