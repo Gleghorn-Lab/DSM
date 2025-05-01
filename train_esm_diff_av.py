@@ -1,13 +1,21 @@
 import argparse
 import pickle
+import torch
 from torchinfo import summary
 from huggingface_hub import login, hf_hub_download
-from transformers import Trainer, TrainingArguments
+from transformers import Trainer, TrainingArguments, EvalPrediction
 from datasets import load_dataset
+from sklearn.metrics import (
+    f1_score,
+    precision_score,
+    recall_score,
+    accuracy_score,
+    matthews_corrcoef
+)
 
 from data.dataset_classes import DiffATDataset
 from data.data_collators import DiffATCollator
-from metrics.LM import compute_lm_metrics_with_logits
+from models.alignment_helpers import GetAlignmentScoreFromLogits
 from models.modeling_esm_diff import ESM_Diff_AV, ESMDiffConfig
 
 import warnings
@@ -20,6 +28,47 @@ try:
 except ImportError:
     wandb = None
     WANDB_AVAILABLE = False
+
+
+def compute_esm_diff_metrics(eval_preds: EvalPrediction):
+    ### NOTE the eval mask percentage is fixed at 15%
+    metrics = {}
+    lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
+    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+    lm_logits, labels = lm_logits
+
+    scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
+
+    # labels are already -100 for non-masked tokens
+    lm_logits_torch = torch.tensor(lm_logits)
+    labels_torch = torch.tensor(labels)
+    # We need ot do this because the eval loss is scaled by the mask rate
+    cross_entropy_loss = F.cross_entropy(
+        lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
+        labels_torch.view(-1),
+        ignore_index=-100
+    )
+
+    metrics['cross_entropy_loss'] = cross_entropy_loss
+    metrics['alignment_score'] = scores.mean()
+
+    y_pred = lm_logits.argmax(axis=-1).flatten()
+    y_true = labels.flatten()
+    valid_indices = y_true != -100
+    y_pred = y_pred[valid_indices]
+    y_true = y_true[valid_indices]
+    f1 = f1_score(y_true, y_pred, average='weighted')
+    prec = precision_score(y_true, y_pred, average='weighted')
+    rec = recall_score(y_true, y_pred, average='weighted')
+    acc = accuracy_score(y_true, y_pred)
+    mcc = matthews_corrcoef(y_true, y_pred)
+    metrics["f1"] = f1
+    metrics["prec"] = prec
+    metrics["rec"] = rec
+    metrics["acc"] = acc
+    metrics["mcc"] = mcc
+
+    return metrics
 
 
 def get_max_from_list_of_lists(lst):
@@ -52,7 +101,7 @@ def parse_args():
     parser.add_argument('--max_steps', type=int, default=100000)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--eval_steps', type=int, default=1000)
-    parser.add_argument('--eval_size', type=int, default=10000)
+    parser.add_argument('--eval_size', type=int, default=1000)
     parser.add_argument('--bugfix', action='store_true')
     parser.add_argument('--max_ann_length', type=int, default=64)
     return parser.parse_args()
@@ -60,6 +109,8 @@ def parse_args():
 
 def main(args):
     data = load_dataset(args.dataset_name, split='train')
+    if args.bugfix:
+        data = data.select(range(100000))
     #data = data.map(lambda x: {'annotation': ast.literal_eval(x['annotation'])})
     local_file = hf_hub_download(
         repo_id="lhallee/AV_large",
@@ -69,6 +120,7 @@ def main(args):
     with open(local_file, 'rb') as f:
         id2label = pickle.load(f)
     num_annotations = len(id2label)
+
     print(f'Number of annotations: {num_annotations}')
     print(f'Before filtering: {len(data)}')
     data = data.filter(
@@ -123,7 +175,7 @@ def main(args):
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
         data_collator=data_collator,
-        compute_metrics=compute_lm_metrics_with_logits,
+        compute_metrics=compute_esm_diff_metrics,
     )
 
     ### Train

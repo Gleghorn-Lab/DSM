@@ -127,8 +127,8 @@ if __name__ == '__main__':
         for design in batch_designs:
             if design in design_set:
                 continue
-            designs.extend(batch_designs)
-            masks.extend([mask_percentage] * BATCH_SIZE)
+            designs.append(design)
+            masks.append(mask_percentage)
         
         # Submit batch for processing when we reach api_batch_size
         if len(designs) >= API_BATCH_SIZE:
