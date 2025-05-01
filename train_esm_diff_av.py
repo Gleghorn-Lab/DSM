@@ -92,9 +92,9 @@ def split_dataset(data, eval_size):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
-    parser.add_argument('--model_path', type=str, default='Synthyra/esm_diff_150')
+    parser.add_argument('--model_path', type=str, default='lhallee/esm_diff_150_av')
     parser.add_argument('--dataset_name', type=str, default='lhallee/AV_large')
-    parser.add_argument('--save_path', type=str, default='Synthyra/esm_diff_at')
+    parser.add_argument('--save_path', type=str, default='lhallee/esm_diff_150_av')
     parser.add_argument('--wandb_project', type=str, default='ESM-Diff')
     parser.add_argument('--max_length', type=int, default=512)
     parser.add_argument('--batch_size', type=int, default=64)
