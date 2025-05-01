@@ -202,7 +202,8 @@ if __name__ == "__main__":
 
     if args.bugfix:
         args.batch_size = 2
-        args.max_length = 32
+        args.max_length = 512
+        args.eval_size = 10
         args.save_every = 100
 
     main(args)
