@@ -86,26 +86,19 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
 
 
     while True:
-        params = {
-            'job_id': job_id,
-            'api_key': API_KEY
-        }
-
-        response = requests.get(
-            'https://api.synthyra.com/v1/job',
-            params=params
-        )
+        params = {'job_id': job_id, 'api_key': API_KEY}
+        response = requests.get('https://api.synthyra.com/v1/job', params=params)
         
         try:
             status = response.json()
-            print(f'Running... {status}')
+            print(f'\nRunning... {status}')
         except:
             output = io.StringIO(response.text)
             df = pd.read_csv(output)
             print(df.head())
             print(f"Job completed in {time.time() - start_time} seconds")
             return df
-        time.sleep(2)
+        time.sleep(10)
 
 
 def predict_against_target(target: str, designs: List[str]) -> pd.DataFrame:

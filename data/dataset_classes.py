@@ -211,7 +211,7 @@ class NWDatasetEval(TorchDataset):
 class DiffATDataset(TorchDataset):
     def __init__(self, data, **kwargs):
         self.seqs = data['sequence']
-        self.annotations = data['annotations']
+        self.annotations = data['annotation']
 
     def _get_total_length(self, sequence: str, annotations: List[int]) -> int:
         return len(sequence) + len(annotations)
