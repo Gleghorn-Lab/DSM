@@ -62,7 +62,7 @@ def main(args):
     data = load_dataset(args.dataset_name, split='train')
     #data = data.map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
     local_file = hf_hub_download(
-        repo_id="Synthyra/AV_large",
+        repo_id="lhallee/AV_large",
         filename=f"id2label.pkl",
         repo_type="dataset"
     )

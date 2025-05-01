@@ -25,7 +25,7 @@ parser.add_argument('--num_samples', type=int, default=1000)
 if __name__ == '__main__':
     # py -m design.unconditional_binder
     args = parser.parse_args()
-    if args.token is None:
+    if args.token is not None:
         login(args.token)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -36,7 +36,6 @@ if __name__ == '__main__':
     remasking = 'random'
     slow = False
     preview = False
-    mask_percentage = 0.70
 
     designs = []
 
@@ -65,13 +64,24 @@ if __name__ == '__main__':
         designs.append(design)
 
     designs.append(TEMPLATE)
+    print(f'Number of designs: {len(designs)}')
+    designs = list(set(designs))
+    print(f'Number of unique designs: {len(designs)}')
     df = predict_against_target(target=TARGET, designs=designs)
 
     df = df.sort_values(by=['predicted-pKd'], ascending=True)
+    # New column target-sites
+    # column predicted-binding-sites is in the following format:
+    # aminoacid-Location-chain-confidence
+    # So something like A103a55 for alanine at position 103 on chain a with confidence 55
+    # If all of the Target Aminos are in the predicted-binding-sites column with chain a, make True in target-sites column
     # drop the target column and rename SeqB to design
     df = df.drop(columns=['SeqA'])
     df = df.rename(columns={'SeqB': 'Design'})
+    df['target-sites'] = df['predicted-binding-sites'].apply(lambda x: 'True' if all(f'{target_amino}a'.lower() in str(x).lower() for target_amino in TARGET_AMINOS) else False)
 
+    # Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
+    df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
 
     print(df.head())
     df.to_csv('designs.csv', index=False)
