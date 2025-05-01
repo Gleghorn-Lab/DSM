@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
+from .utils import wrap_lora
 
 
 class ESMDiffConfig(FastEsmConfig):
@@ -266,6 +267,9 @@ class ESM_Diff_AV(ESM_Diff):
             causal=False,
             n_layers=config.num_at_layers
         )
+    
+    def apply_lora(self, r: int, lora_alpha: float, lora_dropout: float):
+        self.esm = wrap_lora(self.esm, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
 
     def _get_logits(
         self,

@@ -142,6 +142,7 @@ def main(args):
     config.at_vocab_size = at_vocab_size
     config.at_layers = 1
     model = ESM_Diff_AV.from_pretrained(args.model_path, config=config)
+    model.apply_lora(r=8, lora_alpha=32.0, lora_dropout=0.01)
     tokenizer = model.tokenizer
     summary(model)
 
