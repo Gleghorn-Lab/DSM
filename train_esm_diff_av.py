@@ -105,6 +105,7 @@ def parse_args():
     parser.add_argument('--eval_size', type=int, default=1000)
     parser.add_argument('--bugfix', action='store_true')
     parser.add_argument('--max_ann_length', type=int, default=64)
+    parser.add_argument('--min_ann_length', type=int, default=4)
     return parser.parse_args()
 
 
