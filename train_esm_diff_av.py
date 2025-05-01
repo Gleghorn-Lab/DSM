@@ -60,7 +60,7 @@ def parse_args():
 
 def main(args):
     data = load_dataset(args.dataset_name, split='train')
-    #data = data.map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
+    #data = data.map(lambda x: {'annotation': ast.literal_eval(x['annotation'])})
     local_file = hf_hub_download(
         repo_id="lhallee/AV_large",
         filename=f"id2label.pkl",
@@ -72,7 +72,7 @@ def main(args):
     print(f'Number of annotations: {num_annotations}')
     print(f'Before filtering: {len(data)}')
     data = data.filter(
-        lambda x: len(x['annotations']) > 4 and len(x['annotations']) < args.max_ann_length and len(x['sequence']) < args.max_length and len(x['sequence']) > 20
+        lambda x: len(x['annotation']) > 4 and len(x['annotation']) < args.max_ann_length and len(x['sequence']) < args.max_length and len(x['sequence']) > 20
     )
     print(f'After filtering: {len(data)}')
 
