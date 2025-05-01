@@ -1,6 +1,7 @@
 import argparse
 import pickle
 import torch
+import torch.nn.functional as F
 from torchinfo import summary
 from huggingface_hub import login, hf_hub_download
 from transformers import Trainer, TrainingArguments, EvalPrediction
