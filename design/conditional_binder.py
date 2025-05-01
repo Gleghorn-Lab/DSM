@@ -7,12 +7,15 @@ import queue
 import os
 from tqdm import tqdm
 from huggingface_hub import login
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_esm_diff import ESM_Diff_Binders
+from models.utils import wrap_lora
 from .affinity_pred import predict_against_target
 
 
+
 SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
-MODEL_PATH = 'GleghornLab/esm_diff_150'
+MODEL_PATH = 'lhallee/esm_diff_bind_150'
+base_path = 'GleghornLab/esm_diff_150'
 TARGET = 'LEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGYVLIALNTVERIPLENLQIIRGNMYYENSYALAVLSNYDANKTGLKELPMRNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCWGAGEENCQKLTKIICAQQCSGRCRGKSPSDCCHNQCAAGCTGPRESDCLVCRKFRDEATCKDTCPPLMLYNPTTYQMDVNPEGKYSFGATCVKKCPRNYVVTDHGSCVRACGADSYEMEEDGVRKCKKCEGPCRKVCNGIGIGEFKDSLSINATNIKHFKNCTSISGDLHILPVAFRGDSFTHTPPLDPQELDILKTVKEITGFLLIQAWPENRTDLHAFENLEIIRGRTKQHGQFSLAVVSLNITSLGLRSLKEISDGDVIISGNKNLCYANTINWKKLFGTSGQKTKIISNRGENSCKATGQVCHALCSPEGCWGPEPRDCVSCRNVSRGRECVDKCNLLEGEPREFVENSECIQCHPECLPQAMNITCTGRGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLEGCPTNGPKIPS'
 TARGET_AMINOS = ['S11', 'N12', 'K13', 'T15', 'Q16', 'L17', 'G18', 'S356', 'S440', 'G441']
 TARGET_IDX = [11, 12, 13, 15, 16, 17, 18, 356, 440, 441]
@@ -22,15 +25,15 @@ TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 4
-BATCH_SIZE = 4
+STEP_DIVISOR = 8
+BATCH_SIZE = 2
 API_BATCH_SIZE = 25
 
 
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
-    parser.add_argument('--num_samples', type=int, default=1000)
+    parser.add_argument('--num_samples', type=int, default=100)
     return parser.parse_args()
 
 
@@ -62,13 +65,15 @@ def prediction_worker(design_queue, result_queue):
 
 
 if __name__ == '__main__':
-    # py -m design.unconditional_binder
+    # py -m design.conditional_binder
     args = arg_parser()
     if args.token is not None:
         login(args.token)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
+    model = ESM_Diff_Binders.from_pretrained(base_path)
+    model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
+    model = model.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
     designs, design_info, design_set = [], [], set()
@@ -90,6 +95,9 @@ if __name__ == '__main__':
     design_info.append(f'mask-rate: 0.0, positions: 0-{len(TEMPLATE)}')
     design_set.add(TEMPLATE)
 
+    cls_token = tokenizer.cls_token_id
+    eos_token = tokenizer.eos_token_id
+
     # Generate designs
     for sample in tqdm(range(args.num_samples // BATCH_SIZE)):
         mask_percentage = random.uniform(0.01, 0.9)
@@ -106,15 +114,24 @@ if __name__ == '__main__':
             template = TEMPLATE
             start = 0
             end = len(TEMPLATE)
-        template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(device)
+        
+        target_tokens = tokenizer.encode(TARGET, add_special_tokens=True, return_tensors='pt').to(device)
+        template_tokens = tokenizer.encode(template, add_special_tokens=False, return_tensors='pt').to(device)
+        end_eos = torch.tensor([eos_token], device=device).unsqueeze(0)
+
         # expand template tokens to batch_size
         if BATCH_SIZE > 1:
+            target_tokens = target_tokens.repeat(BATCH_SIZE, 1)
             template_tokens = template_tokens.repeat(BATCH_SIZE, 1)
+            end_eos = end_eos.repeat(BATCH_SIZE, 1)
 
         # randomly mask template tokens
         mask_index = torch.rand_like(template_tokens.float()) < mask_percentage
         mask_index[:, 0], mask_index[:, -1] = False, False
         template_tokens[mask_index] = tokenizer.mask_token_id
+
+        # cls, target, eos, template, eos
+        template_tokens = torch.cat([target_tokens, template_tokens, end_eos], dim=1)
 
         # number of masked tokens
         steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // STEP_DIVISOR
