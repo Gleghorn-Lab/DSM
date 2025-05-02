@@ -6,16 +6,15 @@ import threading
 import queue
 import os
 from tqdm import tqdm
-from huggingface_hub import login
-from models.modeling_esm_diff import ESM_Diff_Binders
+from huggingface_hub import login, hf_hub_download
+from safetensors.torch import load_file
+from models.modeling_esm_diff import ESM_Diff_Binders, ESMDiffConfig
 from models.utils import wrap_lora
 from .affinity_pred import predict_against_target
 
 
-
 SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
 MODEL_PATH = 'lhallee/esm_diff_bind_150'
-base_path = 'GleghornLab/esm_diff_150'
 TARGET = 'LEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGYVLIALNTVERIPLENLQIIRGNMYYENSYALAVLSNYDANKTGLKELPMRNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCWGAGEENCQKLTKIICAQQCSGRCRGKSPSDCCHNQCAAGCTGPRESDCLVCRKFRDEATCKDTCPPLMLYNPTTYQMDVNPEGKYSFGATCVKKCPRNYVVTDHGSCVRACGADSYEMEEDGVRKCKKCEGPCRKVCNGIGIGEFKDSLSINATNIKHFKNCTSISGDLHILPVAFRGDSFTHTPPLDPQELDILKTVKEITGFLLIQAWPENRTDLHAFENLEIIRGRTKQHGQFSLAVVSLNITSLGLRSLKEISDGDVIISGNKNLCYANTINWKKLFGTSGQKTKIISNRGENSCKATGQVCHALCSPEGCWGPEPRDCVSCRNVSRGRECVDKCNLLEGEPREFVENSECIQCHPECLPQAMNITCTGRGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLEGCPTNGPKIPS'
 TARGET_AMINOS = ['S11', 'N12', 'K13', 'T15', 'Q16', 'L17', 'G18', 'S356', 'S440', 'G441']
 TARGET_IDX = [11, 12, 13, 15, 16, 17, 18, 356, 440, 441]
@@ -26,7 +25,7 @@ REMASKING = 'random'
 SLOW = False
 PREVIEW = False
 STEP_DIVISOR = 8
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 API_BATCH_SIZE = 25
 
 
@@ -64,6 +63,43 @@ def prediction_worker(design_queue, result_queue):
         design_queue.task_done()
 
 
+def load_binder_model(model_path):
+    local_weight_file = hf_hub_download(
+        repo_id=model_path,
+        filename='model.safetensors',
+        repo_type='model',
+    )
+
+    config = ESMDiffConfig.from_pretrained(model_path)
+    model = ESM_Diff_Binders(config=config)
+    model = wrap_lora(model, r=config.lora_r, lora_alpha=config.lora_alpha, lora_dropout=config.lora_dropout)
+    state_dict = load_file(local_weight_file)
+
+    # Track which parameters were loaded
+    loaded_params = set()
+    missing_params = set()
+
+    for name, param in model.named_parameters():
+        found = False
+        for key in state_dict.keys():
+            if key in name:
+                param.data = state_dict[key]
+                loaded_params.add(name)
+                found = True
+                break
+        if not found:
+            missing_params.add(name)
+
+    # Verify all weights were loaded correctly
+    print(f"Loaded {len(loaded_params)} parameters")
+    print(f"Missing {len(missing_params)} parameters")
+    if missing_params:
+        print("Missing parameters:")
+        for param in sorted(missing_params):
+            print(f"  - {param}")
+
+    return model
+
 if __name__ == '__main__':
     # py -m design.conditional_binder
     args = arg_parser()
@@ -71,9 +107,8 @@ if __name__ == '__main__':
         login(args.token)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff_Binders.from_pretrained(base_path)
-    model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
-    model = model.from_pretrained(MODEL_PATH).to(device).eval()
+    model = load_binder_model(MODEL_PATH)
+    model = model.to(device).eval()
     tokenizer = model.tokenizer
 
     designs, design_info, design_set = [], [], set()
@@ -127,7 +162,6 @@ if __name__ == '__main__':
 
         # randomly mask template tokens
         mask_index = torch.rand_like(template_tokens.float()) < mask_percentage
-        mask_index[:, 0], mask_index[:, -1] = False, False
         template_tokens[mask_index] = tokenizer.mask_token_id
 
         # cls, target, eos, template, eos
@@ -147,14 +181,14 @@ if __name__ == '__main__':
         )
 
         if BATCH_SIZE > 1:
-            batch_designs = [model._decode_seq(output_tokens[i]) for i in range(BATCH_SIZE)]
+            batch_designs = [model._decode_seq(output_tokens[i])[len(TARGET):] for i in range(BATCH_SIZE)]
             for design in batch_designs:
                 if design in design_set:
                     continue
                 designs.append(design)
                 design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
         else:
-            designs.append(model._decode_seq(output_tokens[0]))
+            designs.append(model._decode_seq(output_tokens[0])[len(TARGET):])
             design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
         
         # Submit batch for processing when we reach api_batch_size
