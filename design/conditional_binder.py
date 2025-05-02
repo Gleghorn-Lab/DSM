@@ -23,8 +23,8 @@ TRUE_PKD = 8.918238
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = False
-STEP_DIVISOR = 8
+PREVIEW = True
+STEP_DIVISOR = 1
 BATCH_SIZE = 1
 API_BATCH_SIZE = 25
 
@@ -33,6 +33,7 @@ def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--num_samples', type=int, default=100)
+    parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
     return parser.parse_args()
 
 
@@ -52,7 +53,7 @@ def prediction_worker(design_queue, result_queue):
         print(f'Number of unique designs in batch: {len(unique_designs)}')
         
         # Predict against target
-        batch_df = predict_against_target(target=TARGET, designs=unique_designs)
+        batch_df = predict_against_target(target=TARGET, designs=unique_designs, test=args.test)
         
         # Map mask rates to unique designs
         design_to_mask = {designs[i]: batch_masks[i] for i in range(len(designs))}
@@ -166,6 +167,8 @@ if __name__ == '__main__':
 
         # cls, target, eos, template, eos
         template_tokens = torch.cat([target_tokens, template_tokens, end_eos], dim=1)
+        #decoded_template = tokenizer.decode(template_tokens[0])
+        #print(f'Decoded template: {decoded_template}')
 
         # number of masked tokens
         steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // STEP_DIVISOR

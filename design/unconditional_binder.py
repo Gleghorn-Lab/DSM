@@ -22,8 +22,8 @@ TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = True
-STEP_DIVISOR = 4
-BATCH_SIZE = 4
+STEP_DIVISOR = 1
+BATCH_SIZE = 1
 API_BATCH_SIZE = 25
 
 
@@ -31,6 +31,7 @@ def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--num_samples', type=int, default=1000)
+    parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
     return parser.parse_args()
 
 
@@ -45,12 +46,8 @@ def prediction_worker(design_queue, result_queue):
         designs, batch_masks = batch_data
         print(f'Processing batch of {len(designs)} designs in thread')
         
-        # Get unique designs
-        unique_designs = list(set(designs))
-        print(f'Number of unique designs in batch: {len(unique_designs)}')
-        
         # Predict against target
-        batch_df = predict_against_target(target=TARGET, designs=unique_designs)
+        batch_df = predict_against_target(target=TARGET, designs=designs, test=args.test)
         
         # Map mask rates to unique designs
         design_to_mask = {designs[i]: batch_masks[i] for i in range(len(designs))}

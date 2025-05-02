@@ -18,6 +18,7 @@ from sklearn.metrics import (
     matthews_corrcoef
 )
 from transformers import AutoModelForMaskedLM
+from glob import glob
 
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator_mask
@@ -37,12 +38,172 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--mask_rates', nargs='+', type=float, default=[0.05, 0.15, 0.30, 0.50, 0.70, 0.90])
     parser.add_argument('--max_length', type=int, default=1022)
+    parser.add_argument('--generate_comparison_plot', action='store_true', 
+                       help='Generate a plot comparing all models across all mask rates')
+    parser.add_argument('--metric', type=str, default='loss', 
+                       choices=['loss', 'perplexity', 'precision', 'recall', 'f1', 'accuracy', 'mcc', 'alignment_score'],
+                       help='Metric to use for comparison plot')
+    parser.add_argument('--plot_output', type=str, default='results/mask_rate_comparison.png',
+                       help='Path to save comparison plot')
     return parser.parse_args()
+
+
+def generate_comparison_plot(results_dir, metric='loss', output_file='results/mask_rate_comparison.png'):
+    """
+    Generate a plot comparing all models across all mask rates for a specific metric.
+    
+    Args:
+        results_dir: Directory containing the evaluation results
+        metric: Metric to use for comparison (loss, perplexity, etc.)
+        output_file: Path to save the plot
+    """
+    # Create directories if they don't exist
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    
+    # Find all CSV files in the results directory
+    csv_files = glob(os.path.join(results_dir, 'mask_fill_benchmark_*_mask*.csv'))
+    
+    if not csv_files:
+        print("No result files found. Run the evaluation first.")
+        return
+    
+    # Dictionary to store all results
+    results_data = {}
+    
+    # Process all CSV files
+    for csv_file in csv_files:
+        # Extract mask rate and dataset type from filename
+        filename = os.path.basename(csv_file)
+        parts = filename.replace('.csv', '').split('_')
+        dataset_type = parts[2]
+        mask_rate = int(parts[-1].replace('mask', '')) / 100
+        
+        # Read the CSV file
+        df = pd.read_csv(csv_file)
+        
+        # Extract the models and their metrics
+        for _, row in df.iterrows():
+            model_name = row['model']
+            metric_value = row[metric]
+            
+            if model_name not in results_data:
+                results_data[model_name] = {'mask_rates': [], 'metrics': [], 'dataset_types': []}
+            
+            results_data[model_name]['mask_rates'].append(mask_rate)
+            results_data[model_name]['metrics'].append(metric_value)
+            results_data[model_name]['dataset_types'].append(dataset_type)
+    
+    # Create the plot
+    plt.figure(figsize=(14, 10))
+    
+    # Define a colormap for different models
+    cmap = plt.cm.get_cmap('tab10', len(results_data))
+    
+    # Prepare separate subplots for valid and test datasets
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), sharey=True)
+    
+    # Add a main title
+    fig.suptitle(f'Model Performance ({metric.upper()}) vs Mask Rate', fontsize=16)
+    
+    # Plot lines for each model on both subplots
+    for i, (model_name, data) in enumerate(results_data.items()):
+        # Create a DataFrame for easier manipulation
+        model_df = pd.DataFrame({
+            'mask_rate': data['mask_rates'],
+            'metric': data['metrics'],
+            'dataset_type': data['dataset_types']
+        })
+        
+        # Plot for valid dataset
+        valid_df = model_df[model_df['dataset_type'] == 'valid']
+        if not valid_df.empty:
+            mask_rates_sorted = sorted(valid_df['mask_rate'].unique())
+            metrics = [valid_df[valid_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+            ax1.plot(mask_rates_sorted, metrics, marker='o', label=model_name, color=cmap(i))
+        
+        # Plot for test dataset
+        test_df = model_df[model_df['dataset_type'] == 'test']
+        if not test_df.empty:
+            mask_rates_sorted = sorted(test_df['mask_rate'].unique())
+            metrics = [test_df[test_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+            ax2.plot(mask_rates_sorted, metrics, marker='o', label=model_name, color=cmap(i))
+    
+    # Set titles and labels
+    ax1.set_title('Validation Dataset')
+    ax2.set_title('Test Dataset')
+    
+    for ax in [ax1, ax2]:
+        ax.set_xlabel('Mask Rate')
+        ax.set_ylabel(metric.capitalize())
+        ax.grid(True, linestyle='--', alpha=0.7)
+        # Format x-axis to show mask rates as percentages
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x*100)}%'))
+    
+    # Add legend to the right of the second subplot
+    handles, labels = ax2.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5))
+    
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0, 0.85, 0.95])  # Make room for the legend and title
+    
+    # Save the plot
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Comparison plot saved to {output_file}")
+    
+    # Also create a single plot with all datasets for quick comparison
+    plt.figure(figsize=(12, 8))
+    
+    # Plot lines for each model and dataset
+    for i, (model_name, data) in enumerate(results_data.items()):
+        # Create a DataFrame for easier manipulation
+        model_df = pd.DataFrame({
+            'mask_rate': data['mask_rates'],
+            'metric': data['metrics'],
+            'dataset_type': data['dataset_types']
+        })
+        
+        # Plot for each dataset type
+        for dataset, linestyle in [('valid', 'dashed'), ('test', 'solid')]:
+            dataset_df = model_df[model_df['dataset_type'] == dataset]
+            if not dataset_df.empty:
+                mask_rates_sorted = sorted(dataset_df['mask_rate'].unique())
+                metrics = [dataset_df[dataset_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+                plt.plot(mask_rates_sorted, metrics, marker='o', linestyle=linestyle,
+                         label=f"{model_name} ({dataset})", color=cmap(i))
+    
+    # Add labels and title
+    plt.xlabel('Mask Rate')
+    plt.ylabel(metric.capitalize())
+    plt.title(f'Model Performance ({metric.upper()}) vs Mask Rate')
+    
+    # Format x-axis to show mask rates as percentages
+    plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x*100)}%'))
+    
+    # Add grid
+    plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # Add legend
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Save the plot
+    combined_output = output_file.replace('.png', '_combined.png')
+    plt.savefig(combined_output, dpi=300, bbox_inches='tight')
+    print(f"Combined comparison plot saved to {combined_output}")
 
 
 def main():
     # py -m eval_mask_fill
     args = parse_args()
+    
+    # If only generating the comparison plot, skip evaluation
+    if args.generate_comparison_plot and len(glob(os.path.join('results', 'mask_fill_benchmark_*_mask*.csv'))) > 0:
+        print("Generating comparison plot from existing results...")
+        generate_comparison_plot('results', args.metric, args.plot_output)
+        return
+    
     batch_size = args.batch_size
     mask_rates = args.mask_rates
     max_length = args.max_length
@@ -62,15 +223,16 @@ def main():
     
     # Define models once
     model_names = {
-        #'Synthyra/ESM2-8M': 'ESM2-8M',
-        #'Synthyra/ESM2-35M': 'ESM2-35M',
-        #'Synthyra/ESM2-150M': 'ESM2-150M',
-        #'GleghornLab/eval_diff_150': 'ESMdiff-150M',
-        #'Synthyra/ESMplusplus_small': 'ESMC-300M',
-        #'Synthyra/ESMplusplus_large': 'ESMC-600M',
-        #'Synthyra/ESM2-650M': 'ESM2-650M',
-        'lhallee/esm_diff_650_40000': 'ESMdiff-650M',
-        #'Synthyra/ESM2-3B': 'ESM2-3B'
+        'Synthyra/ESM2-8M': 'ESM2-8M',
+        'Synthyra/ESM2-35M': 'ESM2-35M',
+        'Synthyra/ESM2-150M': 'ESM2-150M',
+        'GleghornLab/eval_diff_150': 'ESMdiff-150M',
+        'Synthyra/ESMplusplus_small': 'ESMC-300M',
+        'Synthyra/ESMplusplus_large': 'ESMC-600M',
+        'Synthyra/ESM2-650M': 'ESM2-650M',
+        'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
+        'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
+        'Synthyra/ESM2-3B': 'ESM2-3B'
     }
 
     all_results = {}
@@ -255,6 +417,10 @@ def main():
             comparison_path = os.path.join(results_dir, f'mask_fill_metrics_comparison_mask{int(mask_rate*100)}.png')
             plt.savefig(comparison_path)
             plt.close()
+    
+    # Generate the comprehensive plot across all mask rates if requested
+    if args.generate_comparison_plot:
+        generate_comparison_plot(results_dir, args.metric, args.plot_output)
 
 
 if __name__ == '__main__':

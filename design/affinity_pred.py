@@ -2,6 +2,7 @@ import time
 import requests
 import io
 import csv
+import numpy as np
 import pandas as pd
 from datetime import datetime
 from typing import Optional, List, Dict
@@ -101,20 +102,45 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         time.sleep(10)
 
 
-def predict_against_target(target: str, designs: List[str]) -> pd.DataFrame:
+def predict_against_target(target: str, designs: List[str], test: bool = False) -> pd.DataFrame:
     """
     Predict the affinity of a list of designs against a target sequence.
     Sort by predicted affinity.
+    
+    Args:
+        target: The target sequence
+        designs: List of design sequences
+        test: If True, use random test data instead of calling the API
     """
+    if test:
+        return predict_against_target_test(target, designs)
+    
     data = [{'SeqA': target, 'SeqB': design} for design in designs]
     df = send_request(data, 'ppi')
     return df
 
 
+def predict_against_target_test(target: str, designs: List[str]) -> pd.DataFrame:
+    """
+    Generate random results in columns
+    ppi-pred: int 0 or 1
+    ppi-probability: float 0-1
+    predicted-pKd: float
+    predicted-binding-sites: str
+    """
+    data = [{'SeqA': target, 'SeqB': design} for design in designs]
+    df = pd.DataFrame(data)
+    df['ppi-pred'] = np.random.randint(0, 2, len(df))
+    df['ppi-probability'] = np.random.rand(len(df))
+    df['predicted-pKd'] = np.random.rand(len(df))
+    df['predicted-binding-sites'] = [str(e) for e in np.random.randint(0, 100, len(df))]
+    return df
+
+
+
 if __name__ == "__main__":
     # py -m design.affinity_pred
     import argparse
-    import numpy as np
     import os
     from datasets import load_dataset
     from transformers import EvalPrediction
@@ -125,6 +151,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default=None, help="Path to the dataset")
+    parser.add_argument("--test", action="store_true", help="Use test data instead of calling the API")
     args = parser.parse_args()
 
     if args.data_path is None:
@@ -148,7 +175,15 @@ if __name__ == "__main__":
             labels = data['pkd']
         data = [{'SeqA': seqs_a[i], 'SeqB': seqs_b[i]} for i in range(len(seqs_a))]
 
-        df = send_request(data, 'ppi')
+        if args.test:
+            # Create test dataframe with random values
+            df = pd.DataFrame(data)
+            df['ppi-pred'] = np.random.randint(0, 2, len(df))
+            df['ppi-probability'] = np.random.rand(len(df))
+            df['predicted-pKd'] = np.random.rand(len(df))
+            df['predicted-binding-sites'] = np.random.randint(0, 100, len(df))
+        else:
+            df = send_request(data, 'ppi')
 
         ppi_preds = np.array(df['ppi-pred']).flatten()
         affinity_preds = np.array(df['predicted-pKd']).flatten()

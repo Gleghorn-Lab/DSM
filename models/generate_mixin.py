@@ -63,6 +63,7 @@ class GenerateMixin:
 
     def _mask_sampling(self, logits: torch.Tensor, temperature: float, remasking: str, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         logits_with_noise = self._add_gumbel_noise(logits, temperature=temperature)
+        logits_with_noise[:, :, self.mask_token_id] = -torch.inf # prevent mask token from being selected
         x0 = torch.argmax(logits_with_noise, dim=-1)  # b, l
         if remasking == 'low_confidence':
             p = F.softmax(logits.to(torch.float64), dim=-1)
@@ -146,6 +147,9 @@ class GenerateMixin:
             x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
             has_prompt = True
         
+        cls_mask = (x == self.cls_token_id)
+        eos_mask = (x == self.eos_token_id)
+
         if start_with_methionine:
             x[:, 1] = self.methionine_token_id        
 
@@ -174,8 +178,9 @@ class GenerateMixin:
                 if num_block < num_blocks - 1:
                     x0_p[:, block_end:] = -np.inf
             
-            # Don't consider CLS and EOS tokens
-            x0_p[:, 0], x0_p[:, -1] = -np.inf, -np.inf
+            # Don't consider CLS and EOS 
+            x0_p[cls_mask] = -np.inf
+            x0_p[eos_mask] = -np.inf
             
             # If start_with_methionine is True, don't consider the first token after CLS
             if start_with_methionine:
@@ -198,7 +203,9 @@ class GenerateMixin:
             non_mask_tokens = (x != self.mask_token_id)
             canonical_check = self.canonical_mask.to(device)[x]
             to_remask = non_mask_tokens & ~canonical_check
-            to_remask[:, 0], to_remask[:, -1] = False, False
+            # Don't consider CLS and EOS 
+            to_remask[cls_mask] = False
+            to_remask[eos_mask] = False
             x[to_remask] = self.mask_token_id
             
             if preview:
