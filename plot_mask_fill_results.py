@@ -1,51 +1,39 @@
-import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import argparse
+import os
 from glob import glob
 
+# ['loss', 'perplexity', 'precision', 'recall', 'f1', 'accuracy', 'mcc', 'alignment_score']
+pretty_metric_names = {
+    'loss': 'Loss',
+    'perplexity': 'Perplexity',
+    'precision': 'Precision',
+    'recall': 'Recall',
+    'f1': 'F1 Score',
+    'accuracy': 'Accuracy',
+    'mcc': 'MCC',
+    'alignment_score': 'Alignment Score'
+}
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Generate a plot of loss across all mask rates')
-    parser.add_argument('--results_dir', type=str, default='results', help='Directory containing evaluation result CSV files')
-    parser.add_argument('--output_file', type=str, default='plots/mask_rate_comparison.png', help='Path to save the output plot')
-    parser.add_argument('--metric', type=str, default='loss', choices=['loss', 'perplexity', 'precision', 'recall', 'f1', 'accuracy', 'mcc', 'alignment_score'], 
-                        help='Metric to plot on y-axis')
-    parser.add_argument('--dataset_type', type=str, default='test', choices=['valid', 'test', 'both'], 
-                        help='Dataset type to use for plotting')
-    return parser.parse_args()
 
-
-def main():
-    args = parse_args()
+def generate_comparison_plot(results_dir, metric='loss', output_file='results/mask_rate_comparison.png'):
+    """
+    Generate a plot comparing all models across all mask rates for a specific metric.
     
-    # Create output directory if it doesn't exist
-    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
-    os.makedirs(args.results_dir, exist_ok=True)
+    Args:
+        results_dir: Directory containing the evaluation results
+        metric: Metric to use for comparison (loss, perplexity, etc.)
+        output_file: Path to save the plot
+    """
+    # Create directories if they don't exist
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
     # Find all CSV files in the results directory
-    csv_files = glob(os.path.join(args.results_dir, f'mask_fill_benchmark_{args.dataset_type}_mask*.csv'))
-    
-    # If dataset_type is 'both', get files for both valid and test
-    if args.dataset_type == 'both':
-        csv_files = glob(os.path.join(args.results_dir, 'mask_fill_benchmark_*_mask*.csv'))
+    csv_files = glob(os.path.join(results_dir, 'mask_fill_benchmark_*_mask*.csv'))
     
     if not csv_files:
-        # If no results exist yet, run the evaluation script to generate them
-        print("No result files found. Running the evaluation script to generate results...")
-        # We'll use the models and mask_rates from the evaluation script
-        from eval_mask_fill import main as run_eval
-        run_eval()
-        
-        # Try to find the CSV files again
-        csv_files = glob(os.path.join(args.results_dir, f'mask_fill_benchmark_{args.dataset_type}_mask*.csv'))
-        if args.dataset_type == 'both':
-            csv_files = glob(os.path.join(args.results_dir, 'mask_fill_benchmark_*_mask*.csv'))
-            
-        if not csv_files:
-            print("No result files found even after running evaluation. Please check the evaluation script.")
-            return
+        print("No result files found. Run the evaluation first.")
+        return
     
     # Dictionary to store all results
     results_data = {}
@@ -55,7 +43,7 @@ def main():
         # Extract mask rate and dataset type from filename
         filename = os.path.basename(csv_file)
         parts = filename.replace('.csv', '').split('_')
-        dataset_type = parts[2]
+        dataset_type = parts[3]
         mask_rate = int(parts[-1].replace('mask', '')) / 100
         
         # Read the CSV file
@@ -64,7 +52,7 @@ def main():
         # Extract the models and their metrics
         for _, row in df.iterrows():
             model_name = row['model']
-            metric_value = row[args.metric]
+            metric_value = row[metric]
             
             if model_name not in results_data:
                 results_data[model_name] = {'mask_rates': [], 'metrics': [], 'dataset_types': []}
@@ -73,13 +61,18 @@ def main():
             results_data[model_name]['metrics'].append(metric_value)
             results_data[model_name]['dataset_types'].append(dataset_type)
     
-    # Create the plot
-    plt.figure(figsize=(12, 8))
-    
     # Define a colormap for different models
-    cmap = plt.cm.get_cmap('tab10', len(results_data))
+    colors = plt.cm.tab10.colors[:len(results_data)]
     
-    # Plot lines for each model
+    # Prepare separate subplots for valid and test datasets
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+    
+    metric_name = pretty_metric_names[metric]
+
+    # Add a main title
+    fig.suptitle(f'Model Performance ({metric_name}) vs Mask Rate', fontsize=16)
+    
+    # Plot lines for each model on both subplots
     for i, (model_name, data) in enumerate(results_data.items()):
         # Create a DataFrame for easier manipulation
         model_df = pd.DataFrame({
@@ -88,25 +81,67 @@ def main():
             'dataset_type': data['dataset_types']
         })
         
-        if args.dataset_type != 'both':
-            # If specific dataset type, plot a single line
-            mask_rates_sorted = sorted(model_df['mask_rate'].unique())
-            metrics = [model_df[model_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
-            plt.plot(mask_rates_sorted, metrics, marker='o', label=model_name, color=cmap(i))
-        else:
-            # If both dataset types, plot separate lines for valid and test
-            for dataset in ['valid', 'test']:
-                dataset_df = model_df[model_df['dataset_type'] == dataset]
-                if not dataset_df.empty:
-                    mask_rates_sorted = sorted(dataset_df['mask_rate'].unique())
-                    metrics = [dataset_df[dataset_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
-                    plt.plot(mask_rates_sorted, metrics, marker='o', label=f"{model_name} ({dataset})", 
-                             color=cmap(i), linestyle='solid' if dataset == 'test' else 'dashed')
+        # Plot for valid dataset
+        valid_df = model_df[model_df['dataset_type'] == 'valid']
+        if not valid_df.empty:
+            mask_rates_sorted = sorted(valid_df['mask_rate'].unique())
+            metrics = [valid_df[valid_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+            ax1.plot(mask_rates_sorted, metrics, marker='o', label=model_name, color=colors[i])
+        
+        # Plot for test dataset
+        test_df = model_df[model_df['dataset_type'] == 'test']
+        if not test_df.empty:
+            mask_rates_sorted = sorted(test_df['mask_rate'].unique())
+            metrics = [test_df[test_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+            ax2.plot(mask_rates_sorted, metrics, marker='o', label=model_name, color=colors[i])
+    
+    # Set titles and labels
+    ax1.set_title('Validation Dataset')
+    ax2.set_title('Test Dataset')
+    
+    for ax in [ax1, ax2]:
+        ax.set_xlabel('Mask Rate')
+        ax.set_ylabel(metric_name)
+        ax.grid(True, linestyle='--', alpha=0.7)
+        # Format x-axis to show mask rates as percentages
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x*100)}%'))
+    
+    # Add legend to the right of the second subplot with minimal spacing
+    handles, labels = ax2.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='center right', bbox_to_anchor=(1.02, 0.5))
+    
+    # Adjust layout to minimize white space
+    plt.tight_layout(rect=[0, 0, 0.9, 0.95])  # Reduced right margin
+    
+    # Save the plot
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Comparison plot saved to {output_file}")
+    
+    # Also create a single plot with all datasets for quick comparison
+    plt.figure(figsize=(12, 8))
+    
+    # Plot lines for each model and dataset
+    for i, (model_name, data) in enumerate(results_data.items()):
+        # Create a DataFrame for easier manipulation
+        model_df = pd.DataFrame({
+            'mask_rate': data['mask_rates'],
+            'metric': data['metrics'],
+            'dataset_type': data['dataset_types']
+        })
+        
+        # Plot for each dataset type
+        for dataset, linestyle in [('valid', 'dashed'), ('test', 'solid')]:
+            dataset_df = model_df[model_df['dataset_type'] == dataset]
+            if not dataset_df.empty:
+                mask_rates_sorted = sorted(dataset_df['mask_rate'].unique())
+                metrics = [dataset_df[dataset_df['mask_rate'] == rate]['metric'].values[0] for rate in mask_rates_sorted]
+                plt.plot(mask_rates_sorted, metrics, marker='o', linestyle=linestyle,
+                         label=f"{model_name} ({dataset})", color=colors[i])
     
     # Add labels and title
     plt.xlabel('Mask Rate')
-    plt.ylabel(args.metric.capitalize())
-    plt.title(f'Model Performance ({args.metric}) vs Mask Rate')
+    plt.ylabel(metric_name)
+    plt.title(f'Model Performance ({metric_name}) vs Mask Rate')
     
     # Format x-axis to show mask rates as percentages
     plt.gca().xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{int(x*100)}%'))
@@ -115,18 +150,12 @@ def main():
     plt.grid(True, linestyle='--', alpha=0.7)
     
     # Add legend
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left')
     
     # Adjust layout
     plt.tight_layout()
     
     # Save the plot
-    plt.savefig(args.output_file, dpi=300, bbox_inches='tight')
-    print(f"Plot saved to {args.output_file}")
-    
-    # Show the plot
-    plt.show()
-
-
-if __name__ == '__main__':
-    main() 
+    combined_output = output_file.replace('.png', '_combined.png')
+    plt.savefig(combined_output, dpi=300, bbox_inches='tight')
+    print(f"Combined comparison plot saved to {combined_output}")
