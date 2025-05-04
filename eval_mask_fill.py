@@ -80,15 +80,16 @@ def main():
     
     # Define models once
     model_names = {
-        'Synthyra/ESM2-8M': 'ESM2-8M',
-        'Synthyra/ESM2-35M': 'ESM2-35M',
-        'Synthyra/ESM2-150M': 'ESM2-150M',
-        'GleghornLab/eval_diff_150': 'ESMdiff-150M',
-        'Synthyra/ESMplusplus_small': 'ESMC-300M',
-        'Synthyra/ESMplusplus_large': 'ESMC-600M',
-        'Synthyra/ESM2-650M': 'ESM2-650M',
-        'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
+        #'Synthyra/ESM2-8M': 'ESM2-8M',
+        #'Synthyra/ESM2-35M': 'ESM2-35M',
+        #'Synthyra/ESM2-150M': 'ESM2-150M',
+        #'GleghornLab/eval_diff_150': 'ESMdiff-150M',
+        #'Synthyra/ESMplusplus_small': 'ESMC-300M',
+        #'Synthyra/ESMplusplus_large': 'ESMC-600M',
+        #'Synthyra/ESM2-650M': 'ESM2-650M',
+        #'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
         'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
+        'lhallee/esm_diff_650_100000': 'ESMdiff-650M',
         #'Synthyra/ESM2-3B': 'ESM2-3B'
     }
 
@@ -104,7 +105,7 @@ def main():
             print(data)
             sequences = data['sequence']
             sequences = sorted(sequences, key=len, reverse=True)
-            sequences = sequences[:10]
+            #sequences = sequences[:10]
             print(sequences[-1])
             total_tokens = sum(len(seq[:1022]) for seq in sequences)
             print(f"Total tokens: {total_tokens}")
