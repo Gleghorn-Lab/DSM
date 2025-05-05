@@ -89,7 +89,7 @@ def main():
         #'Synthyra/ESM2-650M': 'ESM2-650M',
         #'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
         'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
-        'lhallee/esm_diff_650_100000': 'ESMdiff-650M',
+        'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
         #'Synthyra/ESM2-3B': 'ESM2-3B'
     }
 
@@ -214,7 +214,7 @@ def main():
 
             # Save results to CSV
             results_df = pd.DataFrame(results)
-            csv_path = os.path.join(results_dir, f'mask_fill_benchmark_{type}_mask{int(mask_rate*100)}.csv')
+            csv_path = os.path.join(args.results_dir, f'mask_fill_benchmark_{type}_mask{int(mask_rate*100)}.csv')
             results_df.to_csv(csv_path, index=False)
             all_results[type] = results_df
             
@@ -249,7 +249,7 @@ def main():
             plt.grid(axis='y', linestyle='--', alpha=0.7)
             
             plt.tight_layout()
-            plot_path = os.path.join(results_dir, f'mask_fill_metrics_{type}_mask{int(mask_rate*100)}.png')
+            plot_path = os.path.join(args.results_dir, f'mask_fill_metrics_{type}_mask{int(mask_rate*100)}.png')
             plt.savefig(plot_path)
             plt.close()
         
