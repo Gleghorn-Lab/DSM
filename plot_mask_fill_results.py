@@ -62,7 +62,7 @@ def generate_comparison_plot(results_dir, metric='loss', output_file='results/ma
             results_data[model_name]['dataset_types'].append(dataset_type)
     
     # Define a colormap for different models
-    colors = plt.cm.tab10.colors[:len(results_data)]
+    colors = plt.cm.tab20.colors[:len(results_data)]
     
     # Prepare separate subplots for valid and test datasets
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8), sharey=True)

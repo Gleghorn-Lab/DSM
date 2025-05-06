@@ -60,7 +60,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
     if task_type == 'ppi':
         data = {
             'name': name,
-            'options': '["ppi", "affinity", "binding"]'
+            'options': '["ppi", "affinity"]'
         }
     elif task_type == 'annotation':
         data = {

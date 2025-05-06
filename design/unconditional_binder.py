@@ -12,17 +12,13 @@ from .affinity_pred import predict_against_target
 
 
 SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
-MODEL_PATH = 'GleghornLab/esm_diff_150'
-TARGET = 'LEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGYVLIALNTVERIPLENLQIIRGNMYYENSYALAVLSNYDANKTGLKELPMRNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCWGAGEENCQKLTKIICAQQCSGRCRGKSPSDCCHNQCAAGCTGPRESDCLVCRKFRDEATCKDTCPPLMLYNPTTYQMDVNPEGKYSFGATCVKKCPRNYVVTDHGSCVRACGADSYEMEEDGVRKCKKCEGPCRKVCNGIGIGEFKDSLSINATNIKHFKNCTSISGDLHILPVAFRGDSFTHTPPLDPQELDILKTVKEITGFLLIQAWPENRTDLHAFENLEIIRGRTKQHGQFSLAVVSLNITSLGLRSLKEISDGDVIISGNKNLCYANTINWKKLFGTSGQKTKIISNRGENSCKATGQVCHALCSPEGCWGPEPRDCVSCRNVSRGRECVDKCNLLEGEPREFVENSECIQCHPECLPQAMNITCTGRGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLEGCPTNGPKIPS'
-TARGET_AMINOS = ['S11', 'N12', 'K13', 'T15', 'Q16', 'L17', 'G18', 'S356', 'S440', 'G441']
-TARGET_IDX = [11, 12, 13, 15, 16, 17, 18, 356, 440, 441]
-TEMPLATE = 'QVQLQQSGPGLVQPSQSLSITCTVSGFSLTNYGVHWVRQSPGKGLEWLGVIWSGGNTDYNTPFTSRLSISRDTSKSQVFFKMNSLQTDDTAIYYCARALTYYDYEFAYWGQGTLVTVSAGGGGSGGGGSGGGGSDILLTQSPVILSVSPGERVSFSCRASQSIGTNIHWYQQRTNGSPKLLIRYASESISGIPSRFSGSGSGTDFTLSINSVDPEDIADYYCQQNNNWPTTFGAGTKLELK'
-TRUE_PKD = 8.918238
+MODEL_PATH = 'GleghornLab/ESM_diff_650'
+
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = True
-STEP_DIVISOR = 1
+PREVIEW = False
+STEP_DIVISOR = 8
 BATCH_SIZE = 1
 API_BATCH_SIZE = 25
 
@@ -30,7 +26,7 @@ API_BATCH_SIZE = 25
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
-    parser.add_argument('--num_samples', type=int, default=1000)
+    parser.add_argument('--num_samples', type=int, default=100)
     parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
     return parser.parse_args()
 
@@ -94,11 +90,14 @@ if __name__ == '__main__':
         # Randomly select a region to mask
         if random.random() < 0.5:
             template_length = len(TEMPLATE)
-            region_start = random.randint(0, template_length // 2)
-            region_end = random.randint(region_start, template_length)
-            template = TEMPLATE[region_start:region_end]
-            start = region_start
-            end = region_end
+            template_section_length = 0
+            while template_section_length < template_length // 4:
+                region_start = random.randint(0, template_length // 2)
+                region_end = random.randint(region_start, template_length)
+                template = TEMPLATE[region_start:region_end]
+                start = region_start
+                end = region_end
+                template_section_length = end - start
         else:
             template = TEMPLATE
             start = 0
@@ -171,13 +170,13 @@ if __name__ == '__main__':
         df = df.rename(columns={'SeqB': 'Design'})
 
         # Calculate target-sites
-        df['target-sites'] = df['predicted-binding-sites'].apply(
-            lambda x: sum(1 for target_amino in TARGET_AMINOS if f'{target_amino}a'.lower() in str(x).lower())
-        )
-        df['target-sites'] = df['target-sites'].astype(object)
+        #df['target-sites'] = df['predicted-binding-sites'].apply(
+        #    lambda x: sum(1 for target_amino in TARGET_AMINOS if f'{target_amino}a'.lower() in str(x).lower())
+        #)
+        #df['target-sites'] = df['target-sites'].astype(object)
 
-        # Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
-        df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
+        ## Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
+        #df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
 
         print(df.head())
         df.to_csv('designs.csv', index=False)

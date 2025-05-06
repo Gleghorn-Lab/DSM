@@ -141,11 +141,14 @@ if __name__ == '__main__':
         # Randomly select a region to mask
         if random.random() < 0.5:
             template_length = len(TEMPLATE)
-            region_start = random.randint(0, template_length // 2)
-            region_end = random.randint(region_start, template_length)
-            template = TEMPLATE[region_start:region_end]
-            start = region_start
-            end = region_end
+            template_section_length = 0
+            while template_section_length < template_length // 4:
+                region_start = random.randint(0, template_length // 2)
+                region_end = random.randint(region_start, template_length)
+                template = TEMPLATE[region_start:region_end]
+                start = region_start
+                end = region_end
+                template_section_length = end - start
         else:
             template = TEMPLATE
             start = 0

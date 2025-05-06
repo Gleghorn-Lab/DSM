@@ -78,17 +78,20 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="GleghornLab/esm_diff_150", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/esm_diff_bind_150", help="Path to save the model and report to wandb")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=8, help="Gradient accumulation steps")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/ESM_diff_650", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="lhallee/ESM_diff_bind_650", help="Path to save the model and report to wandb")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=2, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=1024, help="Maximum length of sequences fed to the model")
-    parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--save_every", type=int, default=250, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
+    parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
+    parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
     args = parser.parse_args()
     return args
 
@@ -97,7 +100,7 @@ def main(args):
     set_seed(42)
     ### Load model
     model = ESM_Diff_Binders.from_pretrained(args.model_path)
-    model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
+    model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
     tokenizer = model.tokenizer
     summary(model)
 
