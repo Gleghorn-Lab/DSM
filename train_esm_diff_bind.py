@@ -103,7 +103,16 @@ def main(args):
     model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
     tokenizer = model.tokenizer
     summary(model)
-
+    
+    # Print GPU information
+    if torch.cuda.is_available():
+        num_gpus = torch.cuda.device_count()
+        print(f"Number of available GPUs: {num_gpus}")
+        for i in range(num_gpus):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+    else:
+        print("No GPU available, using CPU")
+    
     ### Load Dataset
     train_dataset = load_dataset("lhallee/string_model_org_90_90_split")
 
@@ -141,7 +150,7 @@ def main(args):
         save_steps=args.save_every,
         eval_steps=args.save_every,
         warmup_steps=args.save_every,
-        logging_dir="./logs",
+        logging_dir="./logs", 
         learning_rate=args.lr,
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
@@ -149,6 +158,7 @@ def main(args):
         save_total_limit=3,
         max_grad_norm=10.0,
         label_names=['input_ids'],
+        local_rank=-1,
     )
 
     ### Create a trainer
