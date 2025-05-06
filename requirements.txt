@@ -22,3 +22,4 @@ biotite
 seaborn
 matplotlib
 pauc
+sentencepiece
