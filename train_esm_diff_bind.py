@@ -111,7 +111,7 @@ def main(args):
     )
     train_dataset = train_dataset.shuffle(seed=42)
 
-    valid_dataset = train_dataset['valid']
+    valid_dataset = train_dataset['valid'].select(range(1000))
     test_dataset = train_dataset['test']
     train_dataset = train_dataset['train']
     
