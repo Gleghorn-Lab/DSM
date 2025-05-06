@@ -38,7 +38,7 @@ def wrap_lora(module: nn.Module, r: int, lora_alpha: float, lora_dropout: float)
     otherwise, freeze the module parameters.
     """
     # these modules handle ESM++ and ESM2 attention types, as well as any additional transformer blocks from Syndev
-    target_modules=["layernorm_qkv.1", "out_proj", "query", "key", "value", "dense"]
+    target_modules=["layernorm_qkv.1", "query", "key", "value"]
     from peft import LoraConfig, LoraModel
     lora_config = LoraConfig(
         r=r,
