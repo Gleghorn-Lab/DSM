@@ -92,6 +92,7 @@ def parse_args():
     parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
     parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
     parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
+    parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training")
     args = parser.parse_args()
     return args
 
@@ -153,7 +154,7 @@ def main(args):
         logging_dir="./logs", 
         learning_rate=args.lr,
         fp16=args.fp16,
-        dataloader_num_workers=0 if not args.bugfix else 0,
+        dataloader_num_workers=4 if not args.bugfix else 0,
         report_to="wandb" if WANDB_AVAILABLE else 'none',
         save_total_limit=3,
         max_grad_norm=10.0,
