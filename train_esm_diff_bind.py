@@ -86,7 +86,7 @@ def parse_args():
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
-    parser.add_argument("--save_every", type=int, default=250, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--save_every", type=int, default=500, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
     parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
