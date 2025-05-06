@@ -89,6 +89,7 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=500, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    parser.add_argument("--lora", action="store_true", help="Use LoRA for training")
     parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
     parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
     parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
@@ -101,7 +102,8 @@ def main(args):
     set_seed(42)
     ### Load model
     model = ESM_Diff_Binders.from_pretrained(args.model_path)
-    model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
+    if args.lora:
+        model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
     tokenizer = model.tokenizer
     summary(model)
     
