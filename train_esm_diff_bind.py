@@ -18,7 +18,6 @@ from datasets import load_dataset
 from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
 from data.data_collators import PairCollator_input_ids
 from models.modeling_esm_diff import ESM_Diff_Binders
-from models.alignment_helpers import GetAlignmentScoreFromLogits
 from models.utils import wrap_lora
 from utils import set_seed
 
@@ -38,10 +37,7 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     ### NOTE the eval mask percentage is fixed at 15%
     metrics = {}
     lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
-    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
     lm_logits, labels = lm_logits
-
-    scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
@@ -54,7 +50,6 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     )
 
     metrics['cross_entropy_loss'] = cross_entropy_loss
-    metrics['alignment_score'] = scores.mean()
 
     y_pred = lm_logits.argmax(axis=-1).flatten()
     y_true = labels.flatten()
@@ -72,6 +67,8 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     metrics["acc"] = acc
     metrics["mcc"] = mcc
 
+    del lm_logits, labels, lm_logits_torch, labels_torch
+    torch.cuda.empty_cache()
     return metrics
 
 
