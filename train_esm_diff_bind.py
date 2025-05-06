@@ -153,12 +153,11 @@ def main(args):
         logging_dir="./logs", 
         learning_rate=args.lr,
         fp16=args.fp16,
-        dataloader_num_workers=4 if not args.bugfix else 0,
+        dataloader_num_workers=0 if not args.bugfix else 0,
         report_to="wandb" if WANDB_AVAILABLE else 'none',
         save_total_limit=3,
         max_grad_norm=10.0,
         label_names=['input_ids'],
-        local_rank=-1,
     )
 
     ### Create a trainer
