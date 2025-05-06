@@ -87,10 +87,9 @@ def parse_args():
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
     parser.add_argument("--lora", action="store_true", help="Use LoRA for training")
-    parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
+    parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank")
     parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
     parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
-    parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training")
     args = parser.parse_args()
     return args
 
