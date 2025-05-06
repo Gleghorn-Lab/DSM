@@ -8,6 +8,8 @@ import os
 from tqdm import tqdm
 from huggingface_hub import login
 from models.modeling_esm_diff import ESM_Diff
+
+from .binder_info import BINDING_INFO
 from .affinity_pred import predict_against_target
 
 
@@ -18,9 +20,7 @@ TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 8
-BATCH_SIZE = 1
-API_BATCH_SIZE = 25
+STEP_DIVISOR = 1
 
 
 def arg_parser():
@@ -28,10 +28,13 @@ def arg_parser():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--num_samples', type=int, default=100)
     parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
+    parser.add_argument('--target', type=str, default='EGFR', help='Target to design for')
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
     return parser.parse_args()
 
 
-def prediction_worker(design_queue, result_queue):
+def prediction_worker(design_queue, result_queue, TARGET):
     """Worker function to process prediction batches in separate threads."""
     while True:
         batch_data = design_queue.get()
@@ -59,6 +62,8 @@ if __name__ == '__main__':
     args = arg_parser()
     if args.token is not None:
         login(args.token)
+    
+    TARGET, TARGET_AMINOS, TARGET_IDX, TEMPLATE, TRUE_PKD, SOURCE, BINDER_SOURCE = BINDING_INFO[args.target]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
@@ -74,7 +79,7 @@ if __name__ == '__main__':
     num_threads = os.cpu_count() // 4  # Adjust based on your system capabilities
     threads = []
     for i in range(num_threads):
-        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue))
+        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue, TARGET))
         t.daemon = True
         t.start()
         threads.append(t)
@@ -84,7 +89,7 @@ if __name__ == '__main__':
     design_set.add(TEMPLATE)
 
     # Generate designs
-    for sample in tqdm(range(args.num_samples // BATCH_SIZE)):
+    for sample in tqdm(range(args.num_samples // args.batch_size)):
         mask_percentage = random.uniform(0.01, 0.9)
         
         # Randomly select a region to mask
@@ -104,8 +109,8 @@ if __name__ == '__main__':
             end = len(TEMPLATE)
         template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(device)
         # expand template tokens to batch_size
-        if BATCH_SIZE > 1:
-            template_tokens = template_tokens.repeat(BATCH_SIZE, 1)
+        if args.batch_size > 1:
+            template_tokens = template_tokens.repeat(args.batch_size, 1)
 
         # randomly mask template tokens
         mask_index = torch.rand_like(template_tokens.float()) < mask_percentage
@@ -125,8 +130,8 @@ if __name__ == '__main__':
             start_with_methionine=False
         )
 
-        if BATCH_SIZE > 1:
-            batch_designs = [model._decode_seq(output_tokens[i]) for i in range(BATCH_SIZE)]
+        if args.batch_size > 1:
+            batch_designs = [model._decode_seq(output_tokens[i]) for i in range(args.batch_size)]
             for design in batch_designs:
                 if design in design_set:
                     continue
@@ -137,7 +142,7 @@ if __name__ == '__main__':
             design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
         
         # Submit batch for processing when we reach api_batch_size
-        if len(designs) >= API_BATCH_SIZE:
+        if len(designs) >= args.api_batch_size:
             design_queue.put((designs.copy(), design_info.copy()))
             designs, design_info = [], []
     

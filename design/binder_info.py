@@ -9,27 +9,60 @@ BINDING_INFO = { # sequence, target_amino_acids, target_amino_indices, template,
         8.918238,
         'Adaptyv',
         'Cradle'
-
     ),
     'BBF-14' : (
-
+        '',
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
     ),
     'BHRF1': (
         'MAKQPSDVSSECDREGRQLQPAERPPQLRPGAPTSLQTEPQGNPEGNHGGEGDSCPHGSPQGPLAPPASPGPFATRSPLFIFMRRSSLLSRSSSGYFSFDTDRSPAPMSCDKSTQTPSPPCQAFNHYLSAMASMRQAEPADMRPEIWIAQELRRIGDEFNAYYARRVFLNNYQAAEDHPRMVILRLLRYIVRLVWRMH',
-
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
     ),
     'Cas9': (
-
+        '',
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
     ),
     'IL-7Ralpha': (
-
-    ),
+        '',
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
+    ),  
     'MBP': (
-
+        '',
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
     ),
     'PD-L1': (
-
+        '',
+        [],
+        [],
+        '',
+        0.0,
+        '',
+        ''
     ),
-    
-    
+
 }
