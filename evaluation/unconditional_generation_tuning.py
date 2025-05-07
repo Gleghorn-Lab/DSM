@@ -145,10 +145,10 @@ if __name__ == '__main__':
     )
     
     # Fix for the merging error - directly sort the pivot table
-    # Get the 3-mer p-values for sorting
-    sorted_indices = pivot_df[('p_value', 3)].sort_values(ascending=True).index
+    # Sort by JSD first (smaller is better), then by p-value (smaller is better) for 3-mer
+    sorted_indices = pivot_df.sort_values(by=[('jsd', 3), ('p_value', 3)], ascending=[True, True]).index
     
-    # Sort the entire pivot table by the 3-mer p-value indices
+    # Sort the entire pivot table by the sorted indices
     final_results = pivot_df.loc[sorted_indices]
     display(final_results)
     
