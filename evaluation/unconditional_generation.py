@@ -1,10 +1,6 @@
 import torch
-import random
 import argparse
 import pandas as pd
-import threading
-import queue
-import os
 from tqdm import tqdm
 from datasets import Dataset
 from huggingface_hub import login, hf_hub_download
@@ -13,23 +9,22 @@ from models.modeling_esm_diff import ESM_Diff
 from evaluation.compare_distributions import compare_corpora_kmers
 
 
-SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
 
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 25
+STEP_DIVISOR = 5
 
 
-def get_eval_data(num_samples):
+def get_eval_data():
     local_file = hf_hub_download(
         repo_id="Synthyra/omg_prot50",
         filename=f"data/valid-00000-of-00001.parquet",
         repo_type="dataset"
     )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(num_samples))
+    data = Dataset.from_parquet(local_file).shuffle(seed=888)
     data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
     print(data)
     valid_seqs = data['sequence']
@@ -40,7 +35,6 @@ def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
-    parser.add_argument('--num_samples', type=int, default=100, help='Number of samples to generate')
     return parser.parse_args()
 
 
@@ -54,7 +48,7 @@ if __name__ == '__main__':
     model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
-    natural_seqs = get_eval_data(args.num_samples)
+    natural_seqs = get_eval_data()
 
     generated_seqs = []
 
@@ -81,3 +75,9 @@ if __name__ == '__main__':
         chi_p = f'{res["p"]:.3g}'
         jsd = f'{res["js"]:.4f}'
         result.append((k, chi_p, jsd))
+
+    ### Write natural and generated sequences to csv
+    df = pd.DataFrame()
+    df['natural'] = natural_seqs
+    df['generated'] = generated_seqs
+    df.to_csv('unconditional_generation_seqs.csv', index=False)
