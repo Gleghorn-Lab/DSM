@@ -1,0 +1,141 @@
+=== Logging session started at 2025-05-06 17:36:59 ===
+=
+hf_username:	Synthyra
+yaml_path:	None
+log_dir:	logs
+results_dir:	results
+model_save_dir:	weights
+embedding_save_dir:	embeddings
+download_dir:	Synthyra/mean_pooled_embeddings
+plots_dir:	plots
+replay_path:	None
+pretrained_probe_path:	None
+delimiter:	,
+col_names:	['seqs', 'labels']
+max_length:	1024
+trim:	False
+data_names:	['SecondaryStructure-3', 'SecondaryStructure-8']
+data_dirs:	[]
+model_names:	['standard']
+probe_type:	transformer
+hidden_dim:	512
+dropout:	0.1
+n_layers:	1
+pre_ln:	True
+classifier_dim:	2048
+transformer_dropout:	0.1
+classifier_dropout:	0.2
+n_heads:	8
+rotary:	True
+probe_pooling_types:	['mean', 'cls']
+save_model:	True
+production_model:	False
+use_lora:	False
+lora_r:	8
+lora_alpha:	32.0
+lora_dropout:	0.01
+scikit_n_iter:	10
+scikit_cv:	3
+scikit_random_state:	42
+scikit_model_name:	None
+use_scikit:	False
+n_jobs:	1
+embedding_batch_size:	8
+num_workers:	0
+download_embeddings:	False
+matrix_embed:	True
+embedding_pooling_types:	['mean']
+save_embeddings:	False
+embed_dtype:	float32
+sql:	False
+num_epochs:	200
+probe_batch_size:	64
+base_batch_size:	4
+probe_grad_accum:	1
+base_grad_accum:	8
+lr:	0.0001
+weight_decay:	0.01
+patience:	10
+seed:	42
+full_finetuning:	False
+hybrid_probe:	False
+
+=======================================================
+INFO - Called method: apply_current_settings
+INFO - Called method: get_datasets
+INFO - Called method: save_embeddings_to_disk
+INFO - Called method: run_nn_probes
+INFO - Processing 38 model/dataset combinations
+INFO - Processing model: ESM2-8
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESM2-8
+INFO - Storing metrics for SS3/ESM2-8 (valid): {'eval_loss': 0.622057318687439, 'eval_f1': 0.6889243711279657, 'eval_acc': 0.7524764606063576, 'eval_prec': 0.7230786170387724, 'eval_rec': 0.6666784058729377, 'eval_mcc': 0.6261073866876885, 'epoch': 19.0}
+INFO - Storing metrics for SS3/ESM2-8 (test): {'test_loss': 0.9875425696372986, 'test_f1': 0.6280755451882956, 'test_acc': 0.6807245201405785, 'test_prec': 0.6779642417878429, 'test_rec': 0.6172987229162514, 'test_mcc': 0.5437735923667275}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESM2-8
+INFO - Storing metrics for SS8/ESM2-8 (valid): {'eval_loss': 1.0866583585739136, 'eval_f1': 0.39298053334263605, 'eval_acc': 0.6193571310425945, 'eval_prec': 0.5363325069021975, 'eval_rec': 0.3863339313451484, 'eval_mcc': 0.5150252705526922, 'epoch': 20.0}
+INFO - Storing metrics for SS8/ESM2-8 (test): {'test_loss': 1.3638014793395996, 'test_f1': 0.32625171242513024, 'test_acc': 0.556997386681085, 'test_prec': 0.38215139861299985, 'test_rec': 0.32836763119282075, 'test_mcc': 0.44823965101022883}
+INFO - Processing model: ESM2-35
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESM2-35
+INFO - Storing metrics for SS3/ESM2-35 (valid): {'eval_loss': 0.5310180187225342, 'eval_f1': 0.729205547530735, 'eval_acc': 0.7920018133143834, 'eval_prec': 0.756090868390165, 'eval_rec': 0.710937259992088, 'eval_mcc': 0.6869283123692765, 'epoch': 16.0}
+INFO - Storing metrics for SS3/ESM2-35 (test): {'test_loss': 0.8592328429222107, 'test_f1': 0.632100433671133, 'test_acc': 0.6905469946832478, 'test_prec': 0.6788445026182699, 'test_rec': 0.6256664116955603, 'test_mcc': 0.5588476438490434}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESM2-35
+INFO - Storing metrics for SS8/ESM2-35 (valid): {'eval_loss': 0.9543057084083557, 'eval_f1': 0.43606320589463343, 'eval_acc': 0.6641999056586436, 'eval_prec': 0.5695679403355922, 'eval_rec': 0.42080581377836024, 'eval_mcc': 0.5733234427494975, 'epoch': 16.0}
+INFO - Storing metrics for SS8/ESM2-35 (test): {'test_loss': 1.2671568393707275, 'test_f1': 0.34340109860064144, 'test_acc': 0.5763719924303866, 'test_prec': 0.40299783527311744, 'test_rec': 0.3423766238442595, 'test_mcc': 0.4725499294859202}
+INFO - Processing model: ESM2-150
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESM2-150
+INFO - Storing metrics for SS3/ESM2-150 (valid): {'eval_loss': 0.4524378180503845, 'eval_f1': 0.761381230993372, 'eval_acc': 0.8243290430478384, 'eval_prec': 0.7797978775212283, 'eval_rec': 0.7467315375233899, 'eval_mcc': 0.7356561772726792, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ESM2-150 (test): {'test_loss': 0.7354750633239746, 'test_f1': 0.6710520982817056, 'test_acc': 0.7212760205460935, 'test_prec': 0.7158823800085047, 'test_rec': 0.6555193065418619, 'test_mcc': 0.6014889595983958}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESM2-150
+INFO - Storing metrics for SS8/ESM2-150 (valid): {'eval_loss': 0.8305027484893799, 'eval_f1': 0.5194596018405904, 'eval_acc': 0.7089507893431024, 'eval_prec': 0.6125019862542206, 'eval_rec': 0.49471685014160105, 'eval_mcc': 0.6322109498815877, 'epoch': 17.0}
+INFO - Storing metrics for SS8/ESM2-150 (test): {'test_loss': 1.147682547569275, 'test_f1': 0.4161421948285187, 'test_acc': 0.6131386861313869, 'test_prec': 0.5740333197075325, 'test_rec': 0.39883208719766955, 'test_mcc': 0.5206871734544798}
+INFO - Processing model: ESM2-650
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESM2-650
+INFO - Storing metrics for SS3/ESM2-650 (valid): {'eval_loss': 0.4044395089149475, 'eval_f1': 0.786343251431234, 'eval_acc': 0.8484534756213359, 'eval_prec': 0.8131363115536416, 'eval_rec': 0.7665461791852177, 'eval_mcc': 0.7721775198001197, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ESM2-650 (test): {'test_loss': 0.7207755446434021, 'test_f1': 0.6928832346384874, 'test_acc': 0.7447958907812923, 'test_prec': 0.7319149095783833, 'test_rec': 0.6798452686639425, 'test_mcc': 0.6360264485561407}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESM2-650
+INFO - Storing metrics for SS8/ESM2-650 (valid): {'eval_loss': 0.7403802275657654, 'eval_f1': 0.5769899228078464, 'eval_acc': 0.7447269920422454, 'eval_prec': 0.6387569876917646, 'eval_rec': 0.5577238044821543, 'eval_mcc': 0.6783757411719229, 'epoch': 17.0}
+INFO - Storing metrics for SS8/ESM2-650 (test): {'test_loss': 1.111025333404541, 'test_f1': 0.46776646840122726, 'test_acc': 0.6366585563665855, 'test_prec': 0.5363606669074688, 'test_rec': 0.44700887609016626, 'test_mcc': 0.5508244546238963}
+INFO - Processing model: ESM2-3B
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESM2-3B
+INFO - Storing metrics for SS3/ESM2-3B (valid): {'eval_loss': 0.39561107754707336, 'eval_f1': 0.7887635890396018, 'eval_acc': 0.852355777182869, 'eval_prec': 0.8078923795164554, 'eval_rec': 0.7736279412432076, 'eval_mcc': 0.7780115043858652, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ESM2-3B (test): {'test_loss': 0.7224740386009216, 'test_f1': 0.7084554920553848, 'test_acc': 0.7566909975669099, 'test_prec': 0.7460808684486999, 'test_rec': 0.693030951252092, 'test_mcc': 0.6529910459193503}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESM2-3B
+INFO - Storing metrics for SS8/ESM2-3B (valid): {'eval_loss': 0.7326943874359131, 'eval_f1': 0.5794726574653934, 'eval_acc': 0.7464974239908844, 'eval_prec': 0.6330848891737173, 'eval_rec': 0.558797172113827, 'eval_mcc': 0.68107536842388, 'epoch': 15.0}
+INFO - Storing metrics for SS8/ESM2-3B (test): {'test_loss': 1.0707141160964966, 'test_f1': 0.5030017628246106, 'test_acc': 0.6500856087230783, 'test_prec': 0.5515002360082196, 'test_rec': 0.48502715334218294, 'test_mcc': 0.568589833868204}
+INFO - Processing model: ESMC-300
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESMC-300
+INFO - Storing metrics for SS3/ESMC-300 (valid): {'eval_loss': 0.4075898826122284, 'eval_f1': 0.7842573857361975, 'eval_acc': 0.846413496940032, 'eval_prec': 0.8008552356563072, 'eval_rec': 0.7706595476404867, 'eval_mcc': 0.7690510514150152, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ESMC-300 (test): {'test_loss': 0.7052789926528931, 'test_f1': 0.6835643493606897, 'test_acc': 0.7359646751374246, 'test_prec': 0.7169544584723844, 'test_rec': 0.6713919830952063, 'test_mcc': 0.6232089857202193}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESMC-300
+INFO - Storing metrics for SS8/ESMC-300 (valid): {'eval_loss': 0.7550668120384216, 'eval_f1': 0.5645063213083948, 'eval_acc': 0.7370265319749811, 'eval_prec': 0.6327539127676872, 'eval_rec': 0.5459632371872801, 'eval_mcc': 0.6688311577395573, 'epoch': 17.0}
+INFO - Storing metrics for SS8/ESMC-300 (test): {'test_loss': 1.1169129610061646, 'test_f1': 0.43818417260977266, 'test_acc': 0.6291790574029017, 'test_prec': 0.5272931487191455, 'test_rec': 0.420700786979389, 'test_mcc': 0.5408412137070403}
+INFO - Processing model: ESMC-600
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ESMC-600
+INFO - Storing metrics for SS3/ESMC-600 (valid): {'eval_loss': 0.3928286135196686, 'eval_f1': 0.7863776137062685, 'eval_acc': 0.8524415420523533, 'eval_prec': 0.8087805110275607, 'eval_rec': 0.7691305253965425, 'eval_mcc': 0.7780047065727334, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ESMC-600 (test): {'test_loss': 0.7162322402000427, 'test_f1': 0.6920446862992023, 'test_acc': 0.7443453185545643, 'test_prec': 0.7328448231029503, 'test_rec': 0.6781957066256719, 'test_mcc': 0.6351221937863187}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ESMC-600
+INFO - Storing metrics for SS8/ESMC-600 (valid): {'eval_loss': 0.729692816734314, 'eval_f1': 0.5861953393830871, 'eval_acc': 0.7480656958900249, 'eval_prec': 0.6473878691657488, 'eval_rec': 0.5667098333875438, 'eval_mcc': 0.6825884242282769, 'epoch': 18.0}
+INFO - Storing metrics for SS8/ESMC-600 (test): {'test_loss': 0.9980040788650513, 'test_f1': 0.4798504626986903, 'test_acc': 0.6576552221321078, 'test_prec': 0.5603991360841432, 'test_rec': 0.4572171228197183, 'test_mcc': 0.5765586439181046}
+INFO - Processing model: ProtBert
+INFO - Processing dataset: SS3
+INFO - Training probe for SS3 with ProtBert
+INFO - Storing metrics for SS3/ProtBert (valid): {'eval_loss': 0.5408880114555359, 'eval_f1': 0.7263659914128947, 'eval_acc': 0.7874807794801424, 'eval_prec': 0.7505285451332582, 'eval_rec': 0.7084954432972702, 'eval_mcc': 0.6794993696050963, 'epoch': 15.0}
+INFO - Storing metrics for SS3/ProtBert (test): {'test_loss': 0.8298373222351074, 'test_f1': 0.643515023229438, 'test_acc': 0.6949626025051816, 'test_prec': 0.6764120954630249, 'test_rec': 0.6324691940896713, 'test_mcc': 0.5642200648792912}
+INFO - Processing dataset: SS8
+INFO - Training probe for SS8 with ProtBert
+INFO - Storing metrics for SS8/ProtBert (valid): {'eval_loss': 0.9705830812454224, 'eval_f1': 0.4251692137025211, 'eval_acc': 0.6591826607938152, 'eval_prec': 0.546766386833027, 'eval_rec': 0.4143766419050562, 'eval_mcc': 0.5678382777206515, 'epoch': 18.0}
+INFO - Storing metrics for SS8/ProtBert (test): {'test_loss': 1.2331290245056152, 'test_f1': 0.34603027259647634, 'test_acc': 0.5771830224384968, 'test_prec': 0.40267732468832196, 'test_rec': 0.3453292360905073, 'test_mcc': 0.47528044712703926}
+INFO - Processing model: ProtT5

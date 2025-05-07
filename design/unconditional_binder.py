@@ -10,7 +10,7 @@ from huggingface_hub import login
 from models.modeling_esm_diff import ESM_Diff
 
 from .binder_info import BINDING_INFO
-from .affinity_pred import predict_against_target
+from ..synthyra_api.affinity_pred import predict_against_target
 
 
 SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
