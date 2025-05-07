@@ -148,18 +148,20 @@ if __name__ == "__main__":
     from .utils import describe_prompt, aspect_dict, id2label, annotation_vocab_dict
 
 
-    data_path = 'synthyra_api/uniprot_new_for_translator.csv'
+    data_path = 'synthyra_api/new_uniprot.csv'
+    result_path = 'synthyra_api/new_output.csv'
     df = pd.read_csv(data_path)
     data = Dataset.from_pandas(df).map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
     seqs = data['sequence']
     annotations = data['annotations']
 
-    data = [{'seq': seqs[i]} for i in range(len(seqs))]
-    result_df = send_request(data, 'annotation')
+    if result_path is None:
+        data = [{'seq': seqs[i]} for i in range(len(seqs))]
+        result_df = send_request(data, 'annotation')
+    else:
+        result_df = pd.read_csv(result_path)
 
     metrics = defaultdict(dict)
-    example_metrics = []  # Store metrics for each example
-
     # Initialize counters for all aspects
     total_true_positives = defaultdict(int)
     total_predictions = defaultdict(int)
@@ -167,51 +169,27 @@ if __name__ == "__main__":
     
     for i, row in result_df.iterrows():
         descriptions, _ = describe_prompt(annotations[i], id2label, annotation_vocab_dict)
-        example_true_positives = defaultdict(int)
-        example_predictions = defaultdict(int)
-        example_labels = defaultdict(int)
-        
-        for col in row.index:
-            if col == 'seq':
-                seq = row[col]
-                assert seq == seqs[i], f'Sequence mismatch: {seq} != {seqs[i]}'
+        seq = row['seqs']
+        assert seq == seqs[i], f'Sequence mismatch: {seq} != {seqs[i]}'
+        for aspect, name in aspect_dict.items():
+            preds_str = row[name]
 
-            for aspect, name in aspect_dict.items():
-                preds_str = row[col]
-                if str(preds_str) == 'nan':
-                    preds_str = None
-                
-                labels = descriptions[aspect]
-                total_labels[aspect] += len(labels)
-                example_labels[aspect] += len(labels)
-                
-                # Count true positives
-                true_positives = 0
-                if preds_str:
-                    pred_len = len(preds_str.split(';'))
-                    total_predictions[aspect] += pred_len
-                    example_predictions[aspect] += pred_len
-                    
-                    for entry in labels:
-                        if entry in preds_str:
-                            true_positives += 1
-                            total_true_positives[aspect] += 1
-                            example_true_positives[aspect] += 1
-        
-        # Calculate metrics for this example
-        example_metric = {"example_id": i}
-        for aspect in aspect_dict.keys():
-            precision = example_true_positives[aspect] / example_predictions[aspect] if example_predictions[aspect] > 0 else 0
-            recall = example_true_positives[aspect] / example_labels[aspect] if example_labels[aspect] > 0 else 0
-            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-            accuracy = example_true_positives[aspect] / example_labels[aspect] if example_labels[aspect] > 0 else 0
+            if str(preds_str) == 'nan':
+                preds_str = None
             
-            example_metric[f"{aspect}_precision"] = precision
-            example_metric[f"{aspect}_recall"] = recall
-            example_metric[f"{aspect}_f1"] = f1
-            example_metric[f"{aspect}_accuracy"] = accuracy
-        
-        example_metrics.append(example_metric)
+            labels = descriptions[aspect]
+            total_labels[aspect] += len(labels)
+            
+            # Count true positives
+            true_positives = 0
+            if preds_str:
+                pred_len = len(preds_str.split(';'))
+                total_predictions[aspect] += pred_len
+                
+                for entry in labels:
+                    if entry in preds_str:
+                        true_positives += 1
+                        total_true_positives[aspect] += 1        
     
     # Calculate metrics across all examples
     for aspect in aspect_dict.keys():
@@ -229,12 +207,3 @@ if __name__ == "__main__":
     for aspect, scores in metrics.items():
         print(f"{aspect}: Precision={scores['precision']:.2f}, Recall={scores['recall']:.2f}, F1={scores['f1']:.2f}, Accuracy={scores['accuracy']:.2f}")
     
-    import time
-    print("\nMetrics for each example:")
-    for example_metric in example_metrics:
-        print(f"Example {example_metric['example_id']}:")
-        for aspect in aspect_dict.keys():
-            print(f"  {aspect}: Precision={example_metric[f'{aspect}_precision']:.2f}, "
-                  f"Recall={example_metric[f'{aspect}_recall']:.2f}, "
-                  f"F1={example_metric[f'{aspect}_f1']:.2f}, "
-                  f"Accuracy={example_metric[f'{aspect}_accuracy']:.2f}")
