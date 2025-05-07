@@ -28,10 +28,10 @@ def get_eval_data(num_samples):
         filename=f"data/valid-00000-of-00001.parquet",
         repo_type="dataset"
     )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(num_samples))
+    data = Dataset.from_parquet(local_file).shuffle(seed=888).select(range(num_samples))
     data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
     print(data)
-    valid_seqs = data['sequence']
+    valid_seqs = sorted(data['sequence'], key=len, reverse=True)
     return valid_seqs
 
 
