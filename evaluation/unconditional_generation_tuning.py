@@ -40,11 +40,15 @@ def arg_parser():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to generate')
+    parser.add_argument('--sweep_step', action='store_true', help='Sweep through step divisors (fixed temperature)')
+    parser.add_argument('--sweep_temp', action='store_true', help='Sweep through temperatures (fixed step divisor)')
+    parser.add_argument('--step_divisor', type=int, default=25, help='Step divisor (used when sweep_temp=True)')
+    parser.add_argument('--temperature', type=float, default=1.0, help='Temperature (used when sweep_step=True)')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    # py -m evaluation.unconditional_generation
+    # py -m evaluation.unconditional_generation_tuning
     args = arg_parser()
     if args.token is not None:
         login(args.token)
@@ -61,48 +65,65 @@ if __name__ == '__main__':
     
     results = []
     
+    # Determine which parameter to sweep
+    if args.sweep_step and args.sweep_temp:
+        print("Error: Cannot sweep both step divisor and temperature at the same time.")
+        print("Please use either --sweep_step or --sweep_temp, not both.")
+        exit(1)
+    elif args.sweep_step:
+        # Sweep through step divisors with fixed temperature
+        parameter_combinations = [(step, args.temperature) for step in step_divisors]
+        print(f"Sweeping through step divisors with fixed temperature = {args.temperature}")
+    elif args.sweep_temp:
+        # Sweep through temperatures with fixed step divisor
+        parameter_combinations = [(args.step_divisor, temp) for temp in temperatures]
+        print(f"Sweeping through temperatures with fixed step divisor = {args.step_divisor}")
+    else:
+        # Default: use the provided values for a single run
+        parameter_combinations = [(args.step_divisor, args.temperature)]
+        print(f"Running single evaluation with step_divisor = {args.step_divisor}, temperature = {args.temperature}")
+    
     # For progress tracking
-    total_combinations = len(step_divisors) * len(temperatures)
+    total_combinations = len(parameter_combinations)
     combination_count = 0
     
-    # Nested loops for step divisor and temperature
-    for step_divisor in step_divisors:
-        for temperature in temperatures:
-            combination_count += 1
-            print(f"\n[{combination_count}/{total_combinations}] Testing STEP_DIVISOR={step_divisor}, TEMPERATURE={temperature}")
-            
-            generated_seqs = []
-            
-            # Generate sequences with current parameters
-            for seq in tqdm(natural_seqs):
-                output_tokens = model.mask_diffusion_generate(
-                    length=len(seq),
-                    block_wise=False,
-                    batch_size=args.batch_size,
-                    steps=len(seq) // step_divisor,
-                    temperature=temperature,
-                    remasking=REMASKING,
-                    preview=PREVIEW,
-                    slow=SLOW,
-                    start_with_methionine=False
-                )
-                for gen_seq in output_tokens:
-                    generated_seqs.append(model._decode_seq(gen_seq))
-            
-            # Compare distributions and collect stats
-            stats = compare_corpora_kmers(natural_seqs, generated_seqs)
-            
-            # Store results for each k-mer
-            for k, res in stats.items():
-                chi_p = res["p"]
-                jsd = res["js"]
-                results.append({
-                    'step_divisor': step_divisor,
-                    'temperature': temperature,
-                    'k': k,
-                    'p_value': chi_p,
-                    'jsd': jsd
-                })
+    # Loop through parameter combinations
+    for step_divisor, temperature in parameter_combinations:
+        combination_count += 1
+        print(f"\n[{combination_count}/{total_combinations}] Testing STEP_DIVISOR={step_divisor}, TEMPERATURE={temperature}")
+        
+        generated_seqs = []
+        
+        # Generate sequences with current parameters
+        for seq in tqdm(natural_seqs):
+            output_tokens = model.mask_diffusion_generate(
+                length=len(seq),
+                block_wise=False,
+                batch_size=args.batch_size,
+                steps=len(seq) // step_divisor,
+                temperature=temperature,
+                remasking=REMASKING,
+                preview=PREVIEW,
+                slow=SLOW,
+                start_with_methionine=False
+            )
+            for gen_seq in output_tokens:
+                generated_seqs.append(model._decode_seq(gen_seq))
+        
+        # Compare distributions and collect stats
+        stats = compare_corpora_kmers(natural_seqs, generated_seqs)
+        
+        # Store results for each k-mer
+        for k, res in stats.items():
+            chi_p = res["p"]
+            jsd = res["js"]
+            results.append({
+                'step_divisor': step_divisor,
+                'temperature': temperature,
+                'k': k,
+                'p_value': chi_p,
+                'jsd': jsd
+            })
     
     # Create and display dataframe with all results
     results_df = pd.DataFrame(results)
@@ -136,4 +157,4 @@ if __name__ == '__main__':
     print(f"\nBest combination: step_divisor={best_combo[0]}, temperature={best_combo[1]}")
 
     # Save results to CSV
-    results_df.to_csv('unconditional_generation_tuning_results.csv', index=False)
+    results_df.to_csv(f'unconditional_generation_tuning_results_{args.sweep_step}_{args.sweep_temp}.csv', index=False)
