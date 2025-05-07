@@ -7,6 +7,8 @@ import pandas as pd
 from datetime import datetime
 from typing import Optional, List, Dict
 
+from .utils import aspect_dict
+
 
 API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
 
@@ -102,40 +104,31 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         time.sleep(10)
 
 
-def predict_against_target(target: str, designs: List[str], test: bool = False) -> pd.DataFrame:
-    """
-    Predict the affinity of a list of designs against a target sequence.
-    Sort by predicted affinity.
-    
-    Args:
-        target: The target sequence
-        designs: List of design sequences
-        test: If True, use random test data instead of calling the API
-    """
-    if test:
-        return predict_against_target_test(target, designs)
-    
-    data = [{'SeqA': target, 'SeqB': design} for design in designs]
-    df = send_request(data, 'ppi')
+def predict_annotations(seqs: List[str]) -> pd.DataFrame:
+    data = [{'seq': seq} for seq in seqs]
+    df = send_request(data, 'annotation')
     return df
 
 
-def predict_against_target_test(target: str, designs: List[str]) -> pd.DataFrame:
+def parse_annotations(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Generate random results in columns
-    ppi-pred: int 0 or 1
-    ppi-probability: float 0-1
-    predicted-pKd: float
-    predicted-binding-sites: str
+    Returns a dictionary of sequence: annotations
+    annotations is a list of strings separated by ;
+    we remove the confidence score from the annotations
     """
-    data = [{'SeqA': target, 'SeqB': design} for design in designs]
-    df = pd.DataFrame(data)
-    df['ppi-pred'] = np.random.randint(0, 2, len(df))
-    df['ppi-probability'] = np.random.rand(len(df))
-    df['predicted-pKd'] = np.random.rand(len(df))
-    df['predicted-binding-sites'] = [str(e) for e in np.random.randint(0, 100, len(df))]
-    return df
-
+    annotation_dict = {}
+    for i, row in df.iterrows():
+        seq = row['seqs']
+        total_annotations = []
+        for aspect, name in aspect_dict.items():
+            preds_str = row[name]
+            if str(preds_str) == 'nan':
+                continue
+            preds_str = preds_str.split(';')
+            preds_str = [pred.split('(')[0].strip() for pred in preds_str]
+            total_annotations.extend(preds_str)
+        annotation_dict[seq] = ';'.join(total_annotations)
+    return annotation_dict
 
 
 if __name__ == "__main__":

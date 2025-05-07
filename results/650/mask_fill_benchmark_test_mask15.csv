@@ -1,2 +1,0 @@
-model,loss,perplexity,precision,recall,f1,accuracy,mcc,alignment_score
-ESMdiff-650M,2.2436,9.427,0.3906,0.3667,0.3624,0.3667,0.3238,0.6485

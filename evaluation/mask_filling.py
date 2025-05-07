@@ -38,6 +38,7 @@ def parse_args():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--mask_rates', nargs='+', type=float, default=[0.05, 0.15, 0.30, 0.50, 0.70, 0.90])
+    parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test'])
     parser.add_argument('--max_length', type=int, default=1022)
     parser.add_argument('--results_dir', type=str, default='results')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
@@ -48,7 +49,7 @@ def parse_args():
 
 
 def main():
-    # py -m eval_mask_fill
+    # py -m evaluation.mask_filling
     args = parse_args()
     
     metrics = ['loss', 'f1', 'alignment_score']
@@ -101,7 +102,7 @@ def main():
 
     all_results = {}
     for mask_rate in mask_rates:
-        for type in ['valid', 'test']:
+        for type in args.data_splits:
             local_file = hf_hub_download(
                 repo_id="Synthyra/omg_prot50",
                 filename=f"data/{type}-00000-of-00001.parquet",
