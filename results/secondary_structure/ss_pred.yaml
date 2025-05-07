@@ -1,0 +1,103 @@
+# ID
+hf_username: Synthyra
+hf_token: null
+synthyra_api_key: null
+wandb_api_key: null
+
+
+# Paths
+yaml_path: null
+log_dir: logs
+results_dir: results
+model_save_dir: weights
+embedding_save_dir: embeddings
+download_dir: Synthyra/mean_pooled_embeddings
+plots_dir: plots
+replay_path: null
+pretrained_probe_path: null
+
+
+# DataArguments:
+delimiter: ','
+col_names:
+  - seqs
+  - labels
+max_length: !!int 1024
+trim: !!bool false
+data_names:
+  - SecondaryStructure-3
+  - SecondaryStructure-8
+
+data_dirs: []
+
+
+# BaseModelArguments:
+model_names:
+  - ProtT5
+  - GLM2-150
+  - GLM2-650
+  - ANKH-Base
+  - ANKH-Large
+  - DPLM-150
+  - DPLM-650
+  - DSM-150
+  - DSM-650
+  - Random
+  - Random-Transformer
+
+# ProbeArguments:
+probe_type: transformer  # valid options: linear, transformer, retrievalnet
+tokenwise: !!bool true
+hidden_dim: !!int 512
+dropout: !!float 0.1
+n_layers: !!int 1
+pre_ln: !!bool true
+classifier_dim: !!int 2048
+transformer_dropout: !!float 0.1
+classifier_dropout: !!float 0.2
+n_heads: !!int 8
+rotary: !!bool true
+probe_pooling_types:
+  - mean
+  - cls
+save_model: !!bool true
+production_model: !!bool false
+use_lora: !!bool false
+lora_r: !!int 8
+lora_alpha: !!float 32.0
+lora_dropout: !!float 0.01
+
+
+# ScikitArguments:
+scikit_n_iter: !!int 10
+scikit_cv: !!int 3
+scikit_random_state: !!int 42
+scikit_model_name: null
+use_scikit: !!bool false
+n_jobs: !!int 1
+
+
+# EmbeddingArguments:
+embedding_batch_size: !!int 8
+num_workers: !!int 0
+download_embeddings: !!bool false
+matrix_embed: !!bool true
+embedding_pooling_types:
+  - mean
+save_embeddings: !!bool false
+embed_dtype: !!str float32
+sql: !!bool false
+
+
+# TrainerArguments:
+num_epochs: !!int 200
+probe_batch_size: !!int 64
+base_batch_size: !!int 4
+probe_grad_accum: !!int 1
+base_grad_accum: !!int 8
+lr: !!float 1e-4
+weight_decay: !!float 0.01
+patience: !!int 10
+seed: !!int 42
+full_finetuning: !!bool false
+hybrid_probe: !!bool false

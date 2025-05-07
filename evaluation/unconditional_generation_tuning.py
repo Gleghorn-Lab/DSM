@@ -1,0 +1,139 @@
+import torch
+import random
+import argparse
+import pandas as pd
+import threading
+import queue
+import os
+from tqdm import tqdm
+from datasets import Dataset
+from huggingface_hub import login, hf_hub_download
+from IPython.display import display
+
+from models.modeling_esm_diff import ESM_Diff
+from evaluation.compare_distributions import compare_corpora_kmers
+
+
+SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
+MODEL_PATH = 'GleghornLab/ESM_diff_650'
+
+PREVIEW = False
+SLOW = False
+REMASKING = 'random'
+
+
+def get_eval_data(num_samples):
+    local_file = hf_hub_download(
+        repo_id="Synthyra/omg_prot50",
+        filename=f"data/valid-00000-of-00001.parquet",
+        repo_type="dataset"
+    )
+    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(num_samples))
+    data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
+    print(data)
+    valid_seqs = data['sequence']
+    return valid_seqs
+
+
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--token', type=str, default=None)
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to generate')
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    # py -m evaluation.unconditional_generation
+    args = arg_parser()
+    if args.token is not None:
+        login(args.token)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
+    tokenizer = model.tokenizer
+
+    natural_seqs = get_eval_data(args.num_samples)
+    
+    # Define ranges for step divisor and temperature
+    step_divisors = [1, 2, 5, 10, 25, 50, 100]
+    temperatures = [0.1, 0.25, 0.5, 0.7, 1.0, 1.5, 2.0]
+    
+    results = []
+    
+    # For progress tracking
+    total_combinations = len(step_divisors) * len(temperatures)
+    combination_count = 0
+    
+    # Nested loops for step divisor and temperature
+    for step_divisor in step_divisors:
+        for temperature in temperatures:
+            combination_count += 1
+            print(f"\n[{combination_count}/{total_combinations}] Testing STEP_DIVISOR={step_divisor}, TEMPERATURE={temperature}")
+            
+            generated_seqs = []
+            
+            # Generate sequences with current parameters
+            for seq in tqdm(natural_seqs):
+                output_tokens = model.mask_diffusion_generate(
+                    length=len(seq),
+                    block_wise=False,
+                    batch_size=args.batch_size,
+                    steps=len(seq) // step_divisor,
+                    temperature=temperature,
+                    remasking=REMASKING,
+                    preview=PREVIEW,
+                    slow=SLOW,
+                    start_with_methionine=False
+                )
+                for gen_seq in output_tokens:
+                    generated_seqs.append(model._decode_seq(gen_seq))
+            
+            # Compare distributions and collect stats
+            stats = compare_corpora_kmers(natural_seqs, generated_seqs)
+            
+            # Store results for each k-mer
+            for k, res in stats.items():
+                chi_p = res["p"]
+                jsd = res["js"]
+                results.append({
+                    'step_divisor': step_divisor,
+                    'temperature': temperature,
+                    'k': k,
+                    'p_value': chi_p,
+                    'jsd': jsd
+                })
+    
+    # Create and display dataframe with all results
+    results_df = pd.DataFrame(results)
+    
+    # Display results grouped by k-mer
+    for k in sorted(results_df['k'].unique()):
+        print(f"\nResults for {k}-mer:")
+        k_results = results_df[results_df['k'] == k].sort_values('p_value', ascending=True)
+        display(k_results)
+    
+    # Display overall best results sorted by 3-mer p-value
+    print("\nAll results sorted by 3-mer p-value (lower is better):")
+    
+    # Create pivot table
+    pivot_df = results_df.pivot_table(
+        index=['step_divisor', 'temperature'], 
+        columns='k', 
+        values=['p_value', 'jsd']
+    )
+    
+    # Fix for the merging error - directly sort the pivot table
+    # Get the 3-mer p-values for sorting
+    sorted_indices = pivot_df[('p_value', 3)].sort_values(ascending=True).index
+    
+    # Sort the entire pivot table by the 3-mer p-value indices
+    final_results = pivot_df.loc[sorted_indices]
+    display(final_results)
+    
+    # Print best combination
+    best_combo = sorted_indices[0]
+    print(f"\nBest combination: step_divisor={best_combo[0]}, temperature={best_combo[1]}")
+
+    # Save results to CSV
+    results_df.to_csv('unconditional_generation_tuning_results.csv', index=False)

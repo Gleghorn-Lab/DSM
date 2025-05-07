@@ -24,7 +24,7 @@ from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator_mask
 from models.modeling_esm_diff import ESM_Diff
 from models.alignment_helpers import AlignmentScorer
-from plot_mask_fill_results import generate_comparison_plot
+from evaluation.plot_mask_fill_results import generate_comparison_plot
 
 
 def set_seed(seed):
@@ -42,9 +42,6 @@ def parse_args():
     parser.add_argument('--results_dir', type=str, default='results')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
                        help='Generate a plot comparing all models across all mask rates')
-    parser.add_argument('--metric', type=str, default='loss', 
-                       choices=['loss', 'perplexity', 'precision', 'recall', 'f1', 'accuracy', 'mcc', 'alignment_score'],
-                       help='Metric to use for comparison plot')
     parser.add_argument('--plot_output', type=str, default='results/mask_rate_comparison.png',
                        help='Path to save comparison plot')
     return parser.parse_args()
@@ -54,10 +51,19 @@ def main():
     # py -m eval_mask_fill
     args = parse_args()
     
+    metrics = ['loss', 'f1', 'alignment_score']
     # If only generating the comparison plot, skip evaluation
     if args.generate_comparison_plot and len(glob(os.path.join(args.results_dir, 'mask_fill_benchmark_*_mask*.csv'))) > 0:
         print("Generating comparison plot from existing results...")
-        generate_comparison_plot(args.results_dir, args.metric, args.plot_output)
+        generate_comparison_plot(args.results_dir, metrics, args.plot_output,
+                                 exclude_models=[
+                                     'ESMdiff-650M-80k',
+                                     #'ESMdiff-650M-40k',
+                                     'ESMdiff-650M',
+                                     'ESMC-600M',
+                                     'ESMC-300M',
+                                     
+        ])
         return
     else:
         print("No existing results found. Running evaluation...")
@@ -278,7 +284,7 @@ def main():
     
     # Generate the comprehensive plot across all mask rates if requested
     if args.generate_comparison_plot:
-        generate_comparison_plot(args.results_dir, args.metric, args.plot_output)
+        generate_comparison_plot(args.results_dir, metrics, args.plot_output)
 
 
 if __name__ == '__main__':

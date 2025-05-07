@@ -99,7 +99,7 @@ class GenerateMixin:
         block_length: Optional[int] = 32,
         length: Optional[int] = 128,
         steps: Optional[int] = 20,
-        temperature: Optional[float] = 0.5,
+        temperature: Optional[float] = 0.7,
         remasking: Optional[str] = "random",
         start_with_methionine: Optional[bool] = False,
         preview: Optional[bool] = False,
@@ -145,6 +145,10 @@ class GenerateMixin:
             # Initialize with all mask tokens and add CLS/EOS tokens
             x = torch.full((batch_size, total_length), self.mask_token_id, dtype=torch.long, device=device)
             x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
+        
+        if prompt_tokens is None:
+            has_prompt = False
+        else:
             has_prompt = True
         
         cls_mask = (x == self.cls_token_id)

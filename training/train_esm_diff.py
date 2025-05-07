@@ -19,7 +19,7 @@ from models.modeling_esm_diff import ESM_Diff
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
-from iterable_trainer import get_iterable_trainer
+from training.iterable_trainer import get_iterable_trainer
 
 
 import warnings
