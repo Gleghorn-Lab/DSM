@@ -16,20 +16,39 @@ pretty_metric_names = {
     'alignment_score': 'Alignment Score'
 }
 
+metric_direction = {
+    'loss': 'down',
+    'perplexity': 'up',
+    'precision': 'up',
+    'recall': 'up',
+    'f1': 'up',
+    'accuracy': 'up',
+    'mcc': 'up',
+    'alignment_score': 'up'
+}
+
+# Define arrows for metric directions
+direction_arrows = {
+    'up': '↑',  # Arrow pointing up for metrics where higher is better
+    'down': '↓'  # Arrow pointing down for metrics where lower is better
+}
+
 model_name_to_nickname = {
-    'ESMdiff-650M-80k': r'DLM$_{650M-80k}$',
-    'ESMdiff-650M-40k': r'DLM$_{650M-40k}$',
-    'ESMdiff-650M': r'DLM$_{650M}$',
-    'ESMdiff-150M': r'DLM$_{150M}$',
-    'ESMC-600M': r'ESMC$_{600M}$',
-    'ESMC-300M': r'ESMC$_{300M}$',
+    'ESMdiff-650M': r'DSM$_{650M}$',
+    'ESMdiff-650M-80k': r'DSM$_{650M-80k}$',
+    'ESMdiff-650M-40k': r'DSM$_{650M-40k}$',
+    'ESMdiff-150M': r'DSM$_{150M}$',
+    'ESM2-3B': r'ESM2$_{3B}$',
     'ESM2-650M': r'ESM2$_{650M}$',
-    'ESM2-35M': r'ESM2$_{35M}$',
+    'ESMC-600M': r'ESMC$_{600M}$',
     'ESM2-150M': r'ESM2$_{150M}$',
+    'ESMC-300M': r'ESMC$_{300M}$',
+    'ESM2-35M': r'ESM2$_{35M}$',
     'ESM2-8M': r'ESM2$_{8M}$',
     'ESM2-3B': r'ESM2$_{3B}$'
 }
 
+"""
 model_name_to_color = {
     # ESMdiff models - blue family (distinguishable for most color blindness types)
     'ESMdiff-650M-80k': '#0072B2',  # dark blue
@@ -48,9 +67,9 @@ model_name_to_color = {
     'ESM2-8M': '#666666',           # dark gray
     'ESM2-3B': '#000000'            # black
 }
-
-
 """
+
+
 model_name_to_color = {
     # ESMdiff models - red/orange family
     'ESMdiff-650M-80k': 'crimson',
@@ -69,7 +88,7 @@ model_name_to_color = {
     'ESM2-8M': 'teal',
     'ESM2-3B': 'darkgreen'
 }
-"""
+
 
 def generate_comparison_plot(results_dir, metrics=None, output_file='results/mask_rate_comparison.png', exclude_models=None):
     """
@@ -201,7 +220,9 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
             
             # Set titles and labels
             if row_idx == 0:
-                ax.set_title(f'{metric_name}')
+                # Add direction arrow based on metric_direction dictionary
+                arrow = direction_arrows.get(metric_direction.get(metric, 'up'), '')
+                ax.set_title(f'{metric_name} {arrow}')
             
             if col_idx == 0:
                 ax.set_ylabel(f"{dataset_titles[dataset_type]}\n{metric_name}")
@@ -228,7 +249,23 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
     
     # Add a single legend for the entire figure
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
+    
+    # Reorder handles and labels according to model_name_to_nickname order
+    ordered_handles_labels = []
+    for model_name in model_name_to_nickname.keys():
+        # Find this model name in the existing labels
+        nickname = model_name_to_nickname[model_name]
+        if nickname in labels:
+            idx = labels.index(nickname)
+            ordered_handles_labels.append((handles[idx], labels[idx]))
+    
+    # Use only the models that were actually plotted
+    if ordered_handles_labels:
+        ordered_handles, ordered_labels = zip(*ordered_handles_labels)
+        fig.legend(ordered_handles, ordered_labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
+    else:
+        # Fallback to original order if none of the expected models were found
+        fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
     
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 0.95, 0.95])
