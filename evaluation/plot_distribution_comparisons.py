@@ -237,10 +237,18 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--raw_dir", type=Path, default="evaluation/raw_data")
-    ap.add_argument("--out_dir", default="figures", type=Path)
-    args = ap.parse_args(); args.out_dir.mkdir(parents=True, exist_ok=True)
+    import argparse
+    import os
+
+    def arg_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--raw_dir", type=Path, default="raw_data")
+        parser.add_argument("--out_dir", default="figures", type=Path)
+        return parser.parse_args()
+
+    args = arg_parser()
+    args.raw_dir = os.path.join('evaluation', 'comparisons', args.raw_dir)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
 
     for pref in ("aa", "ss4", "ss9"):
         tbls = load_tbls(args.raw_dir, pref)

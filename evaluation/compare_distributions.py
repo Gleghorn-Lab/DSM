@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
+import os
 from collections import Counter
 from typing import List, Dict, Tuple, Set
 from scipy.stats import chi2_contingency
 from scipy.spatial.distance import jensenshannon
 from IPython.display import display
-import os
 
 
 AA20 = set("ACDEFGHIKLMNPQRSTVWY")
@@ -147,8 +147,22 @@ class CorpusComparator:
 
 if __name__ == "__main__":
     # py -m evaluation.compare_distributions
-    path = 'evaluation/annotated_comparisons.csv'
-    df = pd.read_csv(path).astype(str)
+    import argparse
+
+    def arg_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--input_path', type=str, default='annotated_comparisons.csv')
+        parser.add_argument('--output_path', type=str, default='compare_distributions.txt')
+        parser.add_argument('--raw_data_dir', type=str, default='raw_data')
+        return parser.parse_args()
+    
+
+    args = arg_parser()
+    args.input_path = os.path.join('evaluation', 'comparisons', args.input_path)
+    args.output_path = os.path.join('evaluation', 'comparisons', args.output_path)
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+
+    df = pd.read_csv(args.input_path).astype(str)
     seqs1 = df['natural'].tolist()
     seqs2 = df['generated'].tolist()
     nat_ss4_preds = df['nat-ss4'].tolist()
@@ -161,7 +175,7 @@ if __name__ == "__main__":
     gen_annotations = df['generated_annotations'].tolist() if 'generated_annotations' in df.columns else []
 
     # Create a directory to save raw data
-    raw_data_dir = 'evaluation/raw_data'
+    raw_data_dir = os.path.join('evaluation', 'comparisons', args.raw_data_dir)
     os.makedirs(raw_data_dir, exist_ok=True)
 
     # Create a comparator with default AA20 vocabulary
@@ -169,7 +183,7 @@ if __name__ == "__main__":
     stats = comparator.compare_corpora_kmers(seqs1, seqs2)
 
     # Open file for writing results
-    with open('evaluation/compare_distributions.txt', 'w', encoding='utf-8') as f:
+    with open(args.output_path, 'w', encoding='utf-8') as f:
         # Amino acid comparison
         print('Amino acid comparison\n')
         f.write('Amino acid comparison\n')
@@ -265,4 +279,3 @@ if __name__ == "__main__":
 
     # Save the original input data
     df.to_csv(f"{raw_data_dir}/input_data.csv", index=False)
-
