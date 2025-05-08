@@ -59,8 +59,8 @@ def main():
         generate_comparison_plot(args.results_dir, metrics, args.plot_output,
                                  exclude_models=[
                                      'ESMdiff-650M-80k',
-                                     #'ESMdiff-650M-40k',
-                                     'ESMdiff-650M',
+                                     'ESMdiff-650M-40k',
+                                     #'ESMdiff-650M',
                                      'ESMC-600M',
                                      'ESMC-300M',
                                      

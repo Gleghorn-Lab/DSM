@@ -246,6 +246,36 @@ class GenerateMixin:
             for i in range(steps):
                 x = __step(x, num_transfer_tokens, temperature, remasking)
         
+        
+        # Final step: convert any special tokens (except CLS and EOS) to masks and fill them all
+        # Necessary for when steps is not divisible by the number of tokens in the sequence
+        special_tokens = ~self.canonical_mask.to(device)
+        special_tokens[self.cls_token_id] = False  # Don't mask CLS
+        special_tokens[self.eos_token_id] = False  # Don't mask EOS
+        
+        # Find remaining special tokens in the sequence
+        remaining_special = special_tokens[x]
+        
+        # Convert special tokens to mask tokens
+        x[remaining_special] = self.mask_token_id
+        
+        # Check if any mask tokens remain
+        mask_index = (x == self.mask_token_id)
+        if mask_index.any():
+            # Prepare for final step that fills all remaining masks at once
+            num_final_tokens = torch.sum(mask_index, dim=1, keepdim=True)
+            
+            # Final step to fill all remaining masks
+            logits = self._get_logits(
+                input_ids=x,
+                attention_mask=torch.ones_like(x),
+                prompt_tokens=prompt_tokens,
+                prompt_attention_mask=torch.ones_like(prompt_tokens) if has_prompt else None,
+            )
+            
+            x0, _ = self._mask_sampling(logits, temperature, remasking, device)
+            x = torch.where(mask_index, x0, x)
+        
         if preview:
             print('\nFinal sequence:')
             print('=' * length)
