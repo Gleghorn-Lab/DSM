@@ -13,7 +13,6 @@ from .binder_info import BINDING_INFO
 from ..synthyra_api.affinity_pred import predict_against_target
 
 
-SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
 
 TEMPERATURE = 1.0
@@ -31,10 +30,11 @@ def arg_parser():
     parser.add_argument('--target', type=str, default='EGFR', help='Target to design for')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
+    parser.add_argument('--synthyra_api_key', type=str, default=None, help='Synthyra API key')
     return parser.parse_args()
 
 
-def prediction_worker(design_queue, result_queue, TARGET):
+def prediction_worker(design_queue, result_queue, TARGET, args):
     """Worker function to process prediction batches in separate threads."""
     while True:
         batch_data = design_queue.get()
@@ -46,7 +46,7 @@ def prediction_worker(design_queue, result_queue, TARGET):
         print(f'Processing batch of {len(designs)} designs in thread')
         
         # Predict against target
-        batch_df = predict_against_target(target=TARGET, designs=designs, test=args.test)
+        batch_df = predict_against_target(target=TARGET, designs=designs, test=args.test, api_key=args.synthyra_api_key)
         
         # Map mask rates to unique designs
         design_to_mask = {designs[i]: batch_masks[i] for i in range(len(designs))}
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     num_threads = os.cpu_count() // 4  # Adjust based on your system capabilities
     threads = []
     for i in range(num_threads):
-        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue, TARGET))
+        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue, TARGET, args))
         t.daemon = True
         t.start()
         threads.append(t)

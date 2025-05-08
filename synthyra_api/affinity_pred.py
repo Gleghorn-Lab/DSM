@@ -8,9 +8,6 @@ from datetime import datetime
 from typing import Optional, List, Dict
 
 
-API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
-
-
 def convert_data_to_csv_bytes(data: List[Dict[str, str]], task_type: str) -> bytes:
     """
     Convert data to CSV format in memory as bytes.
@@ -38,13 +35,14 @@ def convert_data_to_csv_bytes(data: List[Dict[str, str]], task_type: str) -> byt
     return output.getvalue().encode('utf-8')
 
 
-def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
+def send_request(data: List[Dict[str, str]], task_type: str, api_key: str = None) -> Optional[float]:
     """
     Run a single test against the API with generated data.
     
     Args:
         num_seqs: The number of sequences to generate
         task_type: The API task type (ppi or annotation)
+        api_key: API key for Synthyra API
         
     Returns:
         Elapsed time in seconds, or None if the test failed
@@ -68,7 +66,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         }
 
     params = {
-        'api_key': API_KEY
+        'api_key': api_key
     }
 
     response = requests.post(
@@ -87,7 +85,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
 
 
     while True:
-        params = {'job_id': job_id, 'api_key': API_KEY}
+        params = {'job_id': job_id, 'api_key': api_key}
         response = requests.get('https://api.synthyra.com/v1/job', params=params)
         
         try:
@@ -102,7 +100,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         time.sleep(10)
 
 
-def predict_against_target(target: str, designs: List[str], test: bool = False) -> pd.DataFrame:
+def predict_against_target(target: str, designs: List[str], test: bool = False, api_key: str = None) -> pd.DataFrame:
     """
     Predict the affinity of a list of designs against a target sequence.
     Sort by predicted affinity.
@@ -111,12 +109,13 @@ def predict_against_target(target: str, designs: List[str], test: bool = False) 
         target: The target sequence
         designs: List of design sequences
         test: If True, use random test data instead of calling the API
+        api_key: API key for Synthyra API
     """
     if test:
         return predict_against_target_test(target, designs)
     
     data = [{'SeqA': target, 'SeqB': design} for design in designs]
-    df = send_request(data, 'ppi')
+    df = send_request(data, 'ppi', api_key)
     return df
 
 
@@ -152,6 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, default=None, help="Path to the dataset")
     parser.add_argument("--test", action="store_true", help="Use test data instead of calling the API")
+    parser.add_argument("--synthyra_api_key", type=str, default=None, help="Synthyra API key")
     args = parser.parse_args()
 
     if args.data_path is None:
@@ -183,7 +183,7 @@ if __name__ == "__main__":
             df['predicted-pKd'] = np.random.rand(len(df))
             df['predicted-binding-sites'] = np.random.randint(0, 100, len(df))
         else:
-            df = send_request(data, 'ppi')
+            df = send_request(data, 'ppi', args.synthyra_api_key)
 
         ppi_preds = np.array(df['ppi-pred']).flatten()
         affinity_preds = np.array(df['predicted-pKd']).flatten()
