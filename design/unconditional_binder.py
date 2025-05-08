@@ -85,7 +85,7 @@ if __name__ == '__main__':
         threads.append(t)
     
     designs.append(TEMPLATE)
-    design_info.append(f'mask-rate: 0.0, positions: 0-{len(TEMPLATE)}')
+    design_info.append('TEMPLATE')
     design_set.add(TEMPLATE)
 
     # Generate designs

@@ -10,17 +10,17 @@ from huggingface_hub import login, hf_hub_download
 from safetensors.torch import load_file
 from models.modeling_esm_diff import ESM_Diff_Binders, ESMDiffConfig
 from models.utils import wrap_lora
-from ..synthyra_api.affinity_pred import predict_against_target
+from synthyra_api.affinity_pred import predict_against_target
 
 from .binder_info import BINDING_INFO
 
 
-MODEL_PATH = 'GleghornLab/ESM_diff_650'
+MODEL_PATH = 'lhallee/ESM_diff_bind_650'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = True
-STEP_DIVISOR = 1
+PREVIEW = False
+STEP_DIVISOR = 100
 
 
 def arg_parser():
@@ -46,12 +46,8 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
         designs, batch_masks = batch_data
         print(f'Processing batch of {len(designs)} designs in thread')
         
-        # Get unique designs
-        unique_designs = list(set(designs))
-        print(f'Number of unique designs in batch: {len(unique_designs)}')
-        
         # Predict against target
-        batch_df = predict_against_target(target=TARGET, designs=unique_designs, test=args.test, api_key=args.synthyra_api_key)
+        batch_df = predict_against_target(target=TARGET, designs=designs, test=args.test, api_key=args.synthyra_api_key)
         
         # Map mask rates to unique designs
         design_to_mask = {designs[i]: batch_masks[i] for i in range(len(designs))}
@@ -128,7 +124,7 @@ if __name__ == '__main__':
         threads.append(t)
     
     designs.append(TEMPLATE)
-    design_info.append(f'mask-rate: 0.0, positions: 0-{len(TEMPLATE)}')
+    design_info.append('TEMPLATE')
     design_set.add(TEMPLATE)
 
     cls_token = tokenizer.cls_token_id
@@ -231,13 +227,13 @@ if __name__ == '__main__':
         df = df.rename(columns={'SeqB': 'Design'})
 
         # Calculate target-sites
-        df['target-sites'] = df['predicted-binding-sites'].apply(
-            lambda x: sum(1 for target_amino in TARGET_AMINOS if f'{target_amino}a'.lower() in str(x).lower())
-        )
-        df['target-sites'] = df['target-sites'].astype(object)
+        #df['target-sites'] = df['predicted-binding-sites'].apply(
+        #    lambda x: sum(1 for target_amino in TARGET_AMINOS if f'{target_amino}a'.lower() in str(x).lower())
+        #)
+        #df['target-sites'] = df['target-sites'].astype(object)
 
         # Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
-        df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
+        #df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
 
         print(df.head())
         df.to_csv('designs.csv', index=False)

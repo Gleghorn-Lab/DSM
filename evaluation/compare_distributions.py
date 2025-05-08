@@ -25,7 +25,7 @@ class CorpusComparator:
 
     def _kmer_counter(self, seqs: List[str], k: int) -> Counter:
         """
-        Fast k‑mer counter that skips characters outside the vocabulary.
+        Fast k-mer counter that skips characters outside the vocabulary.
         """
         kmers = Counter()
         for s in seqs:
@@ -71,7 +71,7 @@ class CorpusComparator:
         is_annotation: bool = False,
     ) -> Dict[int, Dict[str, float | pd.DataFrame]]:
         """
-        Compare two corpora at multiple k‑mer sizes.
+        Compare two corpora at multiple k-mer sizes.
 
         Args:
             corpus_A: First set of sequences
@@ -85,7 +85,7 @@ class CorpusComparator:
                 * 'chi2'   - χ² statistic
                 * 'dof'    - degrees of freedom
                 * 'p'      - p-value
-                * 'js'     - Jensen–Shannon divergence
+                * 'js'     - Jensen-Shannon divergence
                 * 'table'  - tidy DataFrame with counts & frequencies of both corpora
         """
         results = {}
