@@ -220,7 +220,7 @@ def main() -> None:
 
     # -------- create summary.txt with top 10 and stats per target ----------- #
     lines = [
-        f"Multi-target design run  –  {datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M UTC}",
+        f"Multi-target design run  -  {datetime.now():%Y-%m-%d %H:%M UTC}",
         f"num_samples per template: {args.num_samples}",
         f"Negative controls per template: {NUM_NEGATIVE_CONTROLS}",
         "",

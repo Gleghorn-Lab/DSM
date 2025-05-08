@@ -319,7 +319,7 @@ def main() -> None:
     print(f"\nSaved complete results to {output_csv_name}  ({len(big_df)} rows)")
 
     lines = [
-        f"Multi-target CONDITIONAL design run  –  {datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M UTC}",
+        f"Multi-target CONDITIONAL design run - {datetime.now():%Y-%m-%d %H:%M UTC}",
         f"num_samples per template: {args.num_samples}",
         f"Negative controls per template: {NUM_NEGATIVE_CONTROLS}", # Added
         f"Model: {MODEL_PATH}",
