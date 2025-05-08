@@ -20,7 +20,9 @@ TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 100
+STEP_DIVISOR = 10
+AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+NUM_NEGATIVE_CONTROLS = 20
 
 
 def arg_parser():
@@ -29,9 +31,10 @@ def arg_parser():
     parser.add_argument('--num_samples', type=int, default=100)
     parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
     parser.add_argument('--target', type=str, default='EGFR', help='Target to design for')
-    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
     parser.add_argument('--synthyra_api_key', type=str, default=None, help='Synthyra API key')
+    parser.add_argument('--output_file', type=str, default='designs.csv', help='Output file name')
     return parser.parse_args()
 
 
@@ -95,6 +98,13 @@ def load_binder_model(model_path):
 
     return model
 
+
+# Added helper function for random sequences
+def generate_random_aa_sequence(length: int, alphabet: str) -> str:
+    """Generates a random amino acid sequence of a given length."""
+    return "".join(random.choice(alphabet) for _ in range(length))
+
+
 if __name__ == '__main__':
     # py -m design.conditional_binder
     args = arg_parser()
@@ -126,6 +136,21 @@ if __name__ == '__main__':
     designs.append(TEMPLATE)
     design_info.append('TEMPLATE')
     design_set.add(TEMPLATE)
+
+    # Add negative controls
+    if TEMPLATE: # Ensure template is not empty to get a length
+        template_len = len(TEMPLATE)
+        if template_len > 0:
+            for _ in range(NUM_NEGATIVE_CONTROLS):
+                random_seq = generate_random_aa_sequence(template_len, AMINO_ACIDS)
+                if random_seq not in design_set: # Avoid duplicates if by chance it matches something
+                    designs.append(random_seq)
+                    design_info.append('NEGATIVE_CONTROL')
+                    design_set.add(random_seq)
+        else:
+            print("Skipped adding negative controls (template length is 0).")
+    else:
+        print("Skipped adding negative controls (template is empty).")
 
     cls_token = tokenizer.cls_token_id
     eos_token = tokenizer.eos_token_id
@@ -200,7 +225,7 @@ if __name__ == '__main__':
     
     # Process any remaining designs
     if designs:
-        design_queue.put((designs, design_info))
+        design_queue.put((designs.copy(), design_info.copy()))
     
     # Signal workers to terminate
     for _ in range(num_threads):
@@ -234,8 +259,10 @@ if __name__ == '__main__':
 
         # Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
         #df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
+        # Where Design_info == NEGATIVE_CONTROL, make target-sites == 'NEGATIVE_CONTROL'
+        # df.loc[df['design_info'] == 'NEGATIVE_CONTROL', 'target-sites'] = 'NEGATIVE_CONTROL'
 
         print(df.head())
-        df.to_csv('designs.csv', index=False)
+        df.to_csv(args.output_file, index=False)
     else:
         print("No designs generated.")

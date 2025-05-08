@@ -20,6 +20,8 @@ REMASKING = 'random'
 SLOW = False
 PREVIEW = False
 STEP_DIVISOR = 1
+AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+NUM_NEGATIVE_CONTROLS = 20
 
 
 def arg_parser():
@@ -31,6 +33,7 @@ def arg_parser():
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
     parser.add_argument('--synthyra_api_key', type=str, default=None, help='Synthyra API key')
+    parser.add_argument('--output_file', type=str, default='designs.csv', help='Output file name')
     return parser.parse_args()
 
 
@@ -55,6 +58,12 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
         # Put result in queue
         result_queue.put(batch_df)
         design_queue.task_done()
+
+
+# Added helper function for random sequences
+def generate_random_aa_sequence(length: int, alphabet: str) -> str:
+    """Generates a random amino acid sequence of a given length."""
+    return "".join(random.choice(alphabet) for _ in range(length))
 
 
 if __name__ == '__main__':
@@ -87,6 +96,21 @@ if __name__ == '__main__':
     designs.append(TEMPLATE)
     design_info.append('TEMPLATE')
     design_set.add(TEMPLATE)
+
+    # Add negative controls
+    if TEMPLATE: # Ensure template is not empty to get a length
+        template_len = len(TEMPLATE)
+        if template_len > 0:
+            for _ in range(NUM_NEGATIVE_CONTROLS):
+                random_seq = generate_random_aa_sequence(template_len, AMINO_ACIDS)
+                if random_seq not in design_set: # Avoid duplicates
+                    designs.append(random_seq)
+                    design_info.append('NEGATIVE_CONTROL')
+                    design_set.add(random_seq)
+        else:
+            print("Skipped adding negative controls (template length is 0).")
+    else:
+        print("Skipped adding negative controls (template is empty).")
 
     # Generate designs
     for sample in tqdm(range(args.num_samples // args.batch_size)):
@@ -148,7 +172,7 @@ if __name__ == '__main__':
     
     # Process any remaining designs
     if designs:
-        design_queue.put((designs, design_info))
+        design_queue.put((designs.copy(), design_info.copy()))
     
     # Signal workers to terminate
     for _ in range(num_threads):
@@ -184,6 +208,6 @@ if __name__ == '__main__':
         #df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
 
         print(df.head())
-        df.to_csv('designs.csv', index=False)
+        df.to_csv(args.output_file, index=False)
     else:
         print("No designs generated.")

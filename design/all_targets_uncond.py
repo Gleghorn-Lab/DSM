@@ -1,21 +1,7 @@
-# multi_target_design.py
-"""
-Generate designs for every target/template in BINDING_INFO,
-predict affinities with Synthyra, and collate results.
-
-Usage (API mode):
-    python multi_target_design.py --synthyra_api_key YOUR_KEY --num_samples 200
-
-Usage (offline stub / unit-test mode):
-    python multi_target_design.py --test --num_samples 20
-"""
 import argparse
-import os
 import random
-import queue
-import threading
 from datetime import datetime
-from typing import Dict, List, Tuple, Iterable
+from typing import List, Tuple, Iterable
 
 import pandas as pd
 import torch
@@ -34,17 +20,21 @@ REMASKING = "random"
 SLOW = False
 PREVIEW = False
 STEP_DIVISOR = 1000
+AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+NUM_NEGATIVE_CONTROLS = 20
 
 
-def arg_parser() -> argparse.Namespace:
-    p = argparse.ArgumentParser()
-    p.add_argument("--token", type=str, default=None, help="HuggingFace token")
-    p.add_argument("--num_samples", type=int, default=100, help="Designs / template")
-    p.add_argument("--batch_size", type=int, default=1)
-    p.add_argument("--api_batch_size", type=int, default=25)
-    p.add_argument("--synthyra_api_key", type=str, default=None)
-    p.add_argument("--test", action="store_true")
-    return p.parse_args()
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--token", type=str, default=None, help="HuggingFace token")
+    parser.add_argument("--num_samples", type=int, default=100, help="Designs / template")
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--api_batch_size", type=int, default=25)
+    parser.add_argument("--synthyra_api_key", type=str, default=None)
+    parser.add_argument("--test", action="store_true")
+    parser.add_argument("--output_file", type=str, default='all_designs.csv', help='Output file name')
+    parser.add_argument("--summary_file", type=str, default='summary.txt', help='Summary file name')
+    return parser.parse_args()
 
 
 def chunked(it: Iterable, n: int):
@@ -57,6 +47,12 @@ def chunked(it: Iterable, n: int):
             buf = []
     if buf:
         yield buf
+
+
+# Added helper function for random sequences
+def generate_random_aa_sequence(length: int, alphabet: str) -> str:
+    """Generates a random amino acid sequence of a given length."""
+    return "".join(random.choice(alphabet) for _ in range(length))
 
 
 # ------------------------------ main workflow -------------------------------- #
@@ -184,6 +180,21 @@ def main() -> None:
 
         # 2. predict affinities (template + designs) - ensure template is included
         pairs_with_template = [(template, "TEMPLATE")] + pairs
+
+        # Add negative controls
+        if template: # Ensure template is not empty to get a length
+            template_len = len(template)
+            if template_len > 0: # Ensure template length is positive
+                negative_controls = []
+                for _ in range(NUM_NEGATIVE_CONTROLS):
+                    random_seq = generate_random_aa_sequence(template_len, AMINO_ACIDS)
+                    negative_controls.append((random_seq, "NEGATIVE_CONTROL"))
+                pairs_with_template.extend(negative_controls)
+            else:
+                print(f"[{target_name}] - Skipped adding negative controls (template length is 0).")
+        else:
+            print(f"[{target_name}] - Skipped adding negative controls (template is empty).")
+
         df_target = predict_in_batches(
             target_seq,
             pairs_with_template,
@@ -204,13 +215,14 @@ def main() -> None:
 
     # -------------------------------- outputs ------------------------------- #
     big_df = pd.concat(all_results, ignore_index=True)
-    big_df.to_csv("all_designs.csv", index=False)
-    print(f"\nSaved complete results to all_designs.csv  ({len(big_df)} rows)")
+    big_df.to_csv(args.output_file, index=False)
+    print(f"\nSaved complete results to {args.output_file}  ({len(big_df)} rows)")
 
     # -------- create summary.txt with top 10 and stats per target ----------- #
     lines = [
         f"Multi-target design run  –  {datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M UTC}",
         f"num_samples per template: {args.num_samples}",
+        f"Negative controls per template: {NUM_NEGATIVE_CONTROLS}",
         "",
     ]
     for tgt in big_df["Target"].unique():
@@ -222,28 +234,30 @@ def main() -> None:
         abs_err = abs(template_pred_pkd - true_template_pkd)
 
         # exclude template itself, then sort
-        gen_sub = sub[sub["design_info"] != "TEMPLATE"].sort_values("predicted-pKd", ascending=False)
-        top10 = gen_sub.head(10)
+        gen_sub = sub[sub["design_info"] != "TEMPLATE"].copy() # Keep this to exclude template for "better than template"
+        # Exclude negative controls from "better than template" and top 10 generated designs
+        designs_only_sub = gen_sub[gen_sub["design_info"] != "NEGATIVE_CONTROL"].sort_values("predicted-pKd", ascending=False)
+        top10 = designs_only_sub.head(10)
 
-        better_cnt = (gen_sub["predicted-pKd"] > template_pred_pkd).sum()  # <- compare to predicted
+        better_cnt = (designs_only_sub["predicted-pKd"] > template_pred_pkd).sum()  # <- compare to predicted
         # If you prefer to compare against true pKd instead, replace previous
-        # line with:  better_cnt = (gen_sub["predicted-pKd"] > true_template_pkd).sum()
+        # line with:  better_cnt = (designs_only_sub["predicted-pKd"] > true_template_pkd).sum()
 
         lines.append(f"── {tgt} ──")
         lines.append(f"Template predicted pKd: {template_pred_pkd:.4f}")
         lines.append(f"Template true pKd     : {true_template_pkd:.4f}")
         lines.append(f"|error| (pred-vs-true): {abs_err:.4f}")
-        lines.append(f"Designs better than template: {better_cnt} / {args.num_samples}")
+        lines.append(f"Designs better than template: {better_cnt} / {args.num_samples}") # num_samples is generated, not total w/ controls
         lines.append("Top 10 designs (predicted-pKd / seq):")
         for seq, pkd in zip(top10["SeqB"], top10["predicted-pKd"]):
             lines.append(f'{pkd:.5f}')
             lines.append(seq)
         lines.append("")
 
-    with open("summary.txt", "w", encoding="utf-8") as f:
+    with open(args.summary_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    print("Saved summary.txt")
+    print(f"Saved summary to {args.summary_file}")
 
 
 if __name__ == "__main__":
