@@ -24,3 +24,4 @@ matplotlib
 pauc
 sentencepiece
 IPython
+wordcloud

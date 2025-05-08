@@ -20,6 +20,7 @@ if __name__ == "__main__":
 
     def arg_parser():
         parser = argparse.ArgumentParser()
+        parser.add_argument('--token', type=str, default=None)
         parser.add_argument('--input_path', type=str, default='test_compare.csv')
         parser.add_argument('--output_path', type=str, default='test_compare_annotated.csv')
         return parser.parse_args()

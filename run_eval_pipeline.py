@@ -30,10 +30,10 @@ def main():
     os.makedirs(args.data_dir, exist_ok=True)
     
     # Define file paths
-    base_csv = os.path.join(args.data_dir, "test_generated_sequences.csv")
-    ss_csv = os.path.join(args.data_dir, "test_generated_sequences_ss.csv")
-    annotated_csv = os.path.join(args.data_dir, "test_generated_sequences_ss_ann.csv")
-    dist_output = os.path.join(args.data_dir, "test_distributions")
+    base_csv = os.path.join(args.data_dir, "generated_sequences.csv")
+    ss_csv = os.path.join(args.data_dir, "generated_sequences_ss.csv")
+    annotated_csv = os.path.join(args.data_dir, "generated_sequences_ss_ann.csv")
+    dist_output = os.path.join(args.data_dir, "distributions")
     
     # Step 1: Parameter tuning (if not skipped)
     if not args.skip_tuning:

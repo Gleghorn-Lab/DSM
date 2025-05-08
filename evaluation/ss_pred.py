@@ -170,10 +170,10 @@ if __name__ == '__main__':
     torch.cuda.empty_cache()
 
     # Add all predictions to dataframe
-    df['nat_ss4'] = nat_ss4_preds
-    df['nat_ss9'] = nat_ss9_preds
-    df['gen_ss4'] = gen_ss4_preds
-    df['gen_ss9'] = gen_ss9_preds
+    df['nat-ss4'] = nat_ss4_preds
+    df['nat-ss9'] = nat_ss9_preds
+    df['gen-ss4'] = gen_ss4_preds
+    df['gen-ss9'] = gen_ss9_preds
     
     # Save results
     df.to_csv(args.output_path, index=False)
