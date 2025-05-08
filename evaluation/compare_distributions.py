@@ -154,7 +154,7 @@ if __name__ == "__main__":
         parser.add_argument('--token', type=str, default=None)
         parser.add_argument('--input_path', type=str, default='annotated_comparisons.csv')
         parser.add_argument('--output_path', type=str, default='compare_distributions.txt')
-        parser.add_argument('--raw_data_dir', type=str, default='raw_data')
+        parser.add_argument('--raw_data_dir', type=str, default='raw_data_comparisons')
         return parser.parse_args()
     
 
