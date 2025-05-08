@@ -16,21 +16,21 @@ from synthyra_api.affinity_pred import predict_against_target
 
 
 # --------------------------- constants & helpers ----------------------------- #
-MODEL_PATH = "lhallee/ESM_diff_bind_650"  # Changed
+MODEL_PATH = "lhallee/ESM_diff_bind_650"
 TEMPERATURE = 1.0
 REMASKING = "random"
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 10  # Changed
-AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY" # Added
-NUM_NEGATIVE_CONTROLS = 20 # Added
+STEP_DIVISOR = 100
+AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+NUM_NEGATIVE_CONTROLS = 20
 
 
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", type=str, default=None, help="HuggingFace token")
     parser.add_argument("--num_samples", type=int, default=100, help="Designs / template")
-    parser.add_argument("--batch_size", type=int, default=1) # Conditional model might need smaller batch due to longer sequences
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--api_batch_size", type=int, default=25)
     parser.add_argument("--synthyra_api_key", type=str, default=None)
     parser.add_argument("--test", action="store_true")
@@ -56,7 +56,7 @@ def generate_random_aa_sequence(length: int, alphabet: str) -> str:
     return "".join(random.choice(alphabet) for _ in range(length))
 
 
-def load_binder_model(model_path): # Added from conditional_binder.py
+def load_binder_model(model_path):
     local_weight_file = hf_hub_download(
         repo_id=model_path,
         filename='model.safetensors',
