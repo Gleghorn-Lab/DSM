@@ -2,6 +2,9 @@ import argparse
 import random
 from datetime import datetime
 from typing import List, Tuple, Iterable
+import threading
+import queue
+import os
 
 import pandas as pd
 import torch
@@ -22,6 +25,7 @@ PREVIEW = False
 STEP_DIVISOR = 100
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 NUM_NEGATIVE_CONTROLS = 20
+NUM_WORKER_THREADS = os.cpu_count() // 4 if os.cpu_count() and os.cpu_count() >=4 else 1
 
 
 def arg_parser():
@@ -53,6 +57,40 @@ def chunked(it: Iterable, n: int):
 def generate_random_aa_sequence(length: int, alphabet: str) -> str:
     """Generates a random amino acid sequence of a given length."""
     return "".join(random.choice(alphabet) for _ in range(length))
+
+
+def prediction_worker(design_queue: queue.Queue, result_queue: queue.Queue, args: argparse.Namespace):
+    """Worker function to process prediction batches in separate threads."""
+    while True:
+        item = design_queue.get()
+        if item is None:  # Signal to terminate
+            design_queue.task_done()
+            break
+        
+        target_seq, designs_batch, infos_batch, target_name, true_pkd = item
+        
+        # print(f'Thread {threading.get_ident()}: Processing batch of {len(designs_batch)} designs for {target_name}')
+        
+        try:
+            df = predict_against_target(
+                target=target_seq, # API expects 'target' kwarg
+                designs=designs_batch,
+                test=args.test,
+                api_key=args.synthyra_api_key
+            )
+            
+            mapping = {design_seq: info_str for design_seq, info_str in zip(designs_batch, infos_batch)}
+            df["design_info"] = df["SeqB"].map(mapping)
+            
+            df["Target"] = target_name
+            df["True_template_pKd"] = true_pkd
+            
+            result_queue.put(df)
+        except Exception as e:
+            print(f"Error in prediction worker for target {target_name} with {len(designs_batch)} designs: {e}")
+            pass
+        finally:
+            design_queue.task_done()
 
 
 # ------------------------------ main workflow -------------------------------- #
@@ -120,28 +158,6 @@ def generate_designs_for_template(
     return list(zip(designs[:num_samples], infos[:num_samples]))
 
 
-def predict_in_batches(
-    target_seq: str,
-    designs_info: List[Tuple[str, str]],
-    api_batch_size: int,
-    api_key: str,
-    test: bool,
-) -> pd.DataFrame:
-    """
-    Calls Synthyra in api_batch_size chunks, returns dataframe with
-    columns: SeqA, SeqB, predicted-pKd, … plus 'design_info'.
-    """
-    dfs = []
-    for chunk in chunked(designs_info, api_batch_size):
-        designs = [d for d, _ in chunk]
-        infos = [info for _, info in chunk]
-        df = predict_against_target(target_seq, designs, test=test, api_key=api_key)
-        mapping = {d: info for d, info in chunk}
-        df["design_info"] = df["SeqB"].map(mapping)
-        dfs.append(df)
-    return pd.concat(dfs, ignore_index=True)
-
-
 def main() -> None:
     args = arg_parser()
     if args.token:
@@ -152,7 +168,21 @@ def main() -> None:
     model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
-    all_results = []  # collect dfs
+    all_results_dfs = []  # Changed: collect dfs from result_queue
+
+    # Create queues for thread communication
+    design_queue = queue.Queue()
+    result_queue = queue.Queue()
+
+    # Start worker threads
+    threads = []
+    num_threads_to_start = NUM_WORKER_THREADS
+    print(f"Starting {num_threads_to_start} prediction worker threads.")
+    for _ in range(num_threads_to_start):
+        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue, args))
+        t.daemon = True
+        t.start()
+        threads.append(t)
 
     for target_name, (
         target_seq,
@@ -170,7 +200,7 @@ def main() -> None:
 
         print(f"\n=== {target_name} ===")
         # 1. generate designs
-        pairs = generate_designs_for_template(
+        generated_pairs = generate_designs_for_template(
             template,
             args.num_samples,
             args.batch_size,
@@ -178,43 +208,70 @@ def main() -> None:
             model,
         )
 
-        # 2. predict affinities (template + designs) - ensure template is included
-        pairs_with_template = [(template, "TEMPLATE")] + pairs
+        # 2. Prepare all items for prediction for this target
+        # Ensure the template is the first item in the list to prioritize its processing
+        items_to_predict = [(template, "TEMPLATE")] + generated_pairs
+        
+        # Print confirmation that template is being added to prediction list
+        print(f"Added template ({len(template)} aa) for prediction: {template}")
 
-        # Add negative controls
-        if template: # Ensure template is not empty to get a length
+        if template: 
             template_len = len(template)
-            if template_len > 0: # Ensure template length is positive
+            if template_len > 0: 
                 negative_controls = []
                 for _ in range(NUM_NEGATIVE_CONTROLS):
                     random_seq = generate_random_aa_sequence(template_len, AMINO_ACIDS)
                     negative_controls.append((random_seq, "NEGATIVE_CONTROL"))
-                pairs_with_template.extend(negative_controls)
+                items_to_predict.extend(negative_controls)
             else:
                 print(f"[{target_name}] - Skipped adding negative controls (template length is 0).")
         else:
             print(f"[{target_name}] - Skipped adding negative controls (template is empty).")
 
-        df_target = predict_in_batches(
-            target_seq,
-            pairs_with_template,
-            args.api_batch_size,
-            args.synthyra_api_key,
-            args.test,
-        )
+        # Submit prediction tasks to the queue in chunks, ensuring template is in first chunk
+        first_chunk = True
+        for chunk_data in chunked(items_to_predict, args.api_batch_size):
+            designs_for_batch = [d for d, _ in chunk_data]
+            infos_for_batch = [info for _, info in chunk_data]
+            
+            if not designs_for_batch:
+                continue
+            
+            # Print confirmation when submitting a batch containing the template
+            if first_chunk:
+                if "TEMPLATE" in infos_for_batch:
+                    print(f"Submitting batch containing template for {target_name}")
+                first_chunk = False
+            
+            design_queue.put((target_seq, designs_for_batch, infos_for_batch, target_name, true_pkd))
 
-        # annotate
-        df_target["Target"] = target_name
-        df_target["True_template_pKd"] = true_pkd
+    # Signal worker threads to terminate
+    print("\nAll design generation complete. Signaling prediction workers to terminate...")
+    for _ in range(num_threads_to_start):
+        design_queue.put(None)
 
-        all_results.append(df_target)
+    # Wait for all tasks in the design_queue to be processed
+    design_queue.join()
+    print("All prediction tasks processed by workers.")
 
-    if not all_results:
-        print("No designs generated for any target.")
+    # Collect all results from the result_queue
+    while not result_queue.empty():
+        try:
+            df_from_worker = result_queue.get_nowait()
+            all_results_dfs.append(df_from_worker)
+        except queue.Empty:
+            break
+            
+    print(f"Collected {len(all_results_dfs)} result DataFrames from workers.")
+
+    if not all_results_dfs:
+        print("No designs were processed by workers or no results returned.")
+        for t in threads:
+            t.join(timeout=5)
         return
 
     # -------------------------------- outputs ------------------------------- #
-    big_df = pd.concat(all_results, ignore_index=True)
+    big_df = pd.concat(all_results_dfs, ignore_index=True)
     big_df.to_csv(args.output_file, index=False)
     print(f"\nSaved complete results to {args.output_file}  ({len(big_df)} rows)")
 
@@ -228,10 +285,35 @@ def main() -> None:
     for tgt in big_df["Target"].unique():
         sub = big_df[big_df["Target"] == tgt].copy()
 
-        # locate template row & template predicted pKd
-        template_pred_pkd = sub.loc[sub["design_info"] == "TEMPLATE", "predicted-pKd"].values[0]
+        # Check if template exists in the results
+        template_row = sub[sub["design_info"] == "TEMPLATE"]
+        if template_row.empty:
+            print(f"WARNING: Template for {tgt} not found in results!")
+            # Add the template manually with -inf pKd to ensure it's tracked
+            template_from_binding_info = BINDING_INFO.get(tgt, (None, None, None, None, None, None, None))[3]
+            if template_from_binding_info:
+                print(f"  - Adding missing template from BINDING_INFO: {template_from_binding_info}")
+                # Create a new row for the template
+                template_dict = {
+                    "Target": tgt,
+                    "SeqB": template_from_binding_info,
+                    "design_info": "TEMPLATE",
+                    "predicted-pKd": float('-inf'),
+                    "True_template_pKd": BINDING_INFO.get(tgt, (None, None, None, None, float('nan'), None, None))[4]
+                }
+                # Add this row to both the sub and big_df
+                template_df = pd.DataFrame([template_dict])
+                sub = pd.concat([sub, template_df], ignore_index=True)
+                big_df = pd.concat([big_df, template_df], ignore_index=True)
+            template_pred_pkd = float('-inf')
+        else:
+            # locate template row & template predicted pKd
+            template_pred_pkd = template_row["predicted-pKd"].values[0]
+            if template_pred_pkd == float('-inf'):
+                print(f"WARNING: Template for {tgt} has predicted pKd of -inf")
+
         true_template_pkd = sub["True_template_pKd"].iloc[0]
-        abs_err = abs(template_pred_pkd - true_template_pkd)
+        abs_err = abs(template_pred_pkd - true_template_pkd) if pd.notna(true_template_pkd) and pd.notna(template_pred_pkd) and template_pred_pkd != float('-inf') else float('nan')
 
         # exclude template itself, then sort
         gen_sub = sub[sub["design_info"] != "TEMPLATE"].copy() # Keep this to exclude template for "better than template"
@@ -239,15 +321,15 @@ def main() -> None:
         designs_only_sub = gen_sub[gen_sub["design_info"] != "NEGATIVE_CONTROL"].sort_values("predicted-pKd", ascending=False)
         top10 = designs_only_sub.head(10)
 
-        better_cnt = (designs_only_sub["predicted-pKd"] > template_pred_pkd).sum()  # <- compare to predicted
+        better_cnt = (designs_only_sub["predicted-pKd"] > template_pred_pkd).sum() if template_pred_pkd != float('-inf') else len(designs_only_sub)
         # If you prefer to compare against true pKd instead, replace previous
         # line with:  better_cnt = (designs_only_sub["predicted-pKd"] > true_template_pkd).sum()
 
         lines.append(f"── {tgt} ──")
-        lines.append(f"Template predicted pKd: {template_pred_pkd:.4f}")
-        lines.append(f"Template true pKd     : {true_template_pkd:.4f}")
-        lines.append(f"|error| (pred-vs-true): {abs_err:.4f}")
-        lines.append(f"Designs better than template: {better_cnt} / {args.num_samples}") # num_samples is generated, not total w/ controls
+        lines.append(f"Template predicted pKd: {template_pred_pkd:.4f}" if template_pred_pkd != float('-inf') else "Template predicted pKd: N/A (not predicted)")
+        lines.append(f"Template true pKd     : {true_template_pkd:.4f}" if pd.notna(true_template_pkd) else "Template true pKd     : N/A")
+        lines.append(f"|error| (pred-vs-true): {abs_err:.4f}" if pd.notna(abs_err) else "|error| (pred-vs-true): N/A")
+        lines.append(f"Designs better than template: {better_cnt} / {args.num_samples}" + (" (all designs, template pKd not available)" if template_pred_pkd == float('-inf') else "")) # num_samples is generated, not total w/ controls
         lines.append("Top 10 designs (predicted-pKd / seq):")
         for seq, pkd in zip(top10["SeqB"], top10["predicted-pKd"]):
             lines.append(f'{pkd:.5f}')
@@ -258,6 +340,11 @@ def main() -> None:
         f.write("\n".join(lines))
 
     print(f"Saved summary to {args.summary_file}")
+
+    # Ensure all threads are joined before exiting
+    for t in threads:
+        t.join(timeout=5)
+    print("All worker threads have been joined.")
 
 
 if __name__ == "__main__":
