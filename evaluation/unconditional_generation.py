@@ -6,7 +6,7 @@ from datasets import Dataset
 from huggingface_hub import login, hf_hub_download
 
 from models.modeling_esm_diff import ESM_Diff
-from evaluation.compare_distributions import compare_corpora_kmers
+from evaluation.compare_distributions import CorpusComparator, AA20
 
 
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
@@ -64,10 +64,15 @@ if __name__ == '__main__':
             slow=SLOW,
             start_with_methionine=False
         )
-        for seq in output_tokens:
-            generated_seqs.append(model._decode_seq(seq))
+        for output_token in output_tokens:
+            gen_seq = model._decode_seq(output_token)
+            assert len(gen_seq) == len(seq), f'Differing lengths: {len(gen_seq)} != {len(seq)}'
+            assert gen_seq.count('-') == 0, f'Gaps present: {gen_seq.count("-")} != 0'
+            #gen_seq = gen_seq.replace('-', '')
+            generated_seqs.append(gen_seq)
 
-    stats = compare_corpora_kmers(natural_seqs, generated_seqs)
+    comparator = CorpusComparator(vocabulary=AA20)
+    stats = comparator.compare_corpora_kmers(natural_seqs, generated_seqs)
 
     result = []
 
