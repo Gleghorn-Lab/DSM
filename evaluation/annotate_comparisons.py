@@ -1,13 +1,14 @@
 import pandas as pd
 import threading
 import queue
+import os
 from synthyra_api.annotation import predict_annotations, parse_annotations
 
 
-def annotation_worker(sequences, result_queue, worker_id):
+def annotation_worker(sequences, result_queue, worker_id, synthyra_api_token):
     """Worker function to process annotation batches in separate threads."""
     print(f"Worker {worker_id} processing {len(sequences)} sequences")
-    annotations = predict_annotations(sequences)
+    annotations = predict_annotations(sequences, synthyra_api_token)
     parsed_annotations = parse_annotations(annotations)
     result_queue.put((worker_id, parsed_annotations))
     print(f"Worker {worker_id} completed")
@@ -15,9 +16,22 @@ def annotation_worker(sequences, result_queue, worker_id):
 
 if __name__ == "__main__":
     # py -m evaluation.annotate_comparisons
+    import argparse
 
-    path = 'evaluation/test_compare.csv'
-    df = pd.read_csv(path)
+    def arg_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--token', type=str, default=None)
+        parser.add_argument('--synthyra_api_token', type=str, default=None)
+        parser.add_argument('--input_path', type=str, default='test_compare.csv')
+        parser.add_argument('--output_path', type=str, default='test_compare_annotated.csv')
+        return parser.parse_args()
+
+    args = arg_parser()
+    args.input_path = os.path.join('evaluation', 'comparisons', args.input_path)
+    args.output_path = os.path.join('evaluation', 'comparisons', args.output_path)
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+
+    df = pd.read_csv(args.input_path)
     natural_seqs = df['natural'].tolist()
     generated_seqs = df['generated'].tolist()
 
@@ -30,7 +44,7 @@ if __name__ == "__main__":
     # Thread for natural sequences
     natural_thread = threading.Thread(
         target=annotation_worker, 
-        args=(natural_seqs, result_queue, "natural")
+        args=(natural_seqs, result_queue, "natural", args.synthyra_api_token)
     )
     natural_thread.start()
     threads.append(natural_thread)
@@ -38,7 +52,7 @@ if __name__ == "__main__":
     # Thread for generated sequences
     generated_thread = threading.Thread(
         target=annotation_worker, 
-        args=(generated_seqs, result_queue, "generated")
+        args=(generated_seqs, result_queue, "generated", args.synthyra_api_token)
     )
     generated_thread.start()
     threads.append(generated_thread)
@@ -60,4 +74,4 @@ if __name__ == "__main__":
     df['natural_annotations'] = df['natural'].map(natural_annotations)
     df['generated_annotations'] = df['generated'].map(generated_annotations)
 
-    df.to_csv('evaluation/annotated_comparisons.csv', index=False)
+    df.to_csv(args.output_path, index=False)

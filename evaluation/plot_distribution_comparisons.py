@@ -11,7 +11,7 @@ from wordcloud import WordCloud
 from collections import Counter
 
 
-sns.set_theme(style="ticks", context="paper", font_scale=1.25)
+sns.set_theme(style="ticks", context="paper", font_scale=1.6)
 
 
 def _k(p: Path) -> int:
@@ -22,25 +22,40 @@ def load_tbls(raw_dir: Path, prefix: str) -> dict[int, pd.DataFrame]:
     return {_k(p): pd.read_csv(p, index_col=0)
             for p in sorted(raw_dir.glob(f"{prefix}_kmer*.csv"), key=_k)}
 
+
 def chi_p_js(df: pd.DataFrame) -> tuple[float, float, float]:
     a, b = df["count_A"].values, df["count_B"].values
     chi2, p, *_ = chi2_contingency(np.vstack((a, b)), correction=False)
     js = jensenshannon(a / a.sum(), b / b.sum(), base=2.0) ** 2
     return chi2, p, js
 
+
 def add_scatter(ax, df: pd.DataFrame, k: int):
     x, y = df["ratio_A"].clip(1e-12), df["ratio_B"].clip(1e-12)
-    ax.scatter(x, y, s=22, alpha=0.65)
+    ax.scatter(x, y, s=25, alpha=0.65)
     lo, hi = np.min([x.min(), y.min()]), np.max([x.max(), y.max()])
     ax.plot([lo, hi], [lo, hi], "--", color="grey", lw=1)
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlabel("Natural frequency"); ax.set_ylabel("Generated frequency")
-    ax.set_title(f"{k}-mers")
+    ax.set_xlabel("Natural frequency", fontsize=18, labelpad=20)
+    ax.set_ylabel("Generated frequency", fontsize=18)
+    
+    # More descriptive title based on k value
+    if k == 1:
+        title = f"{k}-mer Distribution"
+    elif k == 2:
+        title = f"{k}-mer Distribution"
+    elif k == 3:
+        title = f"{k}-mer Distribution"
+    else:
+        title = f"{k}-mer Distribution"
+    
+    ax.set_title(title, fontsize=16)
+    
     χ2, p, js = chi_p_js(df)
     ax.text(0.02, 0.98,
             f"$\\chi^2$={χ2:.0f}\n$p$={p:.1e}\n$JS$={js:.4f}",
-            transform=ax.transAxes, va="top", ha="left", fontsize=8,
+            transform=ax.transAxes, va="top", ha="left", fontsize=16,
             bbox=dict(boxstyle="round,pad=0.25", fc="white", alpha=0.75))
 
 
@@ -66,20 +81,40 @@ def add_table(ax, df: pd.DataFrame, k: int):
                          loc="center",
                          cellLoc="center")
     the_table.auto_set_font_size(False)
-    the_table.set_fontsize(8)
-    the_table.scale(1, 1.3)   # little breathing room
-    ax.set_title(f"{k}-mers  —  10 most dissimilar ↑  |  10 most similar ↓",
-                 pad=10, fontsize=11)
+    the_table.set_fontsize(10)
+    the_table.scale(1, 1.5)   # more breathing room
+    
+    # More descriptive title based on k value
+    if k == 2:
+        title = f"{k}-mers"
+    elif k == 3:
+        title = f"{k}-mers"
+    else:
+        title = f"{k}-mers"
+        
+    ax.set_title(title + "\n10 most dissimilar ↑  |  10 most similar ↓",
+                 pad=15, fontsize=14)
 
 
 def scatter_figure(prefix: str, tbls, out):
     ks = sorted(tbls)
     fig, axes = plt.subplots(1, len(ks),
-                             figsize=(5.5*len(ks), 5.5),
+                             figsize=(6.0*len(ks), 6.0),
                              constrained_layout=True)
     if len(ks) == 1: axes = [axes]
     for ax, k in zip(axes, ks): add_scatter(ax, tbls[k], k)
-    fig.suptitle(prefix.upper(), fontsize=16, weight="bold")
+    
+    # More descriptive main titles based on prefix
+    if prefix == "aa":
+        title = "Amino Acid Distribution Comparison"
+    elif prefix == "ss4":
+        title = "Secondary Structure (4-class) Distribution Comparison"
+    elif prefix == "ss9":
+        title = "Secondary Structure (9-class) Distribution Comparison"
+    else:
+        title = prefix.upper() + " Distribution Comparison"
+    
+    fig.suptitle(title, fontsize=18, weight="bold")
     fig.savefig(out / f"{prefix}_comparison.png", dpi=300)
     plt.close(fig)
 
@@ -87,7 +122,7 @@ def scatter_figure(prefix: str, tbls, out):
 def annotation_figure(tbls: dict[int, pd.DataFrame], out: Path):
     ks_present = sorted(tbls)
     fig, axes = plt.subplots(1, len(ks_present),
-                             figsize=(5.5*len(ks_present), 5.5),
+                             figsize=(6.0*len(ks_present), 6.0),
                              constrained_layout=True)
     if len(ks_present) == 1: axes = [axes]
 
@@ -97,7 +132,7 @@ def annotation_figure(tbls: dict[int, pd.DataFrame], out: Path):
         else:
             add_table(ax, tbls[k], k)
 
-    fig.suptitle("ANNOTATIONS", fontsize=16, weight="bold")
+    fig.suptitle("Protein Annotation Distribution Comparison", fontsize=18, weight="bold")
     fig.savefig(out / "annotations_comparison.png", dpi=300)
     plt.close(fig)
 
@@ -106,8 +141,9 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
     """
     Create word clouds of natural and generated sequence annotations.
     Colors indicate similarity in frequency between datasets:
-    - Orange gradient for similar frequencies
-    - Blue gradient for different frequencies
+    - Blue for similar frequencies
+    - Orange for moderately different frequencies
+    - Red for very different frequencies
     """
     # Load raw data
     input_data = pd.read_csv(raw_dir / "input_data.csv")
@@ -115,8 +151,6 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
     # Extract annotations
     natural_annotations = ';'.join(input_data['natural_annotations'].dropna())
     generated_annotations = ';'.join(input_data['generated_annotations'].dropna())
-    #natural_annotations = natural_annotations.replace(' ', '-')
-    #generated_annotations = generated_annotations.replace(' ', '-')
 
     remove_terms = [
         'Reference proteome'
@@ -153,24 +187,31 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
         max_fold_change = max(max_fold_change, row['log2_fold'])
         min_fold_change = min(min_fold_change, row['log2_fold'])
     
+    # Define color-friendly colors
+    similar_color = (41, 128, 185)      # Blue
+    moderate_color = (230, 126, 34)     # Orange
+    different_color = (192, 57, 43)     # Red
+    unknown_color = (149, 165, 166)     # Gray
+
+    # Define color-friendly colors (normalized to 0-1 range)
+    similar_color_legend = (41/255, 128/255, 185/255)      # Blue
+    moderate_color_legend = (230/255, 126/255, 34/255)     # Orange
+    different_color_legend = (192/255, 57/255, 43/255)     # Red
+    unknown_color_legend = (149/255, 165/255, 166/255)     # Gray
 
     # Custom color function based on log2 fold change
     def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
         if word.lower() in word_similarity:
-            log2_fold = word_similarity[word.lower()]
+            log2_fold = abs(word_similarity[word.lower()])
+            
+            if log2_fold < 1:  # very similar
+                return f"rgb({similar_color[0]}, {similar_color[1]}, {similar_color[2]})"
+            elif log2_fold < 2:  # moderately different
+                return f"rgb({moderate_color[0]}, {moderate_color[1]}, {moderate_color[2]})"
+            else:  # very different
+                return f"rgb({different_color[0]}, {different_color[1]}, {different_color[2]})"
         else:
-            log2_fold = 0
-        
-        # Normalize log2_fold to [0,1] range
-        normalized_value = (log2_fold - min_fold_change) / (max_fold_change - min_fold_change)
-        # Ensure the value is within bounds
-        normalized_value = max(0, min(1, normalized_value))
-        
-        # Scale to RGB range (0-255)
-        if abs(log2_fold) < 2:  # similar - red
-            return f"rgb(255, 0, 0)"
-        else:  # different - blue
-            return f"rgb(0, 0, 255)"
+            return f"rgb({unknown_color[0]}, {unknown_color[1]}, {unknown_color[2]})"  # unknown terms
     
     # Create figure with dark border
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), constrained_layout=True)
@@ -196,7 +237,7 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
     
     axes[0].imshow(natural_wc, interpolation='bilinear')
     axes[0].axis('off')
-    axes[0].set_title('Natural Sequences Annotations', fontsize=16, weight='bold')
+    axes[0].set_title('Natural Protein Sequence Annotations', fontsize=18, weight='bold')
     
     # Add border to subplot
     for spine in axes[0].spines.values():
@@ -222,7 +263,7 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
     
     axes[1].imshow(generated_wc, interpolation='bilinear')
     axes[1].axis('off')
-    axes[1].set_title('Generated Sequences Annotations', fontsize=16, weight='bold')
+    axes[1].set_title('Generated Protein Sequence Annotations', fontsize=18, weight='bold')
     
     # Add border to subplot
     for spine in axes[1].spines.values():
@@ -231,23 +272,47 @@ def create_annotation_wordclouds(raw_dir: Path, out: Path):
         spine.set_linewidth(1.5)
 
     # Add main title with explanation
-    fig.suptitle('Annotation Term Frequency Comparison', fontsize=18, weight='bold', y=0.98)
+    fig.suptitle('Protein Annotation Term Frequency Comparison', fontsize=20, weight='bold', y=0.98)
+    
+    # Add color legend
+    legend_elements = [
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=similar_color_legend, markersize=15, label='Similar frequency (|log2 fold| < 1)'),
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=moderate_color_legend, markersize=15, label='Moderately different (1 ≤ |log2 fold| < 2)'),
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=different_color_legend, markersize=15, label='Very different (|log2 fold| ≥ 2)'),
+        #plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=unknown_color_legend, markersize=15, label='Unknown term')
+    ]
+    
+    fig.legend(handles=legend_elements, loc='lower center', ncol=4, fontsize=12, 
+               bbox_to_anchor=(0.5, 0.02), frameon=True, facecolor='white', edgecolor='black')
+    
+    # Save figure with tight layout to accommodate the legend
     fig.savefig(out / "annotation_wordclouds.png", dpi=300, bbox_inches='tight')
     plt.close(fig)
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--raw_dir", type=Path, default="evaluation/raw_data")
-    ap.add_argument("--out_dir", default="figures", type=Path)
-    args = ap.parse_args(); args.out_dir.mkdir(parents=True, exist_ok=True)
+    import argparse
+    import os
+
+    def arg_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--token', type=str, default=None)
+        parser.add_argument("--raw_dir", type=Path, default="raw_data_comparisons")
+        parser.add_argument("--out_dir", default="figures", type=Path)
+        return parser.parse_args()
+
+    args = arg_parser()
+    args.raw_dir = Path(os.path.join('evaluation', 'comparisons', args.raw_dir))
+    args.out_dir.mkdir(parents=True, exist_ok=True)
 
     for pref in ("aa", "ss4", "ss9"):
         tbls = load_tbls(args.raw_dir, pref)
-        if tbls: scatter_figure(pref, tbls, args.out_dir)
+        if tbls:
+            scatter_figure(pref, tbls, args.out_dir)
 
     ann_tbls = load_tbls(args.raw_dir, "annotations")
-    if ann_tbls: annotation_figure(ann_tbls, args.out_dir)
+    if ann_tbls:
+        annotation_figure(ann_tbls, args.out_dir)
     
     # Create word clouds for annotations
     create_annotation_wordclouds(args.raw_dir, args.out_dir)

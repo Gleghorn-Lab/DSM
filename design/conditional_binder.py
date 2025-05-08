@@ -12,21 +12,15 @@ from models.modeling_esm_diff import ESM_Diff_Binders, ESMDiffConfig
 from models.utils import wrap_lora
 from ..synthyra_api.affinity_pred import predict_against_target
 
+from .binder_info import BINDING_INFO
 
-SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
-MODEL_PATH = 'lhallee/esm_diff_bind_150'
-TARGET = 'LEEKKVCQGTSNKLTQLGTFEDHFLSLQRMFNNCEVVLGNLEITYVQRNYDLSFLKTIQEVAGYVLIALNTVERIPLENLQIIRGNMYYENSYALAVLSNYDANKTGLKELPMRNLQEILHGAVRFSNNPALCNVESIQWRDIVSSDFLSNMSMDFQNHLGSCQKCDPSCPNGSCWGAGEENCQKLTKIICAQQCSGRCRGKSPSDCCHNQCAAGCTGPRESDCLVCRKFRDEATCKDTCPPLMLYNPTTYQMDVNPEGKYSFGATCVKKCPRNYVVTDHGSCVRACGADSYEMEEDGVRKCKKCEGPCRKVCNGIGIGEFKDSLSINATNIKHFKNCTSISGDLHILPVAFRGDSFTHTPPLDPQELDILKTVKEITGFLLIQAWPENRTDLHAFENLEIIRGRTKQHGQFSLAVVSLNITSLGLRSLKEISDGDVIISGNKNLCYANTINWKKLFGTSGQKTKIISNRGENSCKATGQVCHALCSPEGCWGPEPRDCVSCRNVSRGRECVDKCNLLEGEPREFVENSECIQCHPECLPQAMNITCTGRGPDNCIQCAHYIDGPHCVKTCPAGVMGENNTLVWKYADAGHVCHLCHPNCTYGCTGPGLEGCPTNGPKIPS'
-TARGET_AMINOS = ['S11', 'N12', 'K13', 'T15', 'Q16', 'L17', 'G18', 'S356', 'S440', 'G441']
-TARGET_IDX = [11, 12, 13, 15, 16, 17, 18, 356, 440, 441]
-TEMPLATE = 'QVQLQQSGPGLVQPSQSLSITCTVSGFSLTNYGVHWVRQSPGKGLEWLGVIWSGGNTDYNTPFTSRLSISRDTSKSQVFFKMNSLQTDDTAIYYCARALTYYDYEFAYWGQGTLVTVSAGGGGSGGGGSGGGGSDILLTQSPVILSVSPGERVSFSCRASQSIGTNIHWYQQRTNGSPKLLIRYASESISGIPSRFSGSGSGTDFTLSINSVDPEDIADYYCQQNNNWPTTFGAGTKLELK'
-TRUE_PKD = 8.918238
+
+MODEL_PATH = 'GleghornLab/ESM_diff_650'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = True
 STEP_DIVISOR = 1
-BATCH_SIZE = 1
-API_BATCH_SIZE = 25
 
 
 def arg_parser():
@@ -34,10 +28,14 @@ def arg_parser():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--num_samples', type=int, default=100)
     parser.add_argument('--test', action='store_true', help='Use test data instead of calling the API')
+    parser.add_argument('--target', type=str, default='EGFR', help='Target to design for')
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
+    parser.add_argument('--synthyra_api_key', type=str, default=None, help='Synthyra API key')
     return parser.parse_args()
 
 
-def prediction_worker(design_queue, result_queue):
+def prediction_worker(design_queue, result_queue, TARGET, args):
     """Worker function to process prediction batches in separate threads."""
     while True:
         batch_data = design_queue.get()
@@ -53,7 +51,7 @@ def prediction_worker(design_queue, result_queue):
         print(f'Number of unique designs in batch: {len(unique_designs)}')
         
         # Predict against target
-        batch_df = predict_against_target(target=TARGET, designs=unique_designs, test=args.test)
+        batch_df = predict_against_target(target=TARGET, designs=unique_designs, test=args.test, api_key=args.synthyra_api_key)
         
         # Map mask rates to unique designs
         design_to_mask = {designs[i]: batch_masks[i] for i in range(len(designs))}
@@ -106,6 +104,8 @@ if __name__ == '__main__':
     args = arg_parser()
     if args.token is not None:
         login(args.token)
+        
+    TARGET, TARGET_AMINOS, TARGET_IDX, TEMPLATE, TRUE_PKD, SOURCE, BINDER_SOURCE = BINDING_INFO[args.target]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = load_binder_model(MODEL_PATH)
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     num_threads = os.cpu_count() // 4  # Adjust based on your system capabilities
     threads = []
     for i in range(num_threads):
-        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue))
+        t = threading.Thread(target=prediction_worker, args=(design_queue, result_queue, TARGET, args))
         t.daemon = True
         t.start()
         threads.append(t)
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     eos_token = tokenizer.eos_token_id
 
     # Generate designs
-    for sample in tqdm(range(args.num_samples // BATCH_SIZE)):
+    for sample in tqdm(range(args.num_samples // args.batch_size)):
         mask_percentage = random.uniform(0.01, 0.9)
         
         # Randomly select a region to mask
@@ -159,10 +159,10 @@ if __name__ == '__main__':
         end_eos = torch.tensor([eos_token], device=device).unsqueeze(0)
 
         # expand template tokens to batch_size
-        if BATCH_SIZE > 1:
-            target_tokens = target_tokens.repeat(BATCH_SIZE, 1)
-            template_tokens = template_tokens.repeat(BATCH_SIZE, 1)
-            end_eos = end_eos.repeat(BATCH_SIZE, 1)
+        if args.batch_size > 1:
+            target_tokens = target_tokens.repeat(args.batch_size, 1)
+            template_tokens = template_tokens.repeat(args.batch_size, 1)
+            end_eos = end_eos.repeat(args.batch_size, 1)
 
         # randomly mask template tokens
         mask_index = torch.rand_like(template_tokens.float()) < mask_percentage
@@ -186,8 +186,8 @@ if __name__ == '__main__':
             start_with_methionine=False
         )
 
-        if BATCH_SIZE > 1:
-            batch_designs = [model._decode_seq(output_tokens[i])[len(TARGET):] for i in range(BATCH_SIZE)]
+        if args.batch_size > 1:
+            batch_designs = [model._decode_seq(output_tokens[i])[len(TARGET):] for i in range(args.batch_size)]
             for design in batch_designs:
                 if design in design_set:
                     continue
@@ -198,7 +198,7 @@ if __name__ == '__main__':
             design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
         
         # Submit batch for processing when we reach api_batch_size
-        if len(designs) >= API_BATCH_SIZE:
+        if len(designs) >= args.api_batch_size:
             design_queue.put((designs.copy(), design_info.copy()))
             designs, design_info = [], []
     

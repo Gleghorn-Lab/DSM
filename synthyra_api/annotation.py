@@ -10,9 +10,6 @@ from typing import Optional, List, Dict
 from .utils import aspect_dict
 
 
-API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
-
-
 def convert_data_to_csv_bytes(data: List[Dict[str, str]], task_type: str) -> bytes:
     """
     Convert data to CSV format in memory as bytes.
@@ -40,13 +37,14 @@ def convert_data_to_csv_bytes(data: List[Dict[str, str]], task_type: str) -> byt
     return output.getvalue().encode('utf-8')
 
 
-def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
+def send_request(data: List[Dict[str, str]], task_type: str, api_key: str = None) -> Optional[float]:
     """
     Run a single test against the API with generated data.
     
     Args:
         num_seqs: The number of sequences to generate
         task_type: The API task type (ppi or annotation)
+        api_key: API key for Synthyra API
         
     Returns:
         Elapsed time in seconds, or None if the test failed
@@ -70,7 +68,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         }
 
     params = {
-        'api_key': API_KEY
+        'api_key': api_key
     }
 
     response = requests.post(
@@ -89,7 +87,7 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
 
 
     while True:
-        params = {'job_id': job_id, 'api_key': API_KEY}
+        params = {'job_id': job_id, 'api_key': api_key}
         response = requests.get('https://api.synthyra.com/v1/job', params=params)
         
         try:
@@ -104,9 +102,9 @@ def send_request(data: List[Dict[str, str]], task_type: str) -> Optional[float]:
         time.sleep(10)
 
 
-def predict_annotations(seqs: List[str]) -> pd.DataFrame:
+def predict_annotations(seqs: List[str], api_key: str = None) -> pd.DataFrame:
     data = [{'seq': seq} for seq in seqs]
-    df = send_request(data, 'annotation')
+    df = send_request(data, 'annotation', api_key)
     return df
 
 
@@ -135,22 +133,27 @@ if __name__ == "__main__":
     # py -m synthyra_api.annotation
     import pandas as pd
     import ast
+    import argparse
     from collections import defaultdict
     from datasets import Dataset
 
     from .utils import describe_prompt, aspect_dict, id2label, annotation_vocab_dict
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--synthyra_api_key", type=str, default=None, help="Synthyra API key")
+    parser.add_argument("--result_path", type=str, default=None, help="Path to save results")
+    args = parser.parse_args()
 
     data_path = 'synthyra_api/new_uniprot.csv'
-    result_path = 'synthyra_api/new_output.csv'
+    result_path = args.result_path if args.result_path is not None else 'synthyra_api/new_output.csv'
     df = pd.read_csv(data_path)
     data = Dataset.from_pandas(df).map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
     seqs = data['sequence']
     annotations = data['annotations']
 
-    if result_path is None:
+    if args.result_path is None:
         data = [{'seq': seqs[i]} for i in range(len(seqs))]
-        result_df = send_request(data, 'annotation')
+        result_df = send_request(data, 'annotation', args.synthyra_api_key)
     else:
         result_df = pd.read_csv(result_path)
 

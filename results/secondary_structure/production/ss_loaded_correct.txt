@@ -1,0 +1,7 @@
+We verify the weights are loaded correctly from the SS production models
+
+Accuracy
+SS4 Pred vs. Label split 1: 99967/115123 (86.83%)
+SS9 Pred vs. Label split 1: 89616/115123 (77.84%)
+SS4 Pred vs. Label split 2: 103148/119379 (86.40%)
+SS9 Pred vs. Label split 2: 92314/119379 (77.33%)

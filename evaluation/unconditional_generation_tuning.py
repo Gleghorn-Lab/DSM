@@ -1,10 +1,6 @@
 import torch
-import random
 import argparse
 import pandas as pd
-import threading
-import queue
-import os
 from tqdm import tqdm
 from datasets import Dataset
 from huggingface_hub import login, hf_hub_download
@@ -14,9 +10,7 @@ from models.modeling_esm_diff import ESM_Diff
 from evaluation.compare_distributions import compare_corpora_kmers
 
 
-SYNTHYRA_API_KEY = '7147b8da62cc094c11d688dbac739e4689cdc7952d5196a488e5d95a6c2f2da1'
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
-
 PREVIEW = False
 SLOW = False
 REMASKING = 'random'
