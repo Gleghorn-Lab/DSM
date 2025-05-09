@@ -1,0 +1,1149 @@
+=== Logging session started at 2025-05-07 15:45:21 ===
+=
+hf_username:	Synthyra
+yaml_path:	None
+log_dir:	logs
+results_dir:	results
+model_save_dir:	weights
+embedding_save_dir:	embeddings
+download_dir:	Synthyra/mean_pooled_embeddings
+plots_dir:	plots
+replay_path:	None
+pretrained_probe_path:	None
+delimiter:	,
+col_names:	['seqs', 'labels']
+max_length:	1024
+trim:	False
+data_names:	['DeepLoc-2', 'DeepLoc-10', 'EC', 'GO-CC', 'GO-BP', 'GO-MF', 'MB', 'enzyme-kcat', 'optimal-temperature', 'optimal-ph', 'human-ppi', 'gold-ppi']
+data_dirs:	[]
+model_names:	['DPLM-150', 'DPLM-650', 'DSM-150', 'DSM-650', 'ESM2-8', 'ESM2-35', 'ESM2-150', 'ESM2-650', 'ESM2-3B', 'ESMC-300', 'ESMC-600', 'ProtBert', 'ProtT5', 'GLM2-150', 'GLM2-650', 'ANKH-Base', 'ANKH-Large', 'Random', 'Random-Transformer']
+probe_type:	linear
+hidden_dim:	8192
+dropout:	0.2
+n_layers:	1
+pre_ln:	True
+classifier_dim:	4096
+transformer_dropout:	0.1
+classifier_dropout:	0.2
+n_heads:	4
+rotary:	True
+probe_pooling_types:	['mean', 'var']
+save_model:	False
+production_model:	False
+use_lora:	False
+lora_r:	8
+lora_alpha:	32.0
+lora_dropout:	0.01
+scikit_n_iter:	10
+scikit_cv:	3
+scikit_random_state:	42
+scikit_model_name:	None
+use_scikit:	False
+n_jobs:	1
+embedding_batch_size:	8
+num_workers:	0
+download_embeddings:	False
+matrix_embed:	False
+embedding_pooling_types:	['mean', 'var']
+save_embeddings:	False
+embed_dtype:	float32
+sql:	False
+num_epochs:	200
+probe_batch_size:	64
+base_batch_size:	4
+probe_grad_accum:	1
+base_grad_accum:	8
+lr:	0.0001
+weight_decay:	0.01
+patience:	10
+seed:	42
+full_finetuning:	False
+hybrid_probe:	False
+
+=======================================================
+INFO - Called method: apply_current_settings
+INFO - Called method: get_datasets
+INFO - Called method: save_embeddings_to_disk
+INFO - Called method: run_nn_probes
+INFO - Processing 228 model/dataset combinations
+INFO - Processing model: DPLM-150
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with DPLM-150
+INFO - Storing metrics for DL2_reg/DPLM-150 (valid): {'eval_loss': 0.19633521139621735, 'eval_f1': 0.92003, 'eval_precision': 0.92541, 'eval_recall': 0.91581, 'eval_accuracy': 0.92434, 'eval_mcc': 0.84117, 'eval_auc': 0.91581, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/DPLM-150 (test): {'test_loss': 0.24910980463027954, 'test_f1': 0.91194, 'test_precision': 0.9145, 'test_recall': 0.9099, 'test_accuracy': 0.9144, 'test_mcc': 0.82439, 'test_auc': 0.9099}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with DPLM-150
+INFO - Storing metrics for DL10_reg/DPLM-150 (valid): {'eval_loss': 0.6921253800392151, 'eval_f1': 0.63339, 'eval_precision': 0.78795, 'eval_recall': 0.61701, 'eval_accuracy': 0.78219, 'eval_mcc': 0.73418, 'eval_auc': 0.9609, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/DPLM-150 (test): {'test_loss': 0.7373077869415283, 'test_f1': 0.61624, 'test_precision': 0.711, 'test_recall': 0.60714, 'test_accuracy': 0.77341, 'test_mcc': 0.72654, 'test_auc': 0.96048}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with DPLM-150
+INFO - Storing metrics for EC_reg/DPLM-150 (valid): {'eval_loss': 0.004119385499507189, 'eval_accuracy': 0.99854, 'eval_f1': 0.7264, 'eval_precision': 0.74965, 'eval_recall': 0.70456, 'eval_hamming_loss': 0.00146, 'eval_threshold': 0.1, 'eval_mcc': 0.67278, 'eval_auc': 0.98618, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/DPLM-150 (test): {'test_loss': 0.005015069618821144, 'test_accuracy': 0.99776, 'test_f1': 0.74074, 'test_precision': 0.77449, 'test_recall': 0.70981, 'test_hamming_loss': 0.00224, 'test_threshold': 0.04, 'test_mcc': 0.61145, 'test_auc': 0.9874}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with DPLM-150
+INFO - Storing metrics for CC_reg/DPLM-150 (valid): {'eval_loss': 0.01585330441594124, 'eval_accuracy': 0.99332, 'eval_f1': 0.34494, 'eval_precision': 0.28768, 'eval_recall': 0.43066, 'eval_hamming_loss': 0.00668, 'eval_threshold': 0.06, 'eval_mcc': 0.14349, 'eval_auc': 0.92391, 'epoch': 17.0}
+INFO - Storing metrics for CC_reg/DPLM-150 (test): {'test_loss': 0.17010480165481567, 'test_accuracy': 0.96408, 'test_f1': 0.41638, 'test_precision': 0.43133, 'test_recall': 0.40244, 'test_hamming_loss': 0.03592, 'test_threshold': 0.01, 'test_mcc': 0.13624, 'test_auc': 0.86929}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with DPLM-150
+INFO - Storing metrics for BP_reg/DPLM-150 (valid): {'eval_loss': 0.017274295911192894, 'eval_accuracy': 0.99367, 'eval_f1': 0.4562, 'eval_precision': 0.42583, 'eval_recall': 0.49124, 'eval_hamming_loss': 0.00633, 'eval_threshold': 0.01, 'eval_mcc': 0.08263, 'eval_auc': 0.95471, 'epoch': 17.0}
+INFO - Storing metrics for BP_reg/DPLM-150 (test): {'test_loss': 0.17517776787281036, 'test_accuracy': 0.96666, 'test_f1': 0.23004, 'test_precision': 0.60365, 'test_recall': 0.1421, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02562, 'test_auc': 0.8134}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with DPLM-150
+INFO - Storing metrics for MF_reg/DPLM-150 (valid): {'eval_loss': 0.013273373246192932, 'eval_accuracy': 0.99167, 'eval_f1': 0.61801, 'eval_precision': 0.60827, 'eval_recall': 0.62807, 'eval_hamming_loss': 0.00833, 'eval_threshold': 0.03, 'eval_mcc': 0.27782, 'eval_auc': 0.97048, 'epoch': 16.0}
+INFO - Storing metrics for MF_reg/DPLM-150 (test): {'test_loss': 0.06180279701948166, 'test_accuracy': 0.98253, 'test_f1': 0.51173, 'test_precision': 0.64962, 'test_recall': 0.42213, 'test_hamming_loss': 0.01747, 'test_threshold': 0.02, 'test_mcc': 0.19684, 'test_auc': 0.88171}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with DPLM-150
+INFO - Storing metrics for MB_reg/DPLM-150 (valid): {'eval_loss': 0.5963834524154663, 'eval_f1': 0.68488, 'eval_precision': 0.68568, 'eval_recall': 0.68441, 'eval_accuracy': 0.68882, 'eval_mcc': 0.37009, 'eval_auc': 0.68441, 'epoch': 12.0}
+INFO - Storing metrics for MB_reg/DPLM-150 (test): {'test_loss': 0.6343043446540833, 'test_f1': 0.62392, 'test_precision': 0.62507, 'test_recall': 0.62402, 'test_accuracy': 0.62556, 'test_mcc': 0.24909, 'test_auc': 0.62402}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with DPLM-150
+INFO - Storing metrics for enzyme_kcat/DPLM-150 (valid): {'eval_loss': 16.095895767211914, 'eval_r_squared': 0.4015, 'eval_spearman_rho': 0.63566, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6534799933433533, 'eval_pear_pval': 0.0, 'eval_mse': 16.09589958190918, 'eval_mae': 2.9869399070739746, 'eval_rmse': 4.011970043182373, 'epoch': 28.0}
+INFO - Storing metrics for enzyme_kcat/DPLM-150 (test): {'test_loss': 16.66771125793457, 'test_r_squared': 0.39107, 'test_spearman_rho': 0.6132, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6386899948120117, 'test_pear_pval': 0.0, 'test_mse': 16.667709350585938, 'test_mae': 3.0034899711608887, 'test_rmse': 4.082610130310059}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with DPLM-150
+INFO - Storing metrics for optimal_temperature/DPLM-150 (valid): {'eval_loss': 149.15762329101562, 'eval_r_squared': 0.57339, 'eval_spearman_rho': 0.67939, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7714099884033203, 'eval_pear_pval': 0.0, 'eval_mse': 149.15762329101562, 'eval_mae': 9.40198040008545, 'eval_rmse': 12.21300983428955, 'epoch': 14.0}
+INFO - Storing metrics for optimal_temperature/DPLM-150 (test): {'test_loss': 164.18792724609375, 'test_r_squared': 0.52017, 'test_spearman_rho': 0.6307, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7274600267410278, 'test_pear_pval': 0.0, 'test_mse': 164.1879425048828, 'test_mae': 10.135749816894531, 'test_rmse': 12.813579559326172}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with DPLM-150
+INFO - Storing metrics for optimal_ph/DPLM-150 (valid): {'eval_loss': 0.9255908131599426, 'eval_r_squared': 0.33256, 'eval_spearman_rho': 0.54841, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6462799906730652, 'eval_pear_pval': 0.0, 'eval_mse': 0.9255899786949158, 'eval_mae': 0.7249400019645691, 'eval_rmse': 0.9620800018310547, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/DPLM-150 (test): {'test_loss': 0.8641380667686462, 'test_r_squared': 0.35172, 'test_spearman_rho': 0.53906, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6643400192260742, 'test_pear_pval': 0.0, 'test_mse': 0.864139974117279, 'test_mae': 0.7167800068855286, 'test_rmse': 0.9295899868011475}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with DPLM-150
+INFO - Storing metrics for HPPI/DPLM-150 (valid): {'eval_loss': 0.4434325397014618, 'eval_f1': 0.81296, 'eval_precision': 0.81154, 'eval_recall': 0.81515, 'eval_accuracy': 0.81624, 'eval_mcc': 0.62668, 'eval_auc': 0.81515, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/DPLM-150 (test): {'test_loss': 0.4743373990058899, 'test_f1': 0.79504, 'test_precision': 0.79619, 'test_recall': 0.7941, 'test_accuracy': 0.8, 'test_mcc': 0.59029, 'test_auc': 0.7941}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with DPLM-150
+INFO - Storing metrics for bernett_gold_ppi/DPLM-150 (valid): {'eval_loss': 0.670883059501648, 'eval_f1': 0.56919, 'eval_precision': 0.57995, 'eval_recall': 0.57536, 'eval_accuracy': 0.57536, 'eval_mcc': 0.15524, 'eval_auc': 0.57536, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/DPLM-150 (test): {'test_loss': 0.6611942052841187, 'test_f1': 0.59283, 'test_precision': 0.61719, 'test_recall': 0.60415, 'test_accuracy': 0.60415, 'test_mcc': 0.22096, 'test_auc': 0.60415}
+INFO - Processing model: DPLM-650
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with DPLM-650
+INFO - Storing metrics for DL2_reg/DPLM-650 (valid): {'eval_loss': 0.20366334915161133, 'eval_f1': 0.92166, 'eval_precision': 0.93314, 'eval_recall': 0.91407, 'eval_accuracy': 0.92659, 'eval_mcc': 0.847, 'eval_auc': 0.91407, 'epoch': 15.0}
+INFO - Storing metrics for DL2_reg/DPLM-650 (test): {'test_loss': 0.25491195917129517, 'test_f1': 0.90068, 'test_precision': 0.91068, 'test_recall': 0.89511, 'test_accuracy': 0.90457, 'test_mcc': 0.80564, 'test_auc': 0.89511}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with DPLM-650
+INFO - Storing metrics for DL10_reg/DPLM-650 (valid): {'eval_loss': 0.6172186136245728, 'eval_f1': 0.71135, 'eval_precision': 0.78413, 'eval_recall': 0.69232, 'eval_accuracy': 0.82009, 'eval_mcc': 0.7819, 'eval_auc': 0.97011, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/DPLM-650 (test): {'test_loss': 0.6864888668060303, 'test_f1': 0.61944, 'test_precision': 0.72905, 'test_recall': 0.62363, 'test_accuracy': 0.7949, 'test_mcc': 0.75273, 'test_auc': 0.96806}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with DPLM-650
+INFO - Storing metrics for EC_reg/DPLM-650 (valid): {'eval_loss': 0.0038022552616894245, 'eval_accuracy': 0.99863, 'eval_f1': 0.75741, 'eval_precision': 0.80218, 'eval_recall': 0.71738, 'eval_hamming_loss': 0.00137, 'eval_threshold': 0.1, 'eval_mcc': 0.6982, 'eval_auc': 0.98639, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/DPLM-650 (test): {'test_loss': 0.004432132933288813, 'test_accuracy': 0.99782, 'test_f1': 0.7632, 'test_precision': 0.80416, 'test_recall': 0.72622, 'test_hamming_loss': 0.00218, 'test_threshold': 0.03, 'test_mcc': 0.62645, 'test_auc': 0.98922}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with DPLM-650
+INFO - Storing metrics for CC_reg/DPLM-650 (valid): {'eval_loss': 0.014724534004926682, 'eval_accuracy': 0.99372, 'eval_f1': 0.32781, 'eval_precision': 0.29067, 'eval_recall': 0.37584, 'eval_hamming_loss': 0.00628, 'eval_threshold': 0.08, 'eval_mcc': 0.18406, 'eval_auc': 0.92386, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/DPLM-650 (test): {'test_loss': 0.15677569806575775, 'test_accuracy': 0.964, 'test_f1': 0.42942, 'test_precision': 0.42575, 'test_recall': 0.43316, 'test_hamming_loss': 0.036, 'test_threshold': 0.01, 'test_mcc': 0.12757, 'test_auc': 0.87798}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with DPLM-650
+INFO - Storing metrics for BP_reg/DPLM-650 (valid): {'eval_loss': 0.015712900087237358, 'eval_accuracy': 0.99367, 'eval_f1': 0.48153, 'eval_precision': 0.47953, 'eval_recall': 0.48354, 'eval_hamming_loss': 0.00633, 'eval_threshold': 0.01, 'eval_mcc': 0.08883, 'eval_auc': 0.95877, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/DPLM-650 (test): {'test_loss': 0.1693008989095688, 'test_accuracy': 0.96667, 'test_f1': 0.22972, 'test_precision': 0.67167, 'test_recall': 0.13855, 'test_hamming_loss': 0.03333, 'test_threshold': 0.01, 'test_mcc': 0.02962, 'test_auc': 0.80395}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with DPLM-650
+INFO - Storing metrics for MF_reg/DPLM-650 (valid): {'eval_loss': 0.012315445579588413, 'eval_accuracy': 0.99169, 'eval_f1': 0.62963, 'eval_precision': 0.63837, 'eval_recall': 0.62113, 'eval_hamming_loss': 0.00831, 'eval_threshold': 0.03, 'eval_mcc': 0.28479, 'eval_auc': 0.97302, 'epoch': 16.0}
+INFO - Storing metrics for MF_reg/DPLM-650 (test): {'test_loss': 0.06315212696790695, 'test_accuracy': 0.98255, 'test_f1': 0.51823, 'test_precision': 0.59222, 'test_recall': 0.46068, 'test_hamming_loss': 0.01745, 'test_threshold': 0.01, 'test_mcc': 0.19913, 'test_auc': 0.88791}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with DPLM-650
+INFO - Storing metrics for MB_reg/DPLM-650 (valid): {'eval_loss': 0.5616984367370605, 'eval_f1': 0.75212, 'eval_precision': 0.7552, 'eval_recall': 0.757, 'eval_accuracy': 0.75227, 'eval_mcc': 0.5122, 'eval_auc': 0.757, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/DPLM-650 (test): {'test_loss': 0.6164360046386719, 'test_f1': 0.70861, 'test_precision': 0.71821, 'test_recall': 0.71281, 'test_accuracy': 0.70977, 'test_mcc': 0.43098, 'test_auc': 0.71281}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with DPLM-650
+INFO - Storing metrics for enzyme_kcat/DPLM-650 (valid): {'eval_loss': 16.4052734375, 'eval_r_squared': 0.38999, 'eval_spearman_rho': 0.62692, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6488199830055237, 'eval_pear_pval': 0.0, 'eval_mse': 16.405269622802734, 'eval_mae': 2.9776699542999268, 'eval_rmse': 4.050340175628662, 'epoch': 26.0}
+INFO - Storing metrics for enzyme_kcat/DPLM-650 (test): {'test_loss': 15.965570449829102, 'test_r_squared': 0.41672, 'test_spearman_rho': 0.64269, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6648499965667725, 'test_pear_pval': 0.0, 'test_mse': 15.965570449829102, 'test_mae': 2.9510700702667236, 'test_rmse': 3.995690107345581}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with DPLM-650
+INFO - Storing metrics for optimal_temperature/DPLM-650 (valid): {'eval_loss': 147.790771484375, 'eval_r_squared': 0.5773, 'eval_spearman_rho': 0.69436, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7767699956893921, 'eval_pear_pval': 0.0, 'eval_mse': 147.790771484375, 'eval_mae': 9.226140022277832, 'eval_rmse': 12.156920433044434, 'epoch': 23.0}
+INFO - Storing metrics for optimal_temperature/DPLM-650 (test): {'test_loss': 125.30565643310547, 'test_r_squared': 0.6338, 'test_spearman_rho': 0.72107, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.805679976940155, 'test_pear_pval': 0.0, 'test_mse': 125.30565643310547, 'test_mae': 8.629989624023438, 'test_rmse': 11.194000244140625}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with DPLM-650
+INFO - Storing metrics for optimal_ph/DPLM-650 (valid): {'eval_loss': 0.8957271575927734, 'eval_r_squared': 0.35409, 'eval_spearman_rho': 0.58422, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6787999868392944, 'eval_pear_pval': 0.0, 'eval_mse': 0.8957300186157227, 'eval_mae': 0.7060199975967407, 'eval_rmse': 0.9464300274848938, 'epoch': 18.0}
+INFO - Storing metrics for optimal_ph/DPLM-650 (test): {'test_loss': 0.8311494588851929, 'test_r_squared': 0.37647, 'test_spearman_rho': 0.57948, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7016900181770325, 'test_pear_pval': 0.0, 'test_mse': 0.8311499953269958, 'test_mae': 0.7009000182151794, 'test_rmse': 0.9116700291633606}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with DPLM-650
+INFO - Storing metrics for HPPI/DPLM-650 (valid): {'eval_loss': 0.46346303820610046, 'eval_f1': 0.80741, 'eval_precision': 0.80741, 'eval_recall': 0.80741, 'eval_accuracy': 0.81197, 'eval_mcc': 0.61481, 'eval_auc': 0.80741, 'epoch': 11.0}
+INFO - Storing metrics for HPPI/DPLM-650 (test): {'test_loss': 0.5549816489219666, 'test_f1': 0.74334, 'test_precision': 0.7449, 'test_recall': 0.74221, 'test_accuracy': 0.75, 'test_mcc': 0.48711, 'test_auc': 0.74221}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with DPLM-650
+INFO - Storing metrics for bernett_gold_ppi/DPLM-650 (valid): {'eval_loss': 0.6660165190696716, 'eval_f1': 0.55269, 'eval_precision': 0.60027, 'eval_recall': 0.57778, 'eval_accuracy': 0.57778, 'eval_mcc': 0.17662, 'eval_auc': 0.57778, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/DPLM-650 (test): {'test_loss': 0.6587113738059998, 'test_f1': 0.5871, 'test_precision': 0.62086, 'test_recall': 0.60266, 'test_accuracy': 0.60266, 'test_mcc': 0.22278, 'test_auc': 0.60266}
+INFO - Processing model: DSM-150
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with DSM-150
+INFO - Storing metrics for DL2_reg/DSM-150 (valid): {'eval_loss': 0.22980588674545288, 'eval_f1': 0.89658, 'eval_precision': 0.90934, 'eval_recall': 0.88864, 'eval_accuracy': 0.90337, 'eval_mcc': 0.79772, 'eval_auc': 0.88864, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/DSM-150 (test): {'test_loss': 0.2705629765987396, 'test_f1': 0.89803, 'test_precision': 0.90982, 'test_recall': 0.89185, 'test_accuracy': 0.90226, 'test_mcc': 0.80147, 'test_auc': 0.89185}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with DSM-150
+INFO - Storing metrics for DL10_reg/DSM-150 (valid): {'eval_loss': 0.7114208936691284, 'eval_f1': 0.69029, 'eval_precision': 0.78293, 'eval_recall': 0.66179, 'eval_accuracy': 0.7895, 'eval_mcc': 0.74605, 'eval_auc': 0.96028, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/DSM-150 (test): {'test_loss': 0.7639071941375732, 'test_f1': 0.61123, 'test_precision': 0.69794, 'test_recall': 0.59781, 'test_accuracy': 0.77231, 'test_mcc': 0.72452, 'test_auc': 0.95756}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with DSM-150
+INFO - Storing metrics for EC_reg/DSM-150 (valid): {'eval_loss': 0.004272766876965761, 'eval_accuracy': 0.99846, 'eval_f1': 0.71602, 'eval_precision': 0.75854, 'eval_recall': 0.67802, 'eval_hamming_loss': 0.00154, 'eval_threshold': 0.14, 'eval_mcc': 0.65086, 'eval_auc': 0.98765, 'epoch': 19.0}
+INFO - Storing metrics for EC_reg/DSM-150 (test): {'test_loss': 0.0052198972553014755, 'test_accuracy': 0.99769, 'test_f1': 0.72893, 'test_precision': 0.77236, 'test_recall': 0.69013, 'test_hamming_loss': 0.00231, 'test_threshold': 0.07, 'test_mcc': 0.59557, 'test_auc': 0.98883}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with DSM-150
+INFO - Storing metrics for CC_reg/DSM-150 (valid): {'eval_loss': 0.016752736642956734, 'eval_accuracy': 0.99345, 'eval_f1': 0.33306, 'eval_precision': 0.29058, 'eval_recall': 0.3901, 'eval_hamming_loss': 0.00655, 'eval_threshold': 0.07, 'eval_mcc': 0.15509, 'eval_auc': 0.92571, 'epoch': 17.0}
+INFO - Storing metrics for CC_reg/DSM-150 (test): {'test_loss': 0.1712246686220169, 'test_accuracy': 0.96402, 'test_f1': 0.41175, 'test_precision': 0.4083, 'test_recall': 0.41525, 'test_hamming_loss': 0.03598, 'test_threshold': 0.01, 'test_mcc': 0.12985, 'test_auc': 0.87326}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with DSM-150
+INFO - Storing metrics for BP_reg/DSM-150 (valid): {'eval_loss': 0.01773878186941147, 'eval_accuracy': 0.99366, 'eval_f1': 0.43993, 'eval_precision': 0.40869, 'eval_recall': 0.47634, 'eval_hamming_loss': 0.00634, 'eval_threshold': 0.01, 'eval_mcc': 0.07293, 'eval_auc': 0.95165, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/DSM-150 (test): {'test_loss': 0.168494313955307, 'test_accuracy': 0.96666, 'test_f1': 0.22545, 'test_precision': 0.59658, 'test_recall': 0.13899, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02332, 'test_auc': 0.80978}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with DSM-150
+INFO - Storing metrics for MF_reg/DSM-150 (valid): {'eval_loss': 0.014071345329284668, 'eval_accuracy': 0.99163, 'eval_f1': 0.60091, 'eval_precision': 0.59736, 'eval_recall': 0.6045, 'eval_hamming_loss': 0.00837, 'eval_threshold': 0.03, 'eval_mcc': 0.27099, 'eval_auc': 0.96877, 'epoch': 18.0}
+INFO - Storing metrics for MF_reg/DSM-150 (test): {'test_loss': 0.0623173862695694, 'test_accuracy': 0.98251, 'test_f1': 0.50084, 'test_precision': 0.54417, 'test_recall': 0.4639, 'test_hamming_loss': 0.01749, 'test_threshold': 0.01, 'test_mcc': 0.1936, 'test_auc': 0.88106}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with DSM-150
+INFO - Storing metrics for MB_reg/DSM-150 (valid): {'eval_loss': 0.6341851353645325, 'eval_f1': 0.59479, 'eval_precision': 0.6552, 'eval_recall': 0.61085, 'eval_accuracy': 0.63595, 'eval_mcc': 0.26232, 'eval_auc': 0.61085, 'epoch': 12.0}
+INFO - Storing metrics for MB_reg/DSM-150 (test): {'test_loss': 0.6587592363357544, 'test_f1': 0.56889, 'test_precision': 0.66373, 'test_recall': 0.60313, 'test_accuracy': 0.61353, 'test_mcc': 0.25988, 'test_auc': 0.60313}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with DSM-150
+INFO - Storing metrics for enzyme_kcat/DSM-150 (valid): {'eval_loss': 15.891313552856445, 'eval_r_squared': 0.4091, 'eval_spearman_rho': 0.64494, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6525800228118896, 'eval_pear_pval': 0.0, 'eval_mse': 15.89130973815918, 'eval_mae': 2.9918100833892822, 'eval_rmse': 3.9863901138305664, 'epoch': 23.0}
+INFO - Storing metrics for enzyme_kcat/DSM-150 (test): {'test_loss': 18.12631607055664, 'test_r_squared': 0.33778, 'test_spearman_rho': 0.5852, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6122900247573853, 'test_pear_pval': 0.0, 'test_mse': 18.126310348510742, 'test_mae': 3.115950107574463, 'test_rmse': 4.257500171661377}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with DSM-150
+INFO - Storing metrics for optimal_temperature/DSM-150 (valid): {'eval_loss': 166.9524688720703, 'eval_r_squared': 0.5225, 'eval_spearman_rho': 0.71467, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7967900037765503, 'eval_pear_pval': 0.0, 'eval_mse': 166.95242309570312, 'eval_mae': 10.16331958770752, 'eval_rmse': 12.92101001739502, 'epoch': 23.0}
+INFO - Storing metrics for optimal_temperature/DSM-150 (test): {'test_loss': 165.5311737060547, 'test_r_squared': 0.51624, 'test_spearman_rho': 0.66224, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7589600086212158, 'test_pear_pval': 0.0, 'test_mse': 165.5312042236328, 'test_mae': 9.908419609069824, 'test_rmse': 12.865889549255371}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with DSM-150
+INFO - Storing metrics for optimal_ph/DSM-150 (valid): {'eval_loss': 0.8893364071846008, 'eval_r_squared': 0.3587, 'eval_spearman_rho': 0.55005, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6384000182151794, 'eval_pear_pval': 0.0, 'eval_mse': 0.8893399834632874, 'eval_mae': 0.6921399831771851, 'eval_rmse': 0.9430500268936157, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/DSM-150 (test): {'test_loss': 0.8360274434089661, 'test_r_squared': 0.37281, 'test_spearman_rho': 0.51285, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6546300053596497, 'test_pear_pval': 0.0, 'test_mse': 0.8360300064086914, 'test_mae': 0.6929200291633606, 'test_rmse': 0.9143499732017517}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with DSM-150
+INFO - Storing metrics for HPPI/DSM-150 (valid): {'eval_loss': 0.48055052757263184, 'eval_f1': 0.79341, 'eval_precision': 0.79484, 'eval_recall': 0.79226, 'eval_accuracy': 0.79915, 'eval_mcc': 0.58709, 'eval_auc': 0.79226, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/DSM-150 (test): {'test_loss': 0.4638848900794983, 'test_f1': 0.79879, 'test_precision': 0.80455, 'test_recall': 0.79568, 'test_accuracy': 0.80556, 'test_mcc': 0.60016, 'test_auc': 0.79568}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with DSM-150
+INFO - Storing metrics for bernett_gold_ppi/DSM-150 (valid): {'eval_loss': 0.6751699447631836, 'eval_f1': 0.56707, 'eval_precision': 0.57174, 'eval_recall': 0.56988, 'eval_accuracy': 0.56988, 'eval_mcc': 0.14161, 'eval_auc': 0.56988, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/DSM-150 (test): {'test_loss': 0.6602914929389954, 'test_f1': 0.60033, 'test_precision': 0.61134, 'test_recall': 0.60554, 'test_accuracy': 0.60554, 'test_mcc': 0.2168, 'test_auc': 0.60554}
+INFO - Processing model: DSM-650
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with DSM-650
+INFO - Storing metrics for DL2_reg/DSM-650 (valid): {'eval_loss': 0.20285966992378235, 'eval_f1': 0.92012, 'eval_precision': 0.93102, 'eval_recall': 0.91283, 'eval_accuracy': 0.92509, 'eval_mcc': 0.84366, 'eval_auc': 0.91283, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/DSM-650 (test): {'test_loss': 0.292428582906723, 'test_f1': 0.90207, 'test_precision': 0.91072, 'test_recall': 0.89701, 'test_accuracy': 0.90573, 'test_mcc': 0.80761, 'test_auc': 0.89701}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with DSM-650
+INFO - Storing metrics for DL10_reg/DSM-650 (valid): {'eval_loss': 0.6300534605979919, 'eval_f1': 0.71035, 'eval_precision': 0.78373, 'eval_recall': 0.68454, 'eval_accuracy': 0.80913, 'eval_mcc': 0.77086, 'eval_auc': 0.96963, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/DSM-650 (test): {'test_loss': 0.6762032508850098, 'test_f1': 0.65919, 'test_precision': 0.72178, 'test_recall': 0.6435, 'test_accuracy': 0.79271, 'test_mcc': 0.75195, 'test_auc': 0.96693}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with DSM-650
+INFO - Storing metrics for EC_reg/DSM-650 (valid): {'eval_loss': 0.0038430686108767986, 'eval_accuracy': 0.99852, 'eval_f1': 0.72835, 'eval_precision': 0.78557, 'eval_recall': 0.6789, 'eval_hamming_loss': 0.00148, 'eval_threshold': 0.15, 'eval_mcc': 0.66869, 'eval_auc': 0.9885, 'epoch': 19.0}
+INFO - Storing metrics for EC_reg/DSM-650 (test): {'test_loss': 0.0046792663633823395, 'test_accuracy': 0.99775, 'test_f1': 0.75832, 'test_precision': 0.81395, 'test_recall': 0.70981, 'test_hamming_loss': 0.00225, 'test_threshold': 0.06, 'test_mcc': 0.61068, 'test_auc': 0.99055}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with DSM-650
+INFO - Storing metrics for CC_reg/DSM-650 (valid): {'eval_loss': 0.015072610229253769, 'eval_accuracy': 0.99346, 'eval_f1': 0.33359, 'eval_precision': 0.30199, 'eval_recall': 0.37257, 'eval_hamming_loss': 0.00654, 'eval_threshold': 0.08, 'eval_mcc': 0.15096, 'eval_auc': 0.93747, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/DSM-650 (test): {'test_loss': 0.15605713427066803, 'test_accuracy': 0.96404, 'test_f1': 0.44245, 'test_precision': 0.44152, 'test_recall': 0.44338, 'test_hamming_loss': 0.03596, 'test_threshold': 0.01, 'test_mcc': 0.13178, 'test_auc': 0.8906}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with DSM-650
+INFO - Storing metrics for BP_reg/DSM-650 (valid): {'eval_loss': 0.016718091443181038, 'eval_accuracy': 0.99367, 'eval_f1': 0.45655, 'eval_precision': 0.43605, 'eval_recall': 0.47907, 'eval_hamming_loss': 0.00633, 'eval_threshold': 0.01, 'eval_mcc': 0.08278, 'eval_auc': 0.95314, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/DSM-650 (test): {'test_loss': 0.17236736416816711, 'test_accuracy': 0.96666, 'test_f1': 0.22812, 'test_precision': 0.62336, 'test_recall': 0.13961, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02628, 'test_auc': 0.80769}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with DSM-650
+INFO - Storing metrics for MF_reg/DSM-650 (valid): {'eval_loss': 0.012856832705438137, 'eval_accuracy': 0.99173, 'eval_f1': 0.61828, 'eval_precision': 0.62765, 'eval_recall': 0.60918, 'eval_hamming_loss': 0.00827, 'eval_threshold': 0.03, 'eval_mcc': 0.2905, 'eval_auc': 0.97182, 'epoch': 18.0}
+INFO - Storing metrics for MF_reg/DSM-650 (test): {'test_loss': 0.0620783306658268, 'test_accuracy': 0.98258, 'test_f1': 0.51861, 'test_precision': 0.58369, 'test_recall': 0.46659, 'test_hamming_loss': 0.01742, 'test_threshold': 0.01, 'test_mcc': 0.20325, 'test_auc': 0.8874}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with DSM-650
+INFO - Storing metrics for MB_reg/DSM-650 (valid): {'eval_loss': 0.56144118309021, 'eval_f1': 0.72546, 'eval_precision': 0.73367, 'eval_recall': 0.72377, 'eval_accuracy': 0.73263, 'eval_mcc': 0.45733, 'eval_auc': 0.72377, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/DSM-650 (test): {'test_loss': 0.5636244416236877, 'test_f1': 0.67348, 'test_precision': 0.67866, 'test_recall': 0.67407, 'test_accuracy': 0.67669, 'test_mcc': 0.35269, 'test_auc': 0.67407}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with DSM-650
+INFO - Storing metrics for enzyme_kcat/DSM-650 (valid): {'eval_loss': 15.91471004486084, 'eval_r_squared': 0.40823, 'eval_spearman_rho': 0.62599, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.656220018863678, 'eval_pear_pval': 0.0, 'eval_mse': 15.91471004486084, 'eval_mae': 3.0157999992370605, 'eval_rmse': 3.9893200397491455, 'epoch': 26.0}
+INFO - Storing metrics for enzyme_kcat/DSM-650 (test): {'test_loss': 16.677080154418945, 'test_r_squared': 0.39072, 'test_spearman_rho': 0.61489, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6446700096130371, 'test_pear_pval': 0.0, 'test_mse': 16.677080154418945, 'test_mae': 3.0213301181793213, 'test_rmse': 4.083759784698486}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with DSM-650
+INFO - Storing metrics for optimal_temperature/DSM-650 (valid): {'eval_loss': 171.79623413085938, 'eval_r_squared': 0.50864, 'eval_spearman_rho': 0.63941, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7436400055885315, 'eval_pear_pval': 0.0, 'eval_mse': 171.7962188720703, 'eval_mae': 10.353150367736816, 'eval_rmse': 13.107099533081055, 'epoch': 14.0}
+INFO - Storing metrics for optimal_temperature/DSM-650 (test): {'test_loss': 166.8179473876953, 'test_r_squared': 0.51248, 'test_spearman_rho': 0.61214, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7236400246620178, 'test_pear_pval': 0.0, 'test_mse': 166.8179473876953, 'test_mae': 10.595709800720215, 'test_rmse': 12.915800094604492}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with DSM-650
+INFO - Storing metrics for optimal_ph/DSM-650 (valid): {'eval_loss': 0.9065077900886536, 'eval_r_squared': 0.34632, 'eval_spearman_rho': 0.57973, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6534500122070312, 'eval_pear_pval': 0.0, 'eval_mse': 0.9065099954605103, 'eval_mae': 0.6971099972724915, 'eval_rmse': 0.9521099925041199, 'epoch': 23.0}
+INFO - Storing metrics for optimal_ph/DSM-650 (test): {'test_loss': 0.8206787109375, 'test_r_squared': 0.38433, 'test_spearman_rho': 0.57492, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.681659996509552, 'test_pear_pval': 0.0, 'test_mse': 0.8206800222396851, 'test_mae': 0.6833299994468689, 'test_rmse': 0.9059100151062012}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with DSM-650
+INFO - Storing metrics for HPPI/DSM-650 (valid): {'eval_loss': 0.461383581161499, 'eval_f1': 0.78777, 'eval_precision': 0.78638, 'eval_recall': 0.79158, 'eval_accuracy': 0.7906, 'eval_mcc': 0.57793, 'eval_auc': 0.79158, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/DSM-650 (test): {'test_loss': 0.42809218168258667, 'test_f1': 0.80233, 'test_precision': 0.80125, 'test_recall': 0.80387, 'test_accuracy': 0.80556, 'test_mcc': 0.60512, 'test_auc': 0.80387}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with DSM-650
+INFO - Storing metrics for bernett_gold_ppi/DSM-650 (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 31.372549019607842}
+INFO - Storing metrics for bernett_gold_ppi/DSM-650 (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: ESM2-8
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESM2-8
+INFO - Storing metrics for DL2_reg/ESM2-8 (valid): {'eval_loss': 0.24615272879600525, 'eval_f1': 0.89608, 'eval_precision': 0.90692, 'eval_recall': 0.88901, 'eval_accuracy': 0.90262, 'eval_mcc': 0.79573, 'eval_auc': 0.88901, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ESM2-8 (test): {'test_loss': 0.3108151853084564, 'test_f1': 0.88257, 'test_precision': 0.89252, 'test_recall': 0.87717, 'test_accuracy': 0.88722, 'test_mcc': 0.76954, 'test_auc': 0.87717}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESM2-8
+INFO - Storing metrics for DL10_reg/ESM2-8 (valid): {'eval_loss': 0.8433127999305725, 'eval_f1': 0.60533, 'eval_precision': 0.66405, 'eval_recall': 0.58677, 'eval_accuracy': 0.72466, 'eval_mcc': 0.66625, 'eval_auc': 0.94254, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/ESM2-8 (test): {'test_loss': 0.9043658971786499, 'test_f1': 0.53197, 'test_precision': 0.57867, 'test_recall': 0.53073, 'test_accuracy': 0.7031, 'test_mcc': 0.64041, 'test_auc': 0.93757}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESM2-8
+INFO - Storing metrics for EC_reg/ESM2-8 (valid): {'eval_loss': 0.005580496042966843, 'eval_accuracy': 0.99827, 'eval_f1': 0.6464, 'eval_precision': 0.67984, 'eval_recall': 0.6161, 'eval_hamming_loss': 0.00173, 'eval_threshold': 0.15, 'eval_mcc': 0.59799, 'eval_auc': 0.98146, 'epoch': 22.0}
+INFO - Storing metrics for EC_reg/ESM2-8 (test): {'test_loss': 0.007004144601523876, 'test_accuracy': 0.99744, 'test_f1': 0.65244, 'test_precision': 0.71869, 'test_recall': 0.59738, 'test_hamming_loss': 0.00256, 'test_threshold': 0.1, 'test_mcc': 0.53712, 'test_auc': 0.98008}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESM2-8
+INFO - Storing metrics for CC_reg/ESM2-8 (valid): {'eval_loss': 0.017618149518966675, 'eval_accuracy': 0.99357, 'eval_f1': 0.29812, 'eval_precision': 0.25017, 'eval_recall': 0.36879, 'eval_hamming_loss': 0.00643, 'eval_threshold': 0.07, 'eval_mcc': 0.13565, 'eval_auc': 0.93536, 'epoch': 19.0}
+INFO - Storing metrics for CC_reg/ESM2-8 (test): {'test_loss': 0.18050265312194824, 'test_accuracy': 0.96384, 'test_f1': 0.39283, 'test_precision': 0.37833, 'test_recall': 0.40847, 'test_hamming_loss': 0.03616, 'test_threshold': 0.01, 'test_mcc': 0.11039, 'test_auc': 0.86429}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESM2-8
+INFO - Storing metrics for BP_reg/ESM2-8 (valid): {'eval_loss': 0.020384764298796654, 'eval_accuracy': 0.99366, 'eval_f1': 0.38394, 'eval_precision': 0.34634, 'eval_recall': 0.4307, 'eval_hamming_loss': 0.00634, 'eval_threshold': 0.01, 'eval_mcc': 0.07205, 'eval_auc': 0.94443, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/ESM2-8 (test): {'test_loss': 0.18204815685749054, 'test_accuracy': 0.96665, 'test_f1': 0.20681, 'test_precision': 0.52778, 'test_recall': 0.1286, 'test_hamming_loss': 0.03335, 'test_threshold': 0.01, 'test_mcc': 0.02194, 'test_auc': 0.78189}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESM2-8
+INFO - Storing metrics for MF_reg/ESM2-8 (valid): {'eval_loss': 0.017942525446414948, 'eval_accuracy': 0.99146, 'eval_f1': 0.5447, 'eval_precision': 0.54667, 'eval_recall': 0.54274, 'eval_hamming_loss': 0.00854, 'eval_threshold': 0.04, 'eval_mcc': 0.23298, 'eval_auc': 0.96196, 'epoch': 17.0}
+INFO - Storing metrics for MF_reg/ESM2-8 (test): {'test_loss': 0.0653655081987381, 'test_accuracy': 0.98228, 'test_f1': 0.45353, 'test_precision': 0.52091, 'test_recall': 0.40158, 'test_hamming_loss': 0.01772, 'test_threshold': 0.02, 'test_mcc': 0.1583, 'test_auc': 0.87156}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESM2-8
+INFO - Storing metrics for MB_reg/ESM2-8 (valid): {'eval_loss': 0.5978388786315918, 'eval_f1': 0.66282, 'eval_precision': 0.67584, 'eval_recall': 0.66288, 'eval_accuracy': 0.67523, 'eval_mcc': 0.33846, 'eval_auc': 0.66288, 'epoch': 14.0}
+INFO - Storing metrics for MB_reg/ESM2-8 (test): {'test_loss': 0.6326324343681335, 'test_f1': 0.65132, 'test_precision': 0.65797, 'test_recall': 0.65257, 'test_accuracy': 0.65564, 'test_mcc': 0.31049, 'test_auc': 0.65257}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESM2-8
+INFO - Storing metrics for enzyme_kcat/ESM2-8 (valid): {'eval_loss': 17.373313903808594, 'eval_r_squared': 0.354, 'eval_spearman_rho': 0.59163, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6196500062942505, 'eval_pear_pval': 0.0, 'eval_mse': 17.373310089111328, 'eval_mae': 3.1016499996185303, 'eval_rmse': 4.168129920959473, 'epoch': 26.0}
+INFO - Storing metrics for enzyme_kcat/ESM2-8 (test): {'test_loss': 18.96882438659668, 'test_r_squared': 0.307, 'test_spearman_rho': 0.58322, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5941600203514099, 'test_pear_pval': 0.0, 'test_mse': 18.968820571899414, 'test_mae': 3.1924099922180176, 'test_rmse': 4.355319976806641}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESM2-8
+INFO - Storing metrics for optimal_temperature/ESM2-8 (valid): {'eval_loss': 167.41864013671875, 'eval_r_squared': 0.52116, 'eval_spearman_rho': 0.61833, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7548499703407288, 'eval_pear_pval': 0.0, 'eval_mse': 167.4186248779297, 'eval_mae': 10.180749893188477, 'eval_rmse': 12.939040184020996, 'epoch': 20.0}
+INFO - Storing metrics for optimal_temperature/ESM2-8 (test): {'test_loss': 178.6439208984375, 'test_r_squared': 0.47792, 'test_spearman_rho': 0.6315, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7177299857139587, 'test_pear_pval': 0.0, 'test_mse': 178.64393615722656, 'test_mae': 10.427209854125977, 'test_rmse': 13.365779876708984}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESM2-8
+INFO - Storing metrics for optimal_ph/ESM2-8 (valid): {'eval_loss': 1.0655691623687744, 'eval_r_squared': 0.23162, 'eval_spearman_rho': 0.49321, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.5939499735832214, 'eval_pear_pval': 0.0, 'eval_mse': 1.0655699968338013, 'eval_mae': 0.7761899828910828, 'eval_rmse': 1.0322599411010742, 'epoch': 15.0}
+INFO - Storing metrics for optimal_ph/ESM2-8 (test): {'test_loss': 0.9355354905128479, 'test_r_squared': 0.29816, 'test_spearman_rho': 0.51127, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6413900256156921, 'test_pear_pval': 0.0, 'test_mse': 0.9355400204658508, 'test_mae': 0.7358999848365784, 'test_rmse': 0.9672300219535828}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESM2-8
+INFO - Storing metrics for HPPI/ESM2-8 (valid): {'eval_loss': 0.43719130754470825, 'eval_f1': 0.81924, 'eval_precision': 0.82211, 'eval_recall': 0.81717, 'eval_accuracy': 0.82479, 'eval_mcc': 0.63927, 'eval_auc': 0.81717, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESM2-8 (test): {'test_loss': 0.5095517039299011, 'test_f1': 0.71948, 'test_precision': 0.7326, 'test_recall': 0.71618, 'test_accuracy': 0.73333, 'test_mcc': 0.44848, 'test_auc': 0.71618}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESM2-8
+INFO - Storing metrics for bernett_gold_ppi/ESM2-8 (valid): {'eval_loss': 0.6821235418319702, 'eval_f1': 0.56469, 'eval_precision': 0.56763, 'eval_recall': 0.5665, 'eval_accuracy': 0.5665, 'eval_mcc': 0.13413, 'eval_auc': 0.5665, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/ESM2-8 (test): {'test_loss': 0.6643284559249878, 'test_f1': 0.59169, 'test_precision': 0.59902, 'test_recall': 0.59541, 'test_accuracy': 0.59541, 'test_mcc': 0.1944, 'test_auc': 0.59541}
+INFO - Processing model: ESM2-35
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESM2-35
+INFO - Storing metrics for DL2_reg/ESM2-35 (valid): {'eval_loss': 0.23567016422748566, 'eval_f1': 0.90881, 'eval_precision': 0.9149, 'eval_recall': 0.90419, 'eval_accuracy': 0.91386, 'eval_mcc': 0.81902, 'eval_auc': 0.90419, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ESM2-35 (test): {'test_loss': 0.2809760868549347, 'test_f1': 0.89821, 'test_precision': 0.90445, 'test_recall': 0.8942, 'test_accuracy': 0.90168, 'test_mcc': 0.79859, 'test_auc': 0.8942}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESM2-35
+INFO - Storing metrics for DL10_reg/ESM2-35 (valid): {'eval_loss': 0.7633601427078247, 'eval_f1': 0.65469, 'eval_precision': 0.73082, 'eval_recall': 0.62993, 'eval_accuracy': 0.76119, 'eval_mcc': 0.71009, 'eval_auc': 0.95497, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/ESM2-35 (test): {'test_loss': 0.8293813467025757, 'test_f1': 0.59214, 'test_precision': 0.69496, 'test_recall': 0.57484, 'test_accuracy': 0.75009, 'test_mcc': 0.69737, 'test_auc': 0.95149}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESM2-35
+INFO - Storing metrics for EC_reg/ESM2-35 (valid): {'eval_loss': 0.00425049988552928, 'eval_accuracy': 0.99848, 'eval_f1': 0.71614, 'eval_precision': 0.76904, 'eval_recall': 0.67006, 'eval_hamming_loss': 0.00152, 'eval_threshold': 0.14, 'eval_mcc': 0.65645, 'eval_auc': 0.98615, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESM2-35 (test): {'test_loss': 0.005450937431305647, 'test_accuracy': 0.99768, 'test_f1': 0.71996, 'test_precision': 0.76045, 'test_recall': 0.68357, 'test_hamming_loss': 0.00232, 'test_threshold': 0.06, 'test_mcc': 0.59278, 'test_auc': 0.98487}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESM2-35
+INFO - Storing metrics for CC_reg/ESM2-35 (valid): {'eval_loss': 0.016494618728756905, 'eval_accuracy': 0.99346, 'eval_f1': 0.33072, 'eval_precision': 0.29267, 'eval_recall': 0.38013, 'eval_hamming_loss': 0.00654, 'eval_threshold': 0.08, 'eval_mcc': 0.15433, 'eval_auc': 0.93673, 'epoch': 19.0}
+INFO - Storing metrics for CC_reg/ESM2-35 (test): {'test_loss': 0.18822701275348663, 'test_accuracy': 0.96402, 'test_f1': 0.41007, 'test_precision': 0.42928, 'test_recall': 0.3925, 'test_hamming_loss': 0.03598, 'test_threshold': 0.01, 'test_mcc': 0.12995, 'test_auc': 0.8719}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESM2-35
+INFO - Storing metrics for BP_reg/ESM2-35 (valid): {'eval_loss': 0.01745494082570076, 'eval_accuracy': 0.99367, 'eval_f1': 0.43831, 'eval_precision': 0.40881, 'eval_recall': 0.4724, 'eval_hamming_loss': 0.00633, 'eval_threshold': 0.01, 'eval_mcc': 0.08229, 'eval_auc': 0.95192, 'epoch': 17.0}
+INFO - Storing metrics for BP_reg/ESM2-35 (test): {'test_loss': 0.16970884799957275, 'test_accuracy': 0.96666, 'test_f1': 0.22271, 'test_precision': 0.58709, 'test_recall': 0.13742, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02726, 'test_auc': 0.79927}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESM2-35
+INFO - Storing metrics for MF_reg/ESM2-35 (valid): {'eval_loss': 0.014579853974282742, 'eval_accuracy': 0.99162, 'eval_f1': 0.59812, 'eval_precision': 0.58408, 'eval_recall': 0.61285, 'eval_hamming_loss': 0.00838, 'eval_threshold': 0.03, 'eval_mcc': 0.26859, 'eval_auc': 0.96863, 'epoch': 17.0}
+INFO - Storing metrics for MF_reg/ESM2-35 (test): {'test_loss': 0.06427051872015, 'test_accuracy': 0.98245, 'test_f1': 0.48902, 'test_precision': 0.61208, 'test_recall': 0.40716, 'test_hamming_loss': 0.01755, 'test_threshold': 0.02, 'test_mcc': 0.18541, 'test_auc': 0.8733}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESM2-35
+INFO - Storing metrics for MB_reg/ESM2-35 (valid): {'eval_loss': 0.6330471634864807, 'eval_f1': 0.62979, 'eval_precision': 0.65907, 'eval_recall': 0.64789, 'eval_accuracy': 0.63293, 'eval_mcc': 0.30676, 'eval_auc': 0.64789, 'epoch': 12.0}
+INFO - Storing metrics for MB_reg/ESM2-35 (test): {'test_loss': 0.5708748698234558, 'test_f1': 0.69444, 'test_precision': 0.7068, 'test_recall': 0.69973, 'test_accuracy': 0.69624, 'test_mcc': 0.40647, 'test_auc': 0.69973}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESM2-35
+INFO - Storing metrics for enzyme_kcat/ESM2-35 (valid): {'eval_loss': 15.913180351257324, 'eval_r_squared': 0.40829, 'eval_spearman_rho': 0.63688, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6534000039100647, 'eval_pear_pval': 0.0, 'eval_mse': 15.913180351257324, 'eval_mae': 2.9747700691223145, 'eval_rmse': 3.9891300201416016, 'epoch': 28.0}
+INFO - Storing metrics for enzyme_kcat/ESM2-35 (test): {'test_loss': 16.394990921020508, 'test_r_squared': 0.40103, 'test_spearman_rho': 0.61082, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6406499743461609, 'test_pear_pval': 0.0, 'test_mse': 16.394990921020508, 'test_mae': 2.9773800373077393, 'test_rmse': 4.049069881439209}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESM2-35
+INFO - Storing metrics for optimal_temperature/ESM2-35 (valid): {'eval_loss': 136.9539337158203, 'eval_r_squared': 0.6083, 'eval_spearman_rho': 0.70129, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7856199741363525, 'eval_pear_pval': 0.0, 'eval_mse': 136.9539337158203, 'eval_mae': 9.18925952911377, 'eval_rmse': 11.702730178833008, 'epoch': 23.0}
+INFO - Storing metrics for optimal_temperature/ESM2-35 (test): {'test_loss': 161.3340606689453, 'test_r_squared': 0.52851, 'test_spearman_rho': 0.68851, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7356899976730347, 'test_pear_pval': 0.0, 'test_mse': 161.3340606689453, 'test_mae': 10.148280143737793, 'test_rmse': 12.701740264892578}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESM2-35
+INFO - Storing metrics for optimal_ph/ESM2-35 (valid): {'eval_loss': 1.0026391744613647, 'eval_r_squared': 0.277, 'eval_spearman_rho': 0.54317, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.638759970664978, 'eval_pear_pval': 0.0, 'eval_mse': 1.0026400089263916, 'eval_mae': 0.7660300135612488, 'eval_rmse': 1.0013200044631958, 'epoch': 20.0}
+INFO - Storing metrics for optimal_ph/ESM2-35 (test): {'test_loss': 0.9534351825714111, 'test_r_squared': 0.28473, 'test_spearman_rho': 0.51727, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6510599851608276, 'test_pear_pval': 0.0, 'test_mse': 0.9534400105476379, 'test_mae': 0.7456899881362915, 'test_rmse': 0.9764400124549866}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESM2-35
+INFO - Storing metrics for HPPI/ESM2-35 (valid): {'eval_loss': 0.5024118423461914, 'eval_f1': 0.78172, 'eval_precision': 0.78106, 'eval_recall': 0.78249, 'eval_accuracy': 0.78632, 'eval_mcc': 0.56355, 'eval_auc': 0.78249, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESM2-35 (test): {'test_loss': 0.5333680510520935, 'test_f1': 0.72463, 'test_precision': 0.72826, 'test_recall': 0.72273, 'test_accuracy': 0.73333, 'test_mcc': 0.45096, 'test_auc': 0.72273}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESM2-35
+INFO - Storing metrics for bernett_gold_ppi/ESM2-35 (valid): {'eval_loss': 0.677218496799469, 'eval_f1': 0.58075, 'eval_precision': 0.58292, 'eval_recall': 0.58196, 'eval_accuracy': 0.58196, 'eval_mcc': 0.16488, 'eval_auc': 0.58196, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/ESM2-35 (test): {'test_loss': 0.6559132933616638, 'test_f1': 0.6036, 'test_precision': 0.61625, 'test_recall': 0.60942, 'test_accuracy': 0.60942, 'test_mcc': 0.22556, 'test_auc': 0.60942}
+INFO - Processing model: ESM2-150
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESM2-150
+INFO - Storing metrics for DL2_reg/ESM2-150 (valid): {'eval_loss': 0.20753738284111023, 'eval_f1': 0.92427, 'eval_precision': 0.93394, 'eval_recall': 0.91757, 'eval_accuracy': 0.92884, 'eval_mcc': 0.85135, 'eval_auc': 0.91757, 'epoch': 18.0}
+INFO - Storing metrics for DL2_reg/ESM2-150 (test): {'test_loss': 0.26816993951797485, 'test_f1': 0.91089, 'test_precision': 0.9213, 'test_recall': 0.90508, 'test_accuracy': 0.9144, 'test_mcc': 0.82622, 'test_auc': 0.90508}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESM2-150
+INFO - Storing metrics for DL10_reg/ESM2-150 (valid): {'eval_loss': 0.6795448064804077, 'eval_f1': 0.70415, 'eval_precision': 0.76514, 'eval_recall': 0.67722, 'eval_accuracy': 0.79909, 'eval_mcc': 0.75572, 'eval_auc': 0.96618, 'epoch': 17.0}
+INFO - Storing metrics for DL10_reg/ESM2-150 (test): {'test_loss': 0.7774118781089783, 'test_f1': 0.62614, 'test_precision': 0.67803, 'test_recall': 0.61387, 'test_accuracy': 0.77596, 'test_mcc': 0.72895, 'test_auc': 0.95923}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESM2-150
+INFO - Storing metrics for EC_reg/ESM2-150 (valid): {'eval_loss': 0.004041939042508602, 'eval_accuracy': 0.99848, 'eval_f1': 0.72441, 'eval_precision': 0.77189, 'eval_recall': 0.68244, 'eval_hamming_loss': 0.00152, 'eval_threshold': 0.14, 'eval_mcc': 0.65675, 'eval_auc': 0.98812, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESM2-150 (test): {'test_loss': 0.004806539509445429, 'test_accuracy': 0.99772, 'test_f1': 0.73852, 'test_precision': 0.79342, 'test_recall': 0.69072, 'test_hamming_loss': 0.00228, 'test_threshold': 0.06, 'test_mcc': 0.60276, 'test_auc': 0.98876}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESM2-150
+INFO - Storing metrics for CC_reg/ESM2-150 (valid): {'eval_loss': 0.016105832532048225, 'eval_accuracy': 0.99335, 'eval_f1': 0.32823, 'eval_precision': 0.27598, 'eval_recall': 0.40488, 'eval_hamming_loss': 0.00665, 'eval_threshold': 0.06, 'eval_mcc': 0.14686, 'eval_auc': 0.9362, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/ESM2-150 (test): {'test_loss': 0.16256241500377655, 'test_accuracy': 0.96409, 'test_f1': 0.42921, 'test_precision': 0.43788, 'test_recall': 0.42088, 'test_hamming_loss': 0.03591, 'test_threshold': 0.01, 'test_mcc': 0.13647, 'test_auc': 0.88607}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESM2-150
+INFO - Storing metrics for BP_reg/ESM2-150 (valid): {'eval_loss': 0.017297085374593735, 'eval_accuracy': 0.99367, 'eval_f1': 0.45915, 'eval_precision': 0.43965, 'eval_recall': 0.48046, 'eval_hamming_loss': 0.00633, 'eval_threshold': 0.01, 'eval_mcc': 0.08481, 'eval_auc': 0.95384, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/ESM2-150 (test): {'test_loss': 0.17453747987747192, 'test_accuracy': 0.96667, 'test_f1': 0.22587, 'test_precision': 0.62043, 'test_recall': 0.13807, 'test_hamming_loss': 0.03333, 'test_threshold': 0.01, 'test_mcc': 0.02899, 'test_auc': 0.80317}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESM2-150
+INFO - Storing metrics for MF_reg/ESM2-150 (valid): {'eval_loss': 0.013588008470833302, 'eval_accuracy': 0.99163, 'eval_f1': 0.607, 'eval_precision': 0.59573, 'eval_recall': 0.61871, 'eval_hamming_loss': 0.00837, 'eval_threshold': 0.03, 'eval_mcc': 0.26984, 'eval_auc': 0.96959, 'epoch': 16.0}
+INFO - Storing metrics for MF_reg/ESM2-150 (test): {'test_loss': 0.06129768118262291, 'test_accuracy': 0.98246, 'test_f1': 0.50948, 'test_precision': 0.6387, 'test_recall': 0.42375, 'test_hamming_loss': 0.01754, 'test_threshold': 0.02, 'test_mcc': 0.18717, 'test_auc': 0.87915}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESM2-150
+INFO - Storing metrics for MB_reg/ESM2-150 (valid): {'eval_loss': 0.6002734303474426, 'eval_f1': 0.68279, 'eval_precision': 0.68416, 'eval_recall': 0.68215, 'eval_accuracy': 0.68731, 'eval_mcc': 0.3663, 'eval_auc': 0.68215, 'epoch': 12.0}
+INFO - Storing metrics for MB_reg/ESM2-150 (test): {'test_loss': 0.5719113349914551, 'test_f1': 0.65741, 'test_precision': 0.66421, 'test_recall': 0.65859, 'test_accuracy': 0.66165, 'test_mcc': 0.32275, 'test_auc': 0.65859}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESM2-150
+INFO - Storing metrics for enzyme_kcat/ESM2-150 (valid): {'eval_loss': 15.935015678405762, 'eval_r_squared': 0.40748, 'eval_spearman_rho': 0.63706, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6567500233650208, 'eval_pear_pval': 0.0, 'eval_mse': 15.935009956359863, 'eval_mae': 2.9749300479888916, 'eval_rmse': 3.9918699264526367, 'epoch': 26.0}
+INFO - Storing metrics for enzyme_kcat/ESM2-150 (test): {'test_loss': 17.4456787109375, 'test_r_squared': 0.36264, 'test_spearman_rho': 0.60928, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6280500292778015, 'test_pear_pval': 0.0, 'test_mse': 17.445680618286133, 'test_mae': 3.0749800205230713, 'test_rmse': 4.176799774169922}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESM2-150
+INFO - Storing metrics for optimal_temperature/ESM2-150 (valid): {'eval_loss': 165.43069458007812, 'eval_r_squared': 0.52685, 'eval_spearman_rho': 0.70768, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7839499711990356, 'eval_pear_pval': 0.0, 'eval_mse': 165.43069458007812, 'eval_mae': 10.089909553527832, 'eval_rmse': 12.861989974975586, 'epoch': 16.0}
+INFO - Storing metrics for optimal_temperature/ESM2-150 (test): {'test_loss': 168.27748107910156, 'test_r_squared': 0.50821, 'test_spearman_rho': 0.66927, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.757669985294342, 'test_pear_pval': 0.0, 'test_mse': 168.27748107910156, 'test_mae': 9.897139549255371, 'test_rmse': 12.972180366516113}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESM2-150
+INFO - Storing metrics for optimal_ph/ESM2-150 (valid): {'eval_loss': 0.9771252870559692, 'eval_r_squared': 0.2954, 'eval_spearman_rho': 0.5112, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6122599840164185, 'eval_pear_pval': 0.0, 'eval_mse': 0.9771299958229065, 'eval_mae': 0.7413899898529053, 'eval_rmse': 0.9884999990463257, 'epoch': 14.0}
+INFO - Storing metrics for optimal_ph/ESM2-150 (test): {'test_loss': 0.9027706980705261, 'test_r_squared': 0.32274, 'test_spearman_rho': 0.51097, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6339899897575378, 'test_pear_pval': 0.0, 'test_mse': 0.9027699828147888, 'test_mae': 0.7199299931526184, 'test_rmse': 0.9501399993896484}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESM2-150
+INFO - Storing metrics for HPPI/ESM2-150 (valid): {'eval_loss': 0.47134509682655334, 'eval_f1': 0.77334, 'eval_precision': 0.79216, 'eval_recall': 0.76768, 'eval_accuracy': 0.78632, 'eval_mcc': 0.5593, 'eval_auc': 0.76768, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESM2-150 (test): {'test_loss': 0.4814704954624176, 'test_f1': 0.75399, 'test_precision': 0.78968, 'test_recall': 0.74852, 'test_accuracy': 0.77222, 'test_mcc': 0.53662, 'test_auc': 0.74852}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESM2-150
+INFO - Storing metrics for bernett_gold_ppi/ESM2-150 (valid): {'eval_loss': 0.6768489480018616, 'eval_f1': 0.57012, 'eval_precision': 0.57092, 'eval_recall': 0.5706, 'eval_accuracy': 0.5706, 'eval_mcc': 0.14153, 'eval_auc': 0.5706, 'epoch': 29.41176470588235}
+INFO - Storing metrics for bernett_gold_ppi/ESM2-150 (test): {'test_loss': 0.6635866165161133, 'test_f1': 0.60889, 'test_precision': 0.60923, 'test_recall': 0.60905, 'test_accuracy': 0.60905, 'test_mcc': 0.21828, 'test_auc': 0.60905}
+INFO - Processing model: ESM2-650
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESM2-650
+INFO - Storing metrics for DL2_reg/ESM2-650 (valid): {'eval_loss': 0.2024816870689392, 'eval_f1': 0.92071, 'eval_precision': 0.92172, 'eval_recall': 0.91974, 'eval_accuracy': 0.92434, 'eval_mcc': 0.84147, 'eval_auc': 0.91974, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ESM2-650 (test): {'test_loss': 0.26578569412231445, 'test_f1': 0.90265, 'test_precision': 0.90396, 'test_recall': 0.90151, 'test_accuracy': 0.90515, 'test_mcc': 0.80546, 'test_auc': 0.90151}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESM2-650
+INFO - Storing metrics for DL10_reg/ESM2-650 (valid): {'eval_loss': 0.6598312258720398, 'eval_f1': 0.655, 'eval_precision': 0.77723, 'eval_recall': 0.63911, 'eval_accuracy': 0.78813, 'eval_mcc': 0.74228, 'eval_auc': 0.96701, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ESM2-650 (test): {'test_loss': 0.7227703928947449, 'test_f1': 0.58028, 'test_precision': 0.61891, 'test_recall': 0.58769, 'test_accuracy': 0.77559, 'test_mcc': 0.72948, 'test_auc': 0.96493}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESM2-650
+INFO - Storing metrics for EC_reg/ESM2-650 (valid): {'eval_loss': 0.003692813217639923, 'eval_accuracy': 0.9986, 'eval_f1': 0.7528, 'eval_precision': 0.76377, 'eval_recall': 0.74215, 'eval_hamming_loss': 0.0014, 'eval_threshold': 0.07, 'eval_mcc': 0.68893, 'eval_auc': 0.9868, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESM2-650 (test): {'test_loss': 0.004612951073795557, 'test_accuracy': 0.99782, 'test_f1': 0.75975, 'test_precision': 0.78983, 'test_recall': 0.73188, 'test_hamming_loss': 0.00218, 'test_threshold': 0.03, 'test_mcc': 0.62554, 'test_auc': 0.98938}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESM2-650
+INFO - Storing metrics for CC_reg/ESM2-650 (valid): {'eval_loss': 0.014772280119359493, 'eval_accuracy': 0.99347, 'eval_f1': 0.34233, 'eval_precision': 0.3069, 'eval_recall': 0.38701, 'eval_hamming_loss': 0.00653, 'eval_threshold': 0.08, 'eval_mcc': 0.15841, 'eval_auc': 0.93795, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/ESM2-650 (test): {'test_loss': 0.15747682750225067, 'test_accuracy': 0.96397, 'test_f1': 0.44749, 'test_precision': 0.4505, 'test_recall': 0.44452, 'test_hamming_loss': 0.03603, 'test_threshold': 0.01, 'test_mcc': 0.12454, 'test_auc': 0.89118}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESM2-650
+INFO - Storing metrics for BP_reg/ESM2-650 (valid): {'eval_loss': 0.015742411836981773, 'eval_accuracy': 0.99368, 'eval_f1': 0.4808, 'eval_precision': 0.47216, 'eval_recall': 0.48977, 'eval_hamming_loss': 0.00632, 'eval_threshold': 0.01, 'eval_mcc': 0.0921, 'eval_auc': 0.95721, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/ESM2-650 (test): {'test_loss': 0.1672840267419815, 'test_accuracy': 0.96667, 'test_f1': 0.22991, 'test_precision': 0.65486, 'test_recall': 0.13943, 'test_hamming_loss': 0.03333, 'test_threshold': 0.01, 'test_mcc': 0.02899, 'test_auc': 0.80014}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESM2-650
+INFO - Storing metrics for MF_reg/ESM2-650 (valid): {'eval_loss': 0.012377940118312836, 'eval_accuracy': 0.99169, 'eval_f1': 0.61946, 'eval_precision': 0.62356, 'eval_recall': 0.61543, 'eval_hamming_loss': 0.00831, 'eval_threshold': 0.03, 'eval_mcc': 0.28256, 'eval_auc': 0.97234, 'epoch': 16.0}
+INFO - Storing metrics for MF_reg/ESM2-650 (test): {'test_loss': 0.061546631157398224, 'test_accuracy': 0.98255, 'test_f1': 0.51618, 'test_precision': 0.56935, 'test_recall': 0.4721, 'test_hamming_loss': 0.01745, 'test_threshold': 0.01, 'test_mcc': 0.19962, 'test_auc': 0.8847}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESM2-650
+INFO - Storing metrics for MB_reg/ESM2-650 (valid): {'eval_loss': 0.6026374697685242, 'eval_f1': 0.67674, 'eval_precision': 0.71158, 'eval_recall': 0.69561, 'eval_accuracy': 0.67976, 'eval_mcc': 0.40687, 'eval_auc': 0.69561, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ESM2-650 (test): {'test_loss': 0.6079010367393494, 'test_f1': 0.66163, 'test_precision': 0.68379, 'test_recall': 0.67097, 'test_accuracy': 0.66617, 'test_mcc': 0.35453, 'test_auc': 0.67097}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESM2-650
+INFO - Storing metrics for enzyme_kcat/ESM2-650 (valid): {'eval_loss': 15.513206481933594, 'eval_r_squared': 0.42316, 'eval_spearman_rho': 0.63996, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6621800065040588, 'eval_pear_pval': 0.0, 'eval_mse': 15.51321029663086, 'eval_mae': 2.9234800338745117, 'eval_rmse': 3.9386799335479736, 'epoch': 41.0}
+INFO - Storing metrics for enzyme_kcat/ESM2-650 (test): {'test_loss': 15.548357963562012, 'test_r_squared': 0.43196, 'test_spearman_rho': 0.64891, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6680099964141846, 'test_pear_pval': 0.0, 'test_mse': 15.548359870910645, 'test_mae': 2.920989990234375, 'test_rmse': 3.9431400299072266}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESM2-650
+INFO - Storing metrics for optimal_temperature/ESM2-650 (valid): {'eval_loss': 167.3182373046875, 'eval_r_squared': 0.52145, 'eval_spearman_rho': 0.73037, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.804419994354248, 'eval_pear_pval': 0.0, 'eval_mse': 167.31825256347656, 'eval_mae': 9.98285961151123, 'eval_rmse': 12.935159683227539, 'epoch': 20.0}
+INFO - Storing metrics for optimal_temperature/ESM2-650 (test): {'test_loss': 154.95169067382812, 'test_r_squared': 0.54716, 'test_spearman_rho': 0.70995, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7933599948883057, 'test_pear_pval': 0.0, 'test_mse': 154.95169067382812, 'test_mae': 9.957489967346191, 'test_rmse': 12.447959899902344}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESM2-650
+INFO - Storing metrics for optimal_ph/ESM2-650 (valid): {'eval_loss': 0.9995191693305969, 'eval_r_squared': 0.27925, 'eval_spearman_rho': 0.56225, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6400700211524963, 'eval_pear_pval': 0.0, 'eval_mse': 0.9995200037956238, 'eval_mae': 0.7584400177001953, 'eval_rmse': 0.9997599720954895, 'epoch': 15.0}
+INFO - Storing metrics for optimal_ph/ESM2-650 (test): {'test_loss': 0.9144269824028015, 'test_r_squared': 0.314, 'test_spearman_rho': 0.55481, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6711000204086304, 'test_pear_pval': 0.0, 'test_mse': 0.9144300222396851, 'test_mae': 0.7450000047683716, 'test_rmse': 0.9562600255012512}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESM2-650
+INFO - Storing metrics for HPPI/ESM2-650 (valid): {'eval_loss': 0.43728286027908325, 'eval_f1': 0.82906, 'eval_precision': 0.82953, 'eval_recall': 0.82862, 'eval_accuracy': 0.83333, 'eval_mcc': 0.65815, 'eval_auc': 0.82862, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESM2-650 (test): {'test_loss': 0.49039968848228455, 'test_f1': 0.74018, 'test_precision': 0.74711, 'test_recall': 0.7373, 'test_accuracy': 0.75, 'test_mcc': 0.48431, 'test_auc': 0.7373}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESM2-650
+INFO - Storing metrics for bernett_gold_ppi/ESM2-650 (valid): {'eval_loss': 0.6736791133880615, 'eval_f1': 0.51949, 'eval_precision': 0.58669, 'eval_recall': 0.55852, 'eval_accuracy': 0.55852, 'eval_mcc': 0.14245, 'eval_auc': 0.55852, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/ESM2-650 (test): {'test_loss': 0.6683449745178223, 'test_f1': 0.55835, 'test_precision': 0.60388, 'test_recall': 0.58181, 'test_accuracy': 0.58181, 'test_mcc': 0.18437, 'test_auc': 0.58181}
+INFO - Processing model: ESM2-3B
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESM2-3B
+INFO - Storing metrics for DL2_reg/ESM2-3B (valid): {'eval_loss': 0.18993014097213745, 'eval_f1': 0.93232, 'eval_precision': 0.93453, 'eval_recall': 0.93035, 'eval_accuracy': 0.93558, 'eval_mcc': 0.86487, 'eval_auc': 0.93035, 'epoch': 15.0}
+INFO - Storing metrics for DL2_reg/ESM2-3B (test): {'test_loss': 0.2530393898487091, 'test_f1': 0.90415, 'test_precision': 0.90401, 'test_recall': 0.9043, 'test_accuracy': 0.9063, 'test_mcc': 0.80831, 'test_auc': 0.9043}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESM2-3B
+INFO - Storing metrics for DL10_reg/ESM2-3B (valid): {'eval_loss': 0.6013258099555969, 'eval_f1': 0.73071, 'eval_precision': 0.78344, 'eval_recall': 0.70699, 'eval_accuracy': 0.83607, 'eval_mcc': 0.80121, 'eval_auc': 0.97465, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/ESM2-3B (test): {'test_loss': 0.6770521998405457, 'test_f1': 0.67831, 'test_precision': 0.76658, 'test_recall': 0.65941, 'test_accuracy': 0.81785, 'test_mcc': 0.78017, 'test_auc': 0.97071}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESM2-3B
+INFO - Storing metrics for EC_reg/ESM2-3B (valid): {'eval_loss': 0.0034509848337620497, 'eval_accuracy': 0.99865, 'eval_f1': 0.76254, 'eval_precision': 0.76169, 'eval_recall': 0.76338, 'eval_hamming_loss': 0.00135, 'eval_threshold': 0.05, 'eval_mcc': 0.70204, 'eval_auc': 0.98894, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESM2-3B (test): {'test_loss': 0.004258954897522926, 'test_accuracy': 0.99783, 'test_f1': 0.77237, 'test_precision': 0.82173, 'test_recall': 0.7286, 'test_hamming_loss': 0.00217, 'test_threshold': 0.03, 'test_mcc': 0.62781, 'test_auc': 0.99048}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESM2-3B
+INFO - Storing metrics for CC_reg/ESM2-3B (valid): {'eval_loss': 0.013528360053896904, 'eval_accuracy': 0.99325, 'eval_f1': 0.37408, 'eval_precision': 0.30556, 'eval_recall': 0.48221, 'eval_hamming_loss': 0.00675, 'eval_threshold': 0.05, 'eval_mcc': 0.16345, 'eval_auc': 0.9364, 'epoch': 17.0}
+INFO - Storing metrics for CC_reg/ESM2-3B (test): {'test_loss': 0.1548767238855362, 'test_accuracy': 0.9642, 'test_f1': 0.42949, 'test_precision': 0.46832, 'test_recall': 0.3966, 'test_hamming_loss': 0.0358, 'test_threshold': 0.01, 'test_mcc': 0.14689, 'test_auc': 0.88303}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESM2-3B
+INFO - Storing metrics for BP_reg/ESM2-3B (valid): {'eval_loss': 0.01593960076570511, 'eval_accuracy': 0.99368, 'eval_f1': 0.47919, 'eval_precision': 0.48474, 'eval_recall': 0.47376, 'eval_hamming_loss': 0.00632, 'eval_threshold': 0.01, 'eval_mcc': 0.09184, 'eval_auc': 0.95642, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/ESM2-3B (test): {'test_loss': 0.17999684810638428, 'test_accuracy': 0.96668, 'test_f1': 0.22274, 'test_precision': 0.65554, 'test_recall': 0.13416, 'test_hamming_loss': 0.03332, 'test_threshold': 0.01, 'test_mcc': 0.03321, 'test_auc': 0.80217}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESM2-3B
+INFO - Storing metrics for MF_reg/ESM2-3B (valid): {'eval_loss': 0.011445941403508186, 'eval_accuracy': 0.99176, 'eval_f1': 0.6415, 'eval_precision': 0.61639, 'eval_recall': 0.66875, 'eval_hamming_loss': 0.00824, 'eval_threshold': 0.02, 'eval_mcc': 0.29692, 'eval_auc': 0.97626, 'epoch': 17.0}
+INFO - Storing metrics for MF_reg/ESM2-3B (test): {'test_loss': 0.06095017120242119, 'test_accuracy': 0.98264, 'test_f1': 0.52028, 'test_precision': 0.60723, 'test_recall': 0.45511, 'test_hamming_loss': 0.01736, 'test_threshold': 0.01, 'test_mcc': 0.21158, 'test_auc': 0.88713}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESM2-3B
+INFO - Storing metrics for MB_reg/ESM2-3B (valid): {'eval_loss': 0.5602205991744995, 'eval_f1': 0.72471, 'eval_precision': 0.72638, 'eval_recall': 0.72838, 'eval_accuracy': 0.72508, 'eval_mcc': 0.45475, 'eval_auc': 0.72838, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ESM2-3B (test): {'test_loss': 0.5060081481933594, 'test_f1': 0.74218, 'test_precision': 0.7428, 'test_recall': 0.74198, 'test_accuracy': 0.74286, 'test_mcc': 0.48477, 'test_auc': 0.74198}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESM2-3B
+INFO - Storing metrics for enzyme_kcat/ESM2-3B (valid): {'eval_loss': 15.933452606201172, 'eval_r_squared': 0.40754, 'eval_spearman_rho': 0.62563, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6391599774360657, 'eval_pear_pval': 0.0, 'eval_mse': 15.933449745178223, 'eval_mae': 3.0281500816345215, 'eval_rmse': 3.9916698932647705, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ESM2-3B (test): {'test_loss': 16.200098037719727, 'test_r_squared': 0.40815, 'test_spearman_rho': 0.62928, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6410599946975708, 'test_pear_pval': 0.0, 'test_mse': 16.20009994506836, 'test_mae': 3.035749912261963, 'test_rmse': 4.024930000305176}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESM2-3B
+INFO - Storing metrics for optimal_temperature/ESM2-3B (valid): {'eval_loss': 152.3524932861328, 'eval_r_squared': 0.56425, 'eval_spearman_rho': 0.71647, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7938500046730042, 'eval_pear_pval': 0.0, 'eval_mse': 152.35250854492188, 'eval_mae': 9.219550132751465, 'eval_rmse': 12.343119621276855, 'epoch': 19.0}
+INFO - Storing metrics for optimal_temperature/ESM2-3B (test): {'test_loss': 147.62432861328125, 'test_r_squared': 0.56857, 'test_spearman_rho': 0.69557, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7907099723815918, 'test_pear_pval': 0.0, 'test_mse': 147.62435913085938, 'test_mae': 9.159310340881348, 'test_rmse': 12.150079727172852}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESM2-3B
+INFO - Storing metrics for optimal_ph/ESM2-3B (valid): {'eval_loss': 1.0414607524871826, 'eval_r_squared': 0.24901, 'eval_spearman_rho': 0.57574, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6709700226783752, 'eval_pear_pval': 0.0, 'eval_mse': 1.0414600372314453, 'eval_mae': 0.7835900187492371, 'eval_rmse': 1.0205199718475342, 'epoch': 19.0}
+INFO - Storing metrics for optimal_ph/ESM2-3B (test): {'test_loss': 0.9357414841651917, 'test_r_squared': 0.29801, 'test_spearman_rho': 0.58391, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7023800015449524, 'test_pear_pval': 0.0, 'test_mse': 0.9357399940490723, 'test_mae': 0.7679700255393982, 'test_rmse': 0.9673399925231934}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESM2-3B
+INFO - Storing metrics for HPPI/ESM2-3B (valid): {'eval_loss': 0.44239577651023865, 'eval_f1': 0.83141, 'eval_precision': 0.82991, 'eval_recall': 0.8367, 'eval_accuracy': 0.83333, 'eval_mcc': 0.66658, 'eval_auc': 0.8367, 'epoch': 13.0}
+INFO - Storing metrics for HPPI/ESM2-3B (test): {'test_loss': 0.5857767462730408, 'test_f1': 0.76562, 'test_precision': 0.7675, 'test_recall': 0.77317, 'test_accuracy': 0.76667, 'test_mcc': 0.54064, 'test_auc': 0.77317}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESM2-3B
+INFO - Storing metrics for bernett_gold_ppi/ESM2-3B (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 33.333333333333336}
+INFO - Storing metrics for bernett_gold_ppi/ESM2-3B (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: ESMC-300
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESMC-300
+INFO - Storing metrics for DL2_reg/ESMC-300 (valid): {'eval_loss': 0.2186335325241089, 'eval_f1': 0.9042, 'eval_precision': 0.92018, 'eval_recall': 0.89484, 'eval_accuracy': 0.91086, 'eval_mcc': 0.81463, 'eval_auc': 0.89484, 'epoch': 15.0}
+INFO - Storing metrics for DL2_reg/ESMC-300 (test): {'test_loss': 0.24380187690258026, 'test_f1': 0.90969, 'test_precision': 0.92007, 'test_recall': 0.9039, 'test_accuracy': 0.91324, 'test_mcc': 0.82381, 'test_auc': 0.9039}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESMC-300
+INFO - Storing metrics for DL10_reg/ESMC-300 (valid): {'eval_loss': 0.6939922571182251, 'eval_f1': 0.65574, 'eval_precision': 0.73177, 'eval_recall': 0.6398, 'eval_accuracy': 0.77671, 'eval_mcc': 0.72896, 'eval_auc': 0.95994, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ESMC-300 (test): {'test_loss': 0.7356148958206177, 'test_f1': 0.59885, 'test_precision': 0.60781, 'test_recall': 0.60361, 'test_accuracy': 0.76648, 'test_mcc': 0.71858, 'test_auc': 0.95753}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESMC-300
+INFO - Storing metrics for EC_reg/ESMC-300 (valid): {'eval_loss': 0.0045028082095086575, 'eval_accuracy': 0.99846, 'eval_f1': 0.71109, 'eval_precision': 0.74277, 'eval_recall': 0.682, 'eval_hamming_loss': 0.00154, 'eval_threshold': 0.12, 'eval_mcc': 0.65133, 'eval_auc': 0.98892, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESMC-300 (test): {'test_loss': 0.005416386760771275, 'test_accuracy': 0.99771, 'test_f1': 0.73034, 'test_precision': 0.78163, 'test_recall': 0.68536, 'test_hamming_loss': 0.00229, 'test_threshold': 0.06, 'test_mcc': 0.60118, 'test_auc': 0.98934}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESMC-300
+INFO - Storing metrics for CC_reg/ESMC-300 (valid): {'eval_loss': 0.015204442664980888, 'eval_accuracy': 0.99327, 'eval_f1': 0.33141, 'eval_precision': 0.28019, 'eval_recall': 0.40557, 'eval_hamming_loss': 0.00673, 'eval_threshold': 0.06, 'eval_mcc': 0.14173, 'eval_auc': 0.92641, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/ESMC-300 (test): {'test_loss': 0.14622551202774048, 'test_accuracy': 0.96415, 'test_f1': 0.438, 'test_precision': 0.44975, 'test_recall': 0.42684, 'test_hamming_loss': 0.03585, 'test_threshold': 0.01, 'test_mcc': 0.14252, 'test_auc': 0.8895}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESMC-300
+INFO - Storing metrics for BP_reg/ESMC-300 (valid): {'eval_loss': 0.01790148951113224, 'eval_accuracy': 0.99366, 'eval_f1': 0.43636, 'eval_precision': 0.41282, 'eval_recall': 0.46275, 'eval_hamming_loss': 0.00634, 'eval_threshold': 0.01, 'eval_mcc': 0.07908, 'eval_auc': 0.9526, 'epoch': 19.0}
+INFO - Storing metrics for BP_reg/ESMC-300 (test): {'test_loss': 0.17108267545700073, 'test_accuracy': 0.96666, 'test_f1': 0.21567, 'test_precision': 0.57761, 'test_recall': 0.13258, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02275, 'test_auc': 0.8185}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESMC-300
+INFO - Storing metrics for MF_reg/ESMC-300 (valid): {'eval_loss': 0.014229963533580303, 'eval_accuracy': 0.99163, 'eval_f1': 0.58842, 'eval_precision': 0.57927, 'eval_recall': 0.59786, 'eval_hamming_loss': 0.00837, 'eval_threshold': 0.03, 'eval_mcc': 0.27196, 'eval_auc': 0.96873, 'epoch': 18.0}
+INFO - Storing metrics for MF_reg/ESMC-300 (test): {'test_loss': 0.0661083236336708, 'test_accuracy': 0.9825, 'test_f1': 0.48192, 'test_precision': 0.61254, 'test_recall': 0.39722, 'test_hamming_loss': 0.0175, 'test_threshold': 0.02, 'test_mcc': 0.19255, 'test_auc': 0.87926}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESMC-300
+INFO - Storing metrics for MB_reg/ESMC-300 (valid): {'eval_loss': 0.6320813298225403, 'eval_f1': 0.66641, 'eval_precision': 0.67087, 'eval_recall': 0.66563, 'eval_accuracy': 0.67372, 'eval_mcc': 0.33646, 'eval_auc': 0.66563, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ESMC-300 (test): {'test_loss': 0.6226302981376648, 'test_f1': 0.6568, 'test_precision': 0.65678, 'test_recall': 0.65684, 'test_accuracy': 0.65714, 'test_mcc': 0.31361, 'test_auc': 0.65684}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESMC-300
+INFO - Storing metrics for enzyme_kcat/ESMC-300 (valid): {'eval_loss': 15.616140365600586, 'eval_r_squared': 0.41933, 'eval_spearman_rho': 0.63045, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6566699743270874, 'eval_pear_pval': 0.0, 'eval_mse': 15.616140365600586, 'eval_mae': 2.9666099548339844, 'eval_rmse': 3.9517300128936768, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ESMC-300 (test): {'test_loss': 17.532255172729492, 'test_r_squared': 0.35948, 'test_spearman_rho': 0.59763, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6100900173187256, 'test_pear_pval': 0.0, 'test_mse': 17.53226089477539, 'test_mae': 3.1352999210357666, 'test_rmse': 4.187150001525879}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESMC-300
+INFO - Storing metrics for optimal_temperature/ESMC-300 (valid): {'eval_loss': 141.82156372070312, 'eval_r_squared': 0.59437, 'eval_spearman_rho': 0.74516, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.8168100118637085, 'eval_pear_pval': 0.0, 'eval_mse': 141.82156372070312, 'eval_mae': 9.220820426940918, 'eval_rmse': 11.908889770507812, 'epoch': 20.0}
+INFO - Storing metrics for optimal_temperature/ESMC-300 (test): {'test_loss': 171.33392333984375, 'test_r_squared': 0.49928, 'test_spearman_rho': 0.66112, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7523599863052368, 'test_pear_pval': 0.0, 'test_mse': 171.33392333984375, 'test_mae': 9.941410064697266, 'test_rmse': 13.089460372924805}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESMC-300
+INFO - Storing metrics for optimal_ph/ESMC-300 (valid): {'eval_loss': 0.9588533043861389, 'eval_r_squared': 0.30857, 'eval_spearman_rho': 0.50085, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.5902199745178223, 'eval_pear_pval': 0.0, 'eval_mse': 0.9588500261306763, 'eval_mae': 0.7070000171661377, 'eval_rmse': 0.9792100191116333, 'epoch': 13.0}
+INFO - Storing metrics for optimal_ph/ESMC-300 (test): {'test_loss': 0.8634347915649414, 'test_r_squared': 0.35225, 'test_spearman_rho': 0.49273, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6290900111198425, 'test_pear_pval': 0.0, 'test_mse': 0.8634300231933594, 'test_mae': 0.6912000179290771, 'test_rmse': 0.9292100071907043}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESMC-300
+INFO - Storing metrics for HPPI/ESMC-300 (valid): {'eval_loss': 0.43935808539390564, 'eval_f1': 0.80631, 'eval_precision': 0.80841, 'eval_recall': 0.80471, 'eval_accuracy': 0.81197, 'eval_mcc': 0.61311, 'eval_auc': 0.80471, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESMC-300 (test): {'test_loss': 0.465307354927063, 'test_f1': 0.74655, 'test_precision': 0.74552, 'test_recall': 0.74877, 'test_accuracy': 0.75, 'test_mcc': 0.49428, 'test_auc': 0.74877}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESMC-300
+INFO - Storing metrics for bernett_gold_ppi/ESMC-300 (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 25.49019607843137}
+INFO - Storing metrics for bernett_gold_ppi/ESMC-300 (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: ESMC-600
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ESMC-600
+INFO - Storing metrics for DL2_reg/ESMC-600 (valid): {'eval_loss': 0.20933952927589417, 'eval_f1': 0.92185, 'eval_precision': 0.93172, 'eval_recall': 0.91505, 'eval_accuracy': 0.92659, 'eval_mcc': 0.84661, 'eval_auc': 0.91505, 'epoch': 15.0}
+INFO - Storing metrics for DL2_reg/ESMC-600 (test): {'test_loss': 0.24291974306106567, 'test_f1': 0.89847, 'test_precision': 0.90704, 'test_recall': 0.89345, 'test_accuracy': 0.90226, 'test_mcc': 0.80038, 'test_auc': 0.89345}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ESMC-600
+INFO - Storing metrics for DL10_reg/ESMC-600 (valid): {'eval_loss': 0.6620728373527527, 'eval_f1': 0.63313, 'eval_precision': 0.7448, 'eval_recall': 0.62581, 'eval_accuracy': 0.78037, 'eval_mcc': 0.73291, 'eval_auc': 0.96302, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ESMC-600 (test): {'test_loss': 0.6964476108551025, 'test_f1': 0.60092, 'test_precision': 0.62529, 'test_recall': 0.6133, 'test_accuracy': 0.77523, 'test_mcc': 0.72853, 'test_auc': 0.96292}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ESMC-600
+INFO - Storing metrics for EC_reg/ESMC-600 (valid): {'eval_loss': 0.004729127045720816, 'eval_accuracy': 0.9984, 'eval_f1': 0.68945, 'eval_precision': 0.711, 'eval_recall': 0.66917, 'eval_hamming_loss': 0.0016, 'eval_threshold': 0.11, 'eval_mcc': 0.6376, 'eval_auc': 0.98688, 'epoch': 20.0}
+INFO - Storing metrics for EC_reg/ESMC-600 (test): {'test_loss': 0.005863943602889776, 'test_accuracy': 0.99765, 'test_f1': 0.7123, 'test_precision': 0.75594, 'test_recall': 0.67343, 'test_hamming_loss': 0.00235, 'test_threshold': 0.06, 'test_mcc': 0.58656, 'test_auc': 0.98662}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ESMC-600
+INFO - Storing metrics for CC_reg/ESMC-600 (valid): {'eval_loss': 0.015077389776706696, 'eval_accuracy': 0.99322, 'eval_f1': 0.34564, 'eval_precision': 0.30395, 'eval_recall': 0.40058, 'eval_hamming_loss': 0.00678, 'eval_threshold': 0.07, 'eval_mcc': 0.15918, 'eval_auc': 0.94073, 'epoch': 19.0}
+INFO - Storing metrics for CC_reg/ESMC-600 (test): {'test_loss': 0.16550549864768982, 'test_accuracy': 0.96418, 'test_f1': 0.41766, 'test_precision': 0.45812, 'test_recall': 0.38376, 'test_hamming_loss': 0.03582, 'test_threshold': 0.01, 'test_mcc': 0.14548, 'test_auc': 0.88972}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ESMC-600
+INFO - Storing metrics for BP_reg/ESMC-600 (valid): {'eval_loss': 0.018396610394120216, 'eval_accuracy': 0.99366, 'eval_f1': 0.4351, 'eval_precision': 0.40596, 'eval_recall': 0.46875, 'eval_hamming_loss': 0.00634, 'eval_threshold': 0.01, 'eval_mcc': 0.07384, 'eval_auc': 0.95365, 'epoch': 19.0}
+INFO - Storing metrics for BP_reg/ESMC-600 (test): {'test_loss': 0.1833178848028183, 'test_accuracy': 0.96665, 'test_f1': 0.21583, 'test_precision': 0.57511, 'test_recall': 0.13284, 'test_hamming_loss': 0.03335, 'test_threshold': 0.01, 'test_mcc': 0.02205, 'test_auc': 0.81553}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ESMC-600
+INFO - Storing metrics for MF_reg/ESMC-600 (valid): {'eval_loss': 0.014682115986943245, 'eval_accuracy': 0.99167, 'eval_f1': 0.58087, 'eval_precision': 0.60509, 'eval_recall': 0.55851, 'eval_hamming_loss': 0.00833, 'eval_threshold': 0.03, 'eval_mcc': 0.2838, 'eval_auc': 0.96879, 'epoch': 21.0}
+INFO - Storing metrics for MF_reg/ESMC-600 (test): {'test_loss': 0.07267257571220398, 'test_accuracy': 0.98256, 'test_f1': 0.47833, 'test_precision': 0.55248, 'test_recall': 0.42173, 'test_hamming_loss': 0.01744, 'test_threshold': 0.01, 'test_mcc': 0.20194, 'test_auc': 0.87234}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ESMC-600
+INFO - Storing metrics for MB_reg/ESMC-600 (valid): {'eval_loss': 0.6329841613769531, 'eval_f1': 0.67784, 'eval_precision': 0.67958, 'eval_recall': 0.67713, 'eval_accuracy': 0.68278, 'eval_mcc': 0.3567, 'eval_auc': 0.67713, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ESMC-600 (test): {'test_loss': 0.6350850462913513, 'test_f1': 0.66089, 'test_precision': 0.6741, 'test_recall': 0.66357, 'test_accuracy': 0.66767, 'test_mcc': 0.33751, 'test_auc': 0.66357}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ESMC-600
+INFO - Storing metrics for enzyme_kcat/ESMC-600 (valid): {'eval_loss': 15.346115112304688, 'eval_r_squared': 0.42937, 'eval_spearman_rho': 0.64414, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6647499799728394, 'eval_pear_pval': 0.0, 'eval_mse': 15.34611988067627, 'eval_mae': 2.957900047302246, 'eval_rmse': 3.917409896850586, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ESMC-600 (test): {'test_loss': 17.70181655883789, 'test_r_squared': 0.35329, 'test_spearman_rho': 0.59952, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.61735999584198, 'test_pear_pval': 0.0, 'test_mse': 17.701820373535156, 'test_mae': 3.1591200828552246, 'test_rmse': 4.20734977722168}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ESMC-600
+INFO - Storing metrics for optimal_temperature/ESMC-600 (valid): {'eval_loss': 146.7964630126953, 'eval_r_squared': 0.58014, 'eval_spearman_rho': 0.6998, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.8003399968147278, 'eval_pear_pval': 0.0, 'eval_mse': 146.79647827148438, 'eval_mae': 9.600509643554688, 'eval_rmse': 12.115960121154785, 'epoch': 14.0}
+INFO - Storing metrics for optimal_temperature/ESMC-600 (test): {'test_loss': 153.3841094970703, 'test_r_squared': 0.55174, 'test_spearman_rho': 0.66122, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.754830002784729, 'test_pear_pval': 0.0, 'test_mse': 153.38409423828125, 'test_mae': 9.826519966125488, 'test_rmse': 12.384830474853516}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ESMC-600
+INFO - Storing metrics for optimal_ph/ESMC-600 (valid): {'eval_loss': 1.1025042533874512, 'eval_r_squared': 0.20499, 'eval_spearman_rho': 0.52036, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.600629985332489, 'eval_pear_pval': 0.0, 'eval_mse': 1.1024999618530273, 'eval_mae': 0.7904099822044373, 'eval_rmse': 1.0499999523162842, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/ESMC-600 (test): {'test_loss': 0.9469879865646362, 'test_r_squared': 0.28957, 'test_spearman_rho': 0.55143, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6661999821662903, 'test_pear_pval': 0.0, 'test_mse': 0.9469900131225586, 'test_mae': 0.7537000179290771, 'test_rmse': 0.9731299877166748}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ESMC-600
+INFO - Storing metrics for HPPI/ESMC-600 (valid): {'eval_loss': 0.4610808789730072, 'eval_f1': 0.81791, 'eval_precision': 0.81625, 'eval_recall': 0.82155, 'eval_accuracy': 0.82051, 'eval_mcc': 0.63778, 'eval_auc': 0.82155, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ESMC-600 (test): {'test_loss': 0.5702705979347229, 'test_f1': 0.74365, 'test_precision': 0.74713, 'test_recall': 0.75211, 'test_accuracy': 0.74444, 'test_mcc': 0.49921, 'test_auc': 0.75211}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ESMC-600
+INFO - Storing metrics for bernett_gold_ppi/ESMC-600 (valid): {'eval_loss': 0.6931461691856384, 'eval_f1': 0.36983, 'eval_precision': 0.53174, 'eval_recall': 0.50459, 'eval_accuracy': 0.50459, 'eval_mcc': 0.02414, 'eval_auc': 0.50459, 'epoch': 21.568627450980394}
+INFO - Storing metrics for bernett_gold_ppi/ESMC-600 (test): {'test_loss': 0.6931461095809937, 'test_f1': 0.39075, 'test_precision': 0.53259, 'test_recall': 0.50759, 'test_accuracy': 0.50759, 'test_mcc': 0.03145, 'test_auc': 0.50759}
+INFO - Processing model: ProtBert
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ProtBert
+INFO - Storing metrics for DL2_reg/ProtBert (valid): {'eval_loss': 0.22278055548667908, 'eval_f1': 0.91477, 'eval_precision': 0.92373, 'eval_recall': 0.9085, 'eval_accuracy': 0.91985, 'eval_mcc': 0.83209, 'eval_auc': 0.9085, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ProtBert (test): {'test_loss': 0.3064385652542114, 'test_f1': 0.87798, 'test_precision': 0.88649, 'test_recall': 0.87315, 'test_accuracy': 0.88259, 'test_mcc': 0.75952, 'test_auc': 0.87315}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ProtBert
+INFO - Storing metrics for DL10_reg/ProtBert (valid): {'eval_loss': 0.7005430459976196, 'eval_f1': 0.66419, 'eval_precision': 0.7262, 'eval_recall': 0.64461, 'eval_accuracy': 0.76256, 'eval_mcc': 0.71269, 'eval_auc': 0.95425, 'epoch': 15.0}
+INFO - Storing metrics for DL10_reg/ProtBert (test): {'test_loss': 0.8071852922439575, 'test_f1': 0.5805, 'test_precision': 0.66363, 'test_recall': 0.57122, 'test_accuracy': 0.73807, 'test_mcc': 0.68334, 'test_auc': 0.94898}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ProtBert
+INFO - Storing metrics for EC_reg/ProtBert (valid): {'eval_loss': 0.005155837628990412, 'eval_accuracy': 0.99834, 'eval_f1': 0.65554, 'eval_precision': 0.73675, 'eval_recall': 0.59045, 'eval_hamming_loss': 0.00166, 'eval_threshold': 0.2, 'eval_mcc': 0.62097, 'eval_auc': 0.98493, 'epoch': 22.0}
+INFO - Storing metrics for EC_reg/ProtBert (test): {'test_loss': 0.00603519706055522, 'test_accuracy': 0.99765, 'test_f1': 0.69343, 'test_precision': 0.75122, 'test_recall': 0.6439, 'test_hamming_loss': 0.00235, 'test_threshold': 0.07, 'test_mcc': 0.58698, 'test_auc': 0.98552}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ProtBert
+INFO - Storing metrics for CC_reg/ProtBert (valid): {'eval_loss': 0.016034701839089394, 'eval_accuracy': 0.99326, 'eval_f1': 0.3264, 'eval_precision': 0.28755, 'eval_recall': 0.37738, 'eval_hamming_loss': 0.00674, 'eval_threshold': 0.07, 'eval_mcc': 0.13656, 'eval_auc': 0.94064, 'epoch': 18.0}
+INFO - Storing metrics for CC_reg/ProtBert (test): {'test_loss': 0.15903550386428833, 'test_accuracy': 0.96409, 'test_f1': 0.42294, 'test_precision': 0.42184, 'test_recall': 0.42404, 'test_hamming_loss': 0.03591, 'test_threshold': 0.01, 'test_mcc': 0.13683, 'test_auc': 0.88897}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ProtBert
+INFO - Storing metrics for BP_reg/ProtBert (valid): {'eval_loss': 0.018777349963784218, 'eval_accuracy': 0.99366, 'eval_f1': 0.42912, 'eval_precision': 0.4144, 'eval_recall': 0.44493, 'eval_hamming_loss': 0.00634, 'eval_threshold': 0.01, 'eval_mcc': 0.07962, 'eval_auc': 0.95415, 'epoch': 23.0}
+INFO - Storing metrics for BP_reg/ProtBert (test): {'test_loss': 0.19107939302921295, 'test_accuracy': 0.96666, 'test_f1': 0.21358, 'test_precision': 0.54655, 'test_recall': 0.13272, 'test_hamming_loss': 0.03334, 'test_threshold': 0.01, 'test_mcc': 0.02598, 'test_auc': 0.80141}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ProtBert
+INFO - Storing metrics for MF_reg/ProtBert (valid): {'eval_loss': 0.01589019224047661, 'eval_accuracy': 0.99153, 'eval_f1': 0.56566, 'eval_precision': 0.57802, 'eval_recall': 0.55383, 'eval_hamming_loss': 0.00847, 'eval_threshold': 0.04, 'eval_mcc': 0.24939, 'eval_auc': 0.96544, 'epoch': 19.0}
+INFO - Storing metrics for MF_reg/ProtBert (test): {'test_loss': 0.06318349391222, 'test_accuracy': 0.9823, 'test_f1': 0.4527, 'test_precision': 0.52779, 'test_recall': 0.39631, 'test_hamming_loss': 0.0177, 'test_threshold': 0.02, 'test_mcc': 0.16156, 'test_auc': 0.8763}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ProtBert
+INFO - Storing metrics for MB_reg/ProtBert (valid): {'eval_loss': 0.6826553344726562, 'eval_f1': 0.6368, 'eval_precision': 0.64751, 'eval_recall': 0.6374, 'eval_accuracy': 0.64955, 'eval_mcc': 0.28472, 'eval_auc': 0.6374, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ProtBert (test): {'test_loss': 0.6530523300170898, 'test_f1': 0.66816, 'test_precision': 0.69632, 'test_recall': 0.67406, 'test_accuracy': 0.6797, 'test_mcc': 0.36971, 'test_auc': 0.67406}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ProtBert
+INFO - Storing metrics for enzyme_kcat/ProtBert (valid): {'eval_loss': 17.313980102539062, 'eval_r_squared': 0.3562, 'eval_spearman_rho': 0.60028, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6112800240516663, 'eval_pear_pval': 0.0, 'eval_mse': 17.313980102539062, 'eval_mae': 3.1939499378204346, 'eval_rmse': 4.161009788513184, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ProtBert (test): {'test_loss': 18.13792610168457, 'test_r_squared': 0.33735, 'test_spearman_rho': 0.57574, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5896300077438354, 'test_pear_pval': 0.0, 'test_mse': 18.137920379638672, 'test_mae': 3.156709909439087, 'test_rmse': 4.258860111236572}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ProtBert
+INFO - Storing metrics for optimal_temperature/ProtBert (valid): {'eval_loss': 177.57240295410156, 'eval_r_squared': 0.49212, 'eval_spearman_rho': 0.69878, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7765300273895264, 'eval_pear_pval': 0.0, 'eval_mse': 177.57240295410156, 'eval_mae': 10.794650077819824, 'eval_rmse': 13.325630187988281, 'epoch': 17.0}
+INFO - Storing metrics for optimal_temperature/ProtBert (test): {'test_loss': 182.70933532714844, 'test_r_squared': 0.46604, 'test_spearman_rho': 0.64904, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7093200087547302, 'test_pear_pval': 0.0, 'test_mse': 182.70938110351562, 'test_mae': 10.702759742736816, 'test_rmse': 13.517000198364258}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ProtBert
+INFO - Storing metrics for optimal_ph/ProtBert (valid): {'eval_loss': 0.9345541000366211, 'eval_r_squared': 0.3261, 'eval_spearman_rho': 0.5085, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6029000282287598, 'eval_pear_pval': 0.0, 'eval_mse': 0.9345499873161316, 'eval_mae': 0.70305997133255, 'eval_rmse': 0.9667199850082397, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/ProtBert (test): {'test_loss': 0.7855241298675537, 'test_r_squared': 0.4107, 'test_spearman_rho': 0.52941, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6575000286102295, 'test_pear_pval': 0.0, 'test_mse': 0.7855200171470642, 'test_mae': 0.6631100177764893, 'test_rmse': 0.8863000273704529}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ProtBert
+INFO - Storing metrics for HPPI/ProtBert (valid): {'eval_loss': 0.5399194359779358, 'eval_f1': 0.76946, 'eval_precision': 0.76827, 'eval_recall': 0.77138, 'eval_accuracy': 0.7735, 'eval_mcc': 0.53964, 'eval_auc': 0.77138, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ProtBert (test): {'test_loss': 0.5274503231048584, 'test_f1': 0.74125, 'test_precision': 0.74028, 'test_recall': 0.74392, 'test_accuracy': 0.74444, 'test_mcc': 0.48418, 'test_auc': 0.74392}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ProtBert
+INFO - Storing metrics for bernett_gold_ppi/ProtBert (valid): {'eval_loss': 0.6777932643890381, 'eval_f1': 0.5756, 'eval_precision': 0.57647, 'eval_recall': 0.57611, 'eval_accuracy': 0.57611, 'eval_mcc': 0.15258, 'eval_auc': 0.57611, 'epoch': 35.294117647058826}
+INFO - Storing metrics for bernett_gold_ppi/ProtBert (test): {'test_loss': 0.6645779609680176, 'test_f1': 0.60032, 'test_precision': 0.6028, 'test_recall': 0.60154, 'test_accuracy': 0.60154, 'test_mcc': 0.20433, 'test_auc': 0.60154}
+INFO - Processing model: ProtT5
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ProtT5
+INFO - Storing metrics for DL2_reg/ProtT5 (valid): {'eval_loss': 0.1940697878599167, 'eval_f1': 0.93789, 'eval_precision': 0.93961, 'eval_recall': 0.93632, 'eval_accuracy': 0.94082, 'eval_mcc': 0.87593, 'eval_auc': 0.93632, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ProtT5 (test): {'test_loss': 0.2650924623012543, 'test_f1': 0.92683, 'test_precision': 0.92936, 'test_recall': 0.92479, 'test_accuracy': 0.92886, 'test_mcc': 0.85414, 'test_auc': 0.92479}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ProtT5
+INFO - Storing metrics for DL10_reg/ProtT5 (valid): {'eval_loss': 0.5953933596611023, 'eval_f1': 0.69929, 'eval_precision': 0.78971, 'eval_recall': 0.67736, 'eval_accuracy': 0.81187, 'eval_mcc': 0.7714, 'eval_auc': 0.9726, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ProtT5 (test): {'test_loss': 0.6595646739006042, 'test_f1': 0.62948, 'test_precision': 0.72463, 'test_recall': 0.62516, 'test_accuracy': 0.79235, 'test_mcc': 0.74972, 'test_auc': 0.97181}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ProtT5
+INFO - Storing metrics for EC_reg/ProtT5 (valid): {'eval_loss': 0.003518906654790044, 'eval_accuracy': 0.99861, 'eval_f1': 0.76458, 'eval_precision': 0.76356, 'eval_recall': 0.76559, 'eval_hamming_loss': 0.00139, 'eval_threshold': 0.06, 'eval_mcc': 0.69354, 'eval_auc': 0.98967, 'epoch': 18.0}
+INFO - Storing metrics for EC_reg/ProtT5 (test): {'test_loss': 0.004272052552551031, 'test_accuracy': 0.99783, 'test_f1': 0.77874, 'test_precision': 0.77758, 'test_recall': 0.7799, 'test_hamming_loss': 0.00217, 'test_threshold': 0.02, 'test_mcc': 0.62668, 'test_auc': 0.99133}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ProtT5
+INFO - Storing metrics for CC_reg/ProtT5 (valid): {'eval_loss': 0.01397124957293272, 'eval_accuracy': 0.99345, 'eval_f1': 0.3314, 'eval_precision': 0.30101, 'eval_recall': 0.36862, 'eval_hamming_loss': 0.00655, 'eval_threshold': 0.09, 'eval_mcc': 0.16004, 'eval_auc': 0.92801, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/ProtT5 (test): {'test_loss': 0.1564813107252121, 'test_accuracy': 0.96411, 'test_f1': 0.44024, 'test_precision': 0.45636, 'test_recall': 0.42521, 'test_hamming_loss': 0.03589, 'test_threshold': 0.01, 'test_mcc': 0.13803, 'test_auc': 0.88582}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ProtT5
+INFO - Storing metrics for BP_reg/ProtT5 (valid): {'eval_loss': 0.015298864804208279, 'eval_accuracy': 0.99368, 'eval_f1': 0.49383, 'eval_precision': 0.49501, 'eval_recall': 0.49266, 'eval_hamming_loss': 0.00632, 'eval_threshold': 0.01, 'eval_mcc': 0.09627, 'eval_auc': 0.96095, 'epoch': 18.0}
+INFO - Storing metrics for BP_reg/ProtT5 (test): {'test_loss': 0.16456618905067444, 'test_accuracy': 0.96667, 'test_f1': 0.23054, 'test_precision': 0.67208, 'test_recall': 0.13913, 'test_hamming_loss': 0.03333, 'test_threshold': 0.01, 'test_mcc': 0.03164, 'test_auc': 0.80517}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ProtT5
+INFO - Storing metrics for MF_reg/ProtT5 (valid): {'eval_loss': 0.011868148110806942, 'eval_accuracy': 0.99176, 'eval_f1': 0.63528, 'eval_precision': 0.65191, 'eval_recall': 0.61949, 'eval_hamming_loss': 0.00824, 'eval_threshold': 0.03, 'eval_mcc': 0.29608, 'eval_auc': 0.97556, 'epoch': 17.0}
+INFO - Storing metrics for MF_reg/ProtT5 (test): {'test_loss': 0.06305605173110962, 'test_accuracy': 0.98262, 'test_f1': 0.53773, 'test_precision': 0.63566, 'test_recall': 0.46595, 'test_hamming_loss': 0.01738, 'test_threshold': 0.01, 'test_mcc': 0.20868, 'test_auc': 0.89319}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ProtT5
+INFO - Storing metrics for MB_reg/ProtT5 (valid): {'eval_loss': 0.5812830328941345, 'eval_f1': 0.72014, 'eval_precision': 0.72167, 'eval_recall': 0.72366, 'eval_accuracy': 0.72054, 'eval_mcc': 0.44532, 'eval_auc': 0.72366, 'epoch': 13.0}
+INFO - Storing metrics for MB_reg/ProtT5 (test): {'test_loss': 0.5282028317451477, 'test_f1': 0.72711, 'test_precision': 0.72769, 'test_recall': 0.72692, 'test_accuracy': 0.72782, 'test_mcc': 0.45461, 'test_auc': 0.72692}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ProtT5
+INFO - Storing metrics for enzyme_kcat/ProtT5 (valid): {'eval_loss': 15.25613784790039, 'eval_r_squared': 0.43272, 'eval_spearman_rho': 0.65543, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.679669976234436, 'eval_pear_pval': 0.0, 'eval_mse': 15.256139755249023, 'eval_mae': 2.9385600090026855, 'eval_rmse': 3.905910015106201, 'epoch': 21.0}
+INFO - Storing metrics for enzyme_kcat/ProtT5 (test): {'test_loss': 16.74798011779785, 'test_r_squared': 0.38813, 'test_spearman_rho': 0.61119, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6425399780273438, 'test_pear_pval': 0.0, 'test_mse': 16.74798011779785, 'test_mae': 3.0196900367736816, 'test_rmse': 4.092430114746094}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ProtT5
+INFO - Storing metrics for optimal_temperature/ProtT5 (valid): {'eval_loss': 130.37989807128906, 'eval_r_squared': 0.6271, 'eval_spearman_rho': 0.72907, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.8163300156593323, 'eval_pear_pval': 0.0, 'eval_mse': 130.37989807128906, 'eval_mae': 9.021470069885254, 'eval_rmse': 11.418399810791016, 'epoch': 14.0}
+INFO - Storing metrics for optimal_temperature/ProtT5 (test): {'test_loss': 140.72860717773438, 'test_r_squared': 0.58873, 'test_spearman_rho': 0.67459, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7765399813652039, 'test_pear_pval': 0.0, 'test_mse': 140.72862243652344, 'test_mae': 9.108530044555664, 'test_rmse': 11.862910270690918}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ProtT5
+INFO - Storing metrics for optimal_ph/ProtT5 (valid): {'eval_loss': 0.9165082573890686, 'eval_r_squared': 0.33911, 'eval_spearman_rho': 0.54756, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6597300171852112, 'eval_pear_pval': 0.0, 'eval_mse': 0.9165099859237671, 'eval_mae': 0.7095299959182739, 'eval_rmse': 0.9573400020599365, 'epoch': 25.0}
+INFO - Storing metrics for optimal_ph/ProtT5 (test): {'test_loss': 0.8376732468605042, 'test_r_squared': 0.37158, 'test_spearman_rho': 0.58466, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6990399956703186, 'test_pear_pval': 0.0, 'test_mse': 0.8376700282096863, 'test_mae': 0.6959900259971619, 'test_rmse': 0.9152399897575378}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ProtT5
+INFO - Storing metrics for HPPI/ProtT5 (valid): {'eval_loss': 0.3643939793109894, 'eval_f1': 0.86794, 'eval_precision': 0.87043, 'eval_recall': 0.86599, 'eval_accuracy': 0.87179, 'eval_mcc': 0.73641, 'eval_auc': 0.86599, 'epoch': 15.0}
+INFO - Storing metrics for HPPI/ProtT5 (test): {'test_loss': 0.5572077631950378, 'test_f1': 0.7876, 'test_precision': 0.78812, 'test_recall': 0.79423, 'test_accuracy': 0.78889, 'test_mcc': 0.58232, 'test_auc': 0.79423}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ProtT5
+INFO - Storing metrics for bernett_gold_ppi/ProtT5 (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 21.568627450980394}
+INFO - Storing metrics for bernett_gold_ppi/ProtT5 (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: GLM2-150
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with GLM2-150
+INFO - Storing metrics for DL2_reg/GLM2-150 (valid): {'eval_loss': 0.26332971453666687, 'eval_f1': 0.88529, 'eval_precision': 0.91462, 'eval_recall': 0.87201, 'eval_accuracy': 0.89513, 'eval_mcc': 0.78547, 'eval_auc': 0.87201, 'epoch': 30.0}
+INFO - Storing metrics for DL2_reg/GLM2-150 (test): {'test_loss': 0.2772565484046936, 'test_f1': 0.88469, 'test_precision': 0.91043, 'test_recall': 0.87515, 'test_accuracy': 0.89127, 'test_mcc': 0.78479, 'test_auc': 0.87515}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with GLM2-150
+INFO - Storing metrics for DL10_reg/GLM2-150 (valid): {'eval_loss': 0.9628220796585083, 'eval_f1': 0.51132, 'eval_precision': 0.55179, 'eval_recall': 0.5018, 'eval_accuracy': 0.67306, 'eval_mcc': 0.60164, 'eval_auc': 0.92237, 'epoch': 37.0}
+INFO - Storing metrics for DL10_reg/GLM2-150 (test): {'test_loss': 1.0783703327178955, 'test_f1': 0.47566, 'test_precision': 0.5008, 'test_recall': 0.47638, 'test_accuracy': 0.65064, 'test_mcc': 0.57872, 'test_auc': 0.91183}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with GLM2-150
+INFO - Storing metrics for EC_reg/GLM2-150 (valid): {'eval_loss': 0.006626254878938198, 'eval_accuracy': 0.99814, 'eval_f1': 0.60487, 'eval_precision': 0.6499, 'eval_recall': 0.56568, 'eval_hamming_loss': 0.00186, 'eval_threshold': 0.18, 'eval_mcc': 0.5573, 'eval_auc': 0.98288, 'epoch': 36.0}
+INFO - Storing metrics for EC_reg/GLM2-150 (test): {'test_loss': 0.008368615061044693, 'test_accuracy': 0.99735, 'test_f1': 0.62951, 'test_precision': 0.69154, 'test_recall': 0.57769, 'test_hamming_loss': 0.00265, 'test_threshold': 0.12, 'test_mcc': 0.51476, 'test_auc': 0.98353}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with GLM2-150
+INFO - Storing metrics for CC_reg/GLM2-150 (valid): {'eval_loss': 0.020109055563807487, 'eval_accuracy': 0.99349, 'eval_f1': 0.26157, 'eval_precision': 0.27177, 'eval_recall': 0.25211, 'eval_hamming_loss': 0.00651, 'eval_threshold': 0.09, 'eval_mcc': 0.08421, 'eval_auc': 0.92326, 'epoch': 29.0}
+INFO - Storing metrics for CC_reg/GLM2-150 (test): {'test_loss': 0.1695336550474167, 'test_accuracy': 0.96365, 'test_f1': 0.35452, 'test_precision': 0.29892, 'test_recall': 0.43553, 'test_hamming_loss': 0.03635, 'test_threshold': 0.01, 'test_mcc': 0.08352, 'test_auc': 0.8586}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with GLM2-150
+INFO - Storing metrics for BP_reg/GLM2-150 (valid): {'eval_loss': 0.02235318347811699, 'eval_accuracy': 0.99364, 'eval_f1': 0.3287, 'eval_precision': 0.27186, 'eval_recall': 0.41557, 'eval_hamming_loss': 0.00636, 'eval_threshold': 0.01, 'eval_mcc': 0.04348, 'eval_auc': 0.94166, 'epoch': 34.0}
+INFO - Storing metrics for BP_reg/GLM2-150 (test): {'test_loss': 0.19133712351322174, 'test_accuracy': 0.96664, 'test_f1': 0.18853, 'test_precision': 0.43117, 'test_recall': 0.12064, 'test_hamming_loss': 0.03336, 'test_threshold': 0.01, 'test_mcc': 0.01268, 'test_auc': 0.79092}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with GLM2-150
+INFO - Storing metrics for MF_reg/GLM2-150 (valid): {'eval_loss': 0.02132515050470829, 'eval_accuracy': 0.99136, 'eval_f1': 0.48735, 'eval_precision': 0.47005, 'eval_recall': 0.50597, 'eval_hamming_loss': 0.00864, 'eval_threshold': 0.04, 'eval_mcc': 0.2078, 'eval_auc': 0.95698, 'epoch': 39.0}
+INFO - Storing metrics for MF_reg/GLM2-150 (test): {'test_loss': 0.07965706288814545, 'test_accuracy': 0.98215, 'test_f1': 0.39406, 'test_precision': 0.42342, 'test_recall': 0.36851, 'test_hamming_loss': 0.01785, 'test_threshold': 0.02, 'test_mcc': 0.13503, 'test_auc': 0.86654}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with GLM2-150
+INFO - Storing metrics for MB_reg/GLM2-150 (valid): {'eval_loss': 0.6493726372718811, 'eval_f1': 0.54198, 'eval_precision': 0.61229, 'eval_recall': 0.57071, 'eval_accuracy': 0.5997, 'eval_mcc': 0.17821, 'eval_auc': 0.57071, 'epoch': 22.0}
+INFO - Storing metrics for MB_reg/GLM2-150 (test): {'test_loss': 0.6375961899757385, 'test_f1': 0.54511, 'test_precision': 0.65701, 'test_recall': 0.58869, 'test_accuracy': 0.6, 'test_mcc': 0.23601, 'test_auc': 0.58869}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with GLM2-150
+INFO - Storing metrics for enzyme_kcat/GLM2-150 (valid): {'eval_loss': 18.96404457092285, 'eval_r_squared': 0.29485, 'eval_spearman_rho': 0.54273, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.5482400059700012, 'eval_pear_pval': 0.0, 'eval_mse': 18.96405029296875, 'eval_mae': 3.354029893875122, 'eval_rmse': 4.354770183563232, 'epoch': 58.0}
+INFO - Storing metrics for enzyme_kcat/GLM2-150 (test): {'test_loss': 20.256080627441406, 'test_r_squared': 0.25997, 'test_spearman_rho': 0.51348, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5115500092506409, 'test_pear_pval': 0.0, 'test_mse': 20.256080627441406, 'test_mae': 3.379270076751709, 'test_rmse': 4.500679969787598}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with GLM2-150
+INFO - Storing metrics for optimal_temperature/GLM2-150 (valid): {'eval_loss': 212.80300903320312, 'eval_r_squared': 0.39136, 'eval_spearman_rho': 0.59585, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.67221999168396, 'eval_pear_pval': 0.0, 'eval_mse': 212.80299377441406, 'eval_mae': 11.758819580078125, 'eval_rmse': 14.587770462036133, 'epoch': 33.0}
+INFO - Storing metrics for optimal_temperature/GLM2-150 (test): {'test_loss': 255.74810791015625, 'test_r_squared': 0.25258, 'test_spearman_rho': 0.54252, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5844299793243408, 'test_pear_pval': 0.0, 'test_mse': 255.7480926513672, 'test_mae': 12.737990379333496, 'test_rmse': 15.992119789123535}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with GLM2-150
+INFO - Storing metrics for optimal_ph/GLM2-150 (valid): {'eval_loss': 1.0810256004333496, 'eval_r_squared': 0.22048, 'eval_spearman_rho': 0.44106, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.50586998462677, 'eval_pear_pval': 0.0, 'eval_mse': 1.081030011177063, 'eval_mae': 0.7679799795150757, 'eval_rmse': 1.039720058441162, 'epoch': 20.0}
+INFO - Storing metrics for optimal_ph/GLM2-150 (test): {'test_loss': 1.0549283027648926, 'test_r_squared': 0.20859, 'test_spearman_rho': 0.39501, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.4976300001144409, 'test_pear_pval': 0.0, 'test_mse': 1.0549299716949463, 'test_mae': 0.769599974155426, 'test_rmse': 1.0270999670028687}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with GLM2-150
+INFO - Storing metrics for HPPI/GLM2-150 (valid): {'eval_loss': 0.5665814280509949, 'eval_f1': 0.71379, 'eval_precision': 0.73077, 'eval_recall': 0.7101, 'eval_accuracy': 0.73077, 'eval_mcc': 0.44039, 'eval_auc': 0.7101, 'epoch': 15.0}
+INFO - Storing metrics for HPPI/GLM2-150 (test): {'test_loss': 0.5699354410171509, 'test_f1': 0.66999, 'test_precision': 0.69709, 'test_recall': 0.66908, 'test_accuracy': 0.69444, 'test_mcc': 0.3651, 'test_auc': 0.66908}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with GLM2-150
+INFO - Storing metrics for bernett_gold_ppi/GLM2-150 (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 52.94117647058823}
+INFO - Storing metrics for bernett_gold_ppi/GLM2-150 (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: GLM2-650
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with GLM2-650
+INFO - Storing metrics for DL2_reg/GLM2-650 (valid): {'eval_loss': 0.24902385473251343, 'eval_f1': 0.89903, 'eval_precision': 0.91158, 'eval_recall': 0.89116, 'eval_accuracy': 0.90562, 'eval_mcc': 0.80248, 'eval_auc': 0.89116, 'epoch': 47.0}
+INFO - Storing metrics for DL2_reg/GLM2-650 (test): {'test_loss': 0.3160458207130432, 'test_f1': 0.88188, 'test_precision': 0.89234, 'test_recall': 0.87631, 'test_accuracy': 0.88664, 'test_mcc': 0.76849, 'test_auc': 0.87631}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with GLM2-650
+INFO - Storing metrics for DL10_reg/GLM2-650 (valid): {'eval_loss': 0.9633151292800903, 'eval_f1': 0.56799, 'eval_precision': 0.60884, 'eval_recall': 0.55419, 'eval_accuracy': 0.67169, 'eval_mcc': 0.60808, 'eval_auc': 0.92563, 'epoch': 42.0}
+INFO - Storing metrics for DL10_reg/GLM2-650 (test): {'test_loss': 1.08930242061615, 'test_f1': 0.50375, 'test_precision': 0.53373, 'test_recall': 0.50175, 'test_accuracy': 0.63789, 'test_mcc': 0.56584, 'test_auc': 0.91299}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with GLM2-650
+INFO - Storing metrics for EC_reg/GLM2-650 (valid): {'eval_loss': 0.007009612862020731, 'eval_accuracy': 0.99803, 'eval_f1': 0.56778, 'eval_precision': 0.6244, 'eval_recall': 0.52057, 'eval_hamming_loss': 0.00197, 'eval_threshold': 0.2, 'eval_mcc': 0.51987, 'eval_auc': 0.98408, 'epoch': 41.0}
+INFO - Storing metrics for EC_reg/GLM2-650 (test): {'test_loss': 0.00896542239934206, 'test_accuracy': 0.9973, 'test_f1': 0.61116, 'test_precision': 0.66737, 'test_recall': 0.56367, 'test_hamming_loss': 0.0027, 'test_threshold': 0.12, 'test_mcc': 0.49895, 'test_auc': 0.98279}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with GLM2-650
+INFO - Storing metrics for CC_reg/GLM2-650 (valid): {'eval_loss': 0.020311620086431503, 'eval_accuracy': 0.99362, 'eval_f1': 0.26999, 'eval_precision': 0.25938, 'eval_recall': 0.28149, 'eval_hamming_loss': 0.00638, 'eval_threshold': 0.08, 'eval_mcc': 0.09899, 'eval_auc': 0.91525, 'epoch': 41.0}
+INFO - Storing metrics for CC_reg/GLM2-650 (test): {'test_loss': 0.16989953815937042, 'test_accuracy': 0.96371, 'test_f1': 0.35209, 'test_precision': 0.29278, 'test_recall': 0.44152, 'test_hamming_loss': 0.03629, 'test_threshold': 0.01, 'test_mcc': 0.0922, 'test_auc': 0.85216}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with GLM2-650
+INFO - Storing metrics for BP_reg/GLM2-650 (valid): {'eval_loss': 0.022548848763108253, 'eval_accuracy': 0.99363, 'eval_f1': 0.31891, 'eval_precision': 0.26627, 'eval_recall': 0.3975, 'eval_hamming_loss': 0.00637, 'eval_threshold': 0.01, 'eval_mcc': 0.0303, 'eval_auc': 0.93818, 'epoch': 35.0}
+INFO - Storing metrics for BP_reg/GLM2-650 (test): {'test_loss': 0.1814114898443222, 'test_accuracy': 0.96664, 'test_f1': 0.18254, 'test_precision': 0.43292, 'test_recall': 0.11565, 'test_hamming_loss': 0.03336, 'test_threshold': 0.01, 'test_mcc': 0.00673, 'test_auc': 0.79951}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with GLM2-650
+INFO - Storing metrics for MF_reg/GLM2-650 (valid): {'eval_loss': 0.020990749821066856, 'eval_accuracy': 0.9913, 'eval_f1': 0.49788, 'eval_precision': 0.50995, 'eval_recall': 0.48638, 'eval_hamming_loss': 0.0087, 'eval_threshold': 0.05, 'eval_mcc': 0.19063, 'eval_auc': 0.95833, 'epoch': 47.0}
+INFO - Storing metrics for MF_reg/GLM2-650 (test): {'test_loss': 0.08264085650444031, 'test_accuracy': 0.98206, 'test_f1': 0.38548, 'test_precision': 0.4075, 'test_recall': 0.36572, 'test_hamming_loss': 0.01794, 'test_threshold': 0.02, 'test_mcc': 0.11569, 'test_auc': 0.86306}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with GLM2-650
+INFO - Storing metrics for MB_reg/GLM2-650 (valid): {'eval_loss': 0.6391181349754333, 'eval_f1': 0.64075, 'eval_precision': 0.64057, 'eval_recall': 0.64103, 'eval_accuracy': 0.6435, 'eval_mcc': 0.2816, 'eval_auc': 0.64103, 'epoch': 25.0}
+INFO - Storing metrics for MB_reg/GLM2-650 (test): {'test_loss': 0.6117979288101196, 'test_f1': 0.64604, 'test_precision': 0.64816, 'test_recall': 0.64624, 'test_accuracy': 0.64812, 'test_mcc': 0.29439, 'test_auc': 0.64624}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with GLM2-650
+INFO - Storing metrics for enzyme_kcat/GLM2-650 (valid): {'eval_loss': 16.67354965209961, 'eval_r_squared': 0.38002, 'eval_spearman_rho': 0.60915, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6184700131416321, 'eval_pear_pval': 0.0, 'eval_mse': 16.67354965209961, 'eval_mae': 3.1153199672698975, 'eval_rmse': 4.083330154418945, 'epoch': 90.0}
+INFO - Storing metrics for enzyme_kcat/GLM2-650 (test): {'test_loss': 19.228487014770508, 'test_r_squared': 0.29751, 'test_spearman_rho': 0.52813, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5538600087165833, 'test_pear_pval': 0.0, 'test_mse': 19.228490829467773, 'test_mae': 3.2248799800872803, 'test_rmse': 4.3850297927856445}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with GLM2-650
+INFO - Storing metrics for optimal_temperature/GLM2-650 (valid): {'eval_loss': 222.7735595703125, 'eval_r_squared': 0.36284, 'eval_spearman_rho': 0.58176, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6172699928283691, 'eval_pear_pval': 0.0, 'eval_mse': 222.7735595703125, 'eval_mae': 11.808070182800293, 'eval_rmse': 14.925600051879883, 'epoch': 33.0}
+INFO - Storing metrics for optimal_temperature/GLM2-650 (test): {'test_loss': 231.29917907714844, 'test_r_squared': 0.32404, 'test_spearman_rho': 0.51929, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5720599889755249, 'test_pear_pval': 0.0, 'test_mse': 231.29913330078125, 'test_mae': 12.163370132446289, 'test_rmse': 15.20851993560791}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with GLM2-650
+INFO - Storing metrics for optimal_ph/GLM2-650 (valid): {'eval_loss': 1.1131591796875, 'eval_r_squared': 0.1973, 'eval_spearman_rho': 0.4113, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.4908500015735626, 'eval_pear_pval': 0.0, 'eval_mse': 1.1131600141525269, 'eval_mae': 0.7661600112915039, 'eval_rmse': 1.0550600290298462, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/GLM2-650 (test): {'test_loss': 1.0470675230026245, 'test_r_squared': 0.21449, 'test_spearman_rho': 0.40176, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5114099979400635, 'test_pear_pval': 0.0, 'test_mse': 1.047070026397705, 'test_mae': 0.761139988899231, 'test_rmse': 1.0232599973678589}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with GLM2-650
+INFO - Storing metrics for HPPI/GLM2-650 (valid): {'eval_loss': 0.5836549997329712, 'eval_f1': 0.65988, 'eval_precision': 0.68034, 'eval_recall': 0.65859, 'eval_accuracy': 0.68376, 'eval_mcc': 0.33822, 'eval_auc': 0.65859, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/GLM2-650 (test): {'test_loss': 0.5564064383506775, 'test_f1': 0.68015, 'test_precision': 0.72884, 'test_recall': 0.68037, 'test_accuracy': 0.71111, 'test_mcc': 0.40633, 'test_auc': 0.68037}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with GLM2-650
+INFO - Storing metrics for bernett_gold_ppi/GLM2-650 (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 21.568627450980394}
+INFO - Storing metrics for bernett_gold_ppi/GLM2-650 (test): {'test_loss': 0.6931471228599548, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: ANKH-Base
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ANKH-Base
+INFO - Storing metrics for DL2_reg/ANKH-Base (valid): {'eval_loss': 0.22081732749938965, 'eval_f1': 0.92713, 'eval_precision': 0.93281, 'eval_recall': 0.9227, 'eval_accuracy': 0.93109, 'eval_mcc': 0.85545, 'eval_auc': 0.9227, 'epoch': 15.0}
+INFO - Storing metrics for DL2_reg/ANKH-Base (test): {'test_loss': 0.28433388471603394, 'test_f1': 0.91266, 'test_precision': 0.91448, 'test_recall': 0.91112, 'test_accuracy': 0.91498, 'test_mcc': 0.8256, 'test_auc': 0.91112}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ANKH-Base
+INFO - Storing metrics for DL10_reg/ANKH-Base (valid): {'eval_loss': 0.6790866255760193, 'eval_f1': 0.64312, 'eval_precision': 0.72576, 'eval_recall': 0.63193, 'eval_accuracy': 0.78676, 'eval_mcc': 0.74172, 'eval_auc': 0.96516, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ANKH-Base (test): {'test_loss': 0.743713915348053, 'test_f1': 0.60057, 'test_precision': 0.71257, 'test_recall': 0.60087, 'test_accuracy': 0.77341, 'test_mcc': 0.72664, 'test_auc': 0.96293}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ANKH-Base
+INFO - Storing metrics for EC_reg/ANKH-Base (valid): {'eval_loss': 0.0034740325063467026, 'eval_accuracy': 0.99863, 'eval_f1': 0.78295, 'eval_precision': 0.808, 'eval_recall': 0.7594, 'eval_hamming_loss': 0.00137, 'eval_threshold': 0.09, 'eval_mcc': 0.69833, 'eval_auc': 0.98931, 'epoch': 18.0}
+INFO - Storing metrics for EC_reg/ANKH-Base (test): {'test_loss': 0.004427038133144379, 'test_accuracy': 0.9978, 'test_f1': 0.78454, 'test_precision': 0.82521, 'test_recall': 0.74769, 'test_hamming_loss': 0.0022, 'test_threshold': 0.04, 'test_mcc': 0.62048, 'test_auc': 0.99031}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ANKH-Base
+INFO - Storing metrics for CC_reg/ANKH-Base (valid): {'eval_loss': 0.014296836219727993, 'eval_accuracy': 0.99346, 'eval_f1': 0.33984, 'eval_precision': 0.29244, 'eval_recall': 0.40557, 'eval_hamming_loss': 0.00654, 'eval_threshold': 0.07, 'eval_mcc': 0.17026, 'eval_auc': 0.92789, 'epoch': 15.0}
+INFO - Storing metrics for CC_reg/ANKH-Base (test): {'test_loss': 0.16907328367233276, 'test_accuracy': 0.96419, 'test_f1': 0.41828, 'test_precision': 0.46372, 'test_recall': 0.38096, 'test_hamming_loss': 0.03581, 'test_threshold': 0.01, 'test_mcc': 0.1462, 'test_auc': 0.86848}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ANKH-Base
+INFO - Storing metrics for BP_reg/ANKH-Base (valid): {'eval_loss': 0.01511424034833908, 'eval_accuracy': 0.99369, 'eval_f1': 0.50025, 'eval_precision': 0.50304, 'eval_recall': 0.4975, 'eval_hamming_loss': 0.00631, 'eval_threshold': 0.01, 'eval_mcc': 0.10012, 'eval_auc': 0.95795, 'epoch': 17.0}
+INFO - Storing metrics for BP_reg/ANKH-Base (test): {'test_loss': 0.17659984529018402, 'test_accuracy': 0.96669, 'test_f1': 0.2327, 'test_precision': 0.68255, 'test_recall': 0.14026, 'test_hamming_loss': 0.03331, 'test_threshold': 0.01, 'test_mcc': 0.03866, 'test_auc': 0.8066}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ANKH-Base
+INFO - Storing metrics for MF_reg/ANKH-Base (valid): {'eval_loss': 0.01138059888035059, 'eval_accuracy': 0.99173, 'eval_f1': 0.66784, 'eval_precision': 0.67087, 'eval_recall': 0.66485, 'eval_hamming_loss': 0.00827, 'eval_threshold': 0.03, 'eval_mcc': 0.29091, 'eval_auc': 0.9762, 'epoch': 15.0}
+INFO - Storing metrics for MF_reg/ANKH-Base (test): {'test_loss': 0.056363049894571304, 'test_accuracy': 0.9826, 'test_f1': 0.55077, 'test_precision': 0.62558, 'test_recall': 0.49194, 'test_hamming_loss': 0.0174, 'test_threshold': 0.01, 'test_mcc': 0.20524, 'test_auc': 0.89002}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ANKH-Base
+INFO - Storing metrics for MB_reg/ANKH-Base (valid): {'eval_loss': 0.5322409272193909, 'eval_f1': 0.75675, 'eval_precision': 0.76688, 'eval_recall': 0.76526, 'eval_accuracy': 0.7568, 'eval_mcc': 0.53214, 'eval_auc': 0.76526, 'epoch': 12.0}
+INFO - Storing metrics for MB_reg/ANKH-Base (test): {'test_loss': 0.5269054770469666, 'test_f1': 0.7323, 'test_precision': 0.73261, 'test_recall': 0.73284, 'test_accuracy': 0.73233, 'test_mcc': 0.46545, 'test_auc': 0.73284}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ANKH-Base
+INFO - Storing metrics for enzyme_kcat/ANKH-Base (valid): {'eval_loss': 16.606782913208008, 'eval_r_squared': 0.3825, 'eval_spearman_rho': 0.61551, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.635420024394989, 'eval_pear_pval': 0.0, 'eval_mse': 16.606779098510742, 'eval_mae': 3.0558300018310547, 'eval_rmse': 4.075139999389648, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ANKH-Base (test): {'test_loss': 16.83020782470703, 'test_r_squared': 0.38513, 'test_spearman_rho': 0.59958, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6235899925231934, 'test_pear_pval': 0.0, 'test_mse': 16.830209732055664, 'test_mae': 3.073580026626587, 'test_rmse': 4.102459907531738}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ANKH-Base
+INFO - Storing metrics for optimal_temperature/ANKH-Base (valid): {'eval_loss': 162.72036743164062, 'eval_r_squared': 0.5346, 'eval_spearman_rho': 0.67597, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7553099989891052, 'eval_pear_pval': 0.0, 'eval_mse': 162.72036743164062, 'eval_mae': 9.783829689025879, 'eval_rmse': 12.756190299987793, 'epoch': 19.0}
+INFO - Storing metrics for optimal_temperature/ANKH-Base (test): {'test_loss': 194.12432861328125, 'test_r_squared': 0.43268, 'test_spearman_rho': 0.62859, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7028800249099731, 'test_pear_pval': 0.0, 'test_mse': 194.1243438720703, 'test_mae': 10.47389030456543, 'test_rmse': 13.932849884033203}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ANKH-Base
+INFO - Storing metrics for optimal_ph/ANKH-Base (valid): {'eval_loss': 0.8840854167938232, 'eval_r_squared': 0.36249, 'eval_spearman_rho': 0.56269, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6657800078392029, 'eval_pear_pval': 0.0, 'eval_mse': 0.884090006351471, 'eval_mae': 0.7005000114440918, 'eval_rmse': 0.9402599930763245, 'epoch': 20.0}
+INFO - Storing metrics for optimal_ph/ANKH-Base (test): {'test_loss': 0.7758398652076721, 'test_r_squared': 0.41796, 'test_spearman_rho': 0.59072, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7024999856948853, 'test_pear_pval': 0.0, 'test_mse': 0.7758399844169617, 'test_mae': 0.6660500168800354, 'test_rmse': 0.8808199763298035}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ANKH-Base
+INFO - Storing metrics for HPPI/ANKH-Base (valid): {'eval_loss': 0.4430219233036041, 'eval_f1': 0.79873, 'eval_precision': 0.82642, 'eval_recall': 0.79125, 'eval_accuracy': 0.81197, 'eval_mcc': 0.61666, 'eval_auc': 0.79125, 'epoch': 12.0}
+INFO - Storing metrics for HPPI/ANKH-Base (test): {'test_loss': 0.45261886715888977, 'test_f1': 0.77124, 'test_precision': 0.81192, 'test_recall': 0.76472, 'test_accuracy': 0.78889, 'test_mcc': 0.5747, 'test_auc': 0.76472}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ANKH-Base
+INFO - Storing metrics for bernett_gold_ppi/ANKH-Base (valid): {'eval_loss': 0.6617170572280884, 'eval_f1': 0.59039, 'eval_precision': 0.59121, 'eval_recall': 0.59082, 'eval_accuracy': 0.59082, 'eval_mcc': 0.18203, 'eval_auc': 0.59082, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/ANKH-Base (test): {'test_loss': 0.6429017186164856, 'test_f1': 0.6283, 'test_precision': 0.62831, 'test_recall': 0.6283, 'test_accuracy': 0.6283, 'test_mcc': 0.25662, 'test_auc': 0.6283}
+INFO - Processing model: ANKH-Large
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with ANKH-Large
+INFO - Storing metrics for DL2_reg/ANKH-Large (valid): {'eval_loss': 0.23283667862415314, 'eval_f1': 0.93127, 'eval_precision': 0.93553, 'eval_recall': 0.92776, 'eval_accuracy': 0.93483, 'eval_mcc': 0.86326, 'eval_auc': 0.92776, 'epoch': 17.0}
+INFO - Storing metrics for DL2_reg/ANKH-Large (test): {'test_loss': 0.33812129497528076, 'test_f1': 0.90326, 'test_precision': 0.90448, 'test_recall': 0.90219, 'test_accuracy': 0.90573, 'test_mcc': 0.80666, 'test_auc': 0.90219}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with ANKH-Large
+INFO - Storing metrics for DL10_reg/ANKH-Large (valid): {'eval_loss': 0.6243395209312439, 'eval_f1': 0.71843, 'eval_precision': 0.78247, 'eval_recall': 0.69094, 'eval_accuracy': 0.81461, 'eval_mcc': 0.77488, 'eval_auc': 0.96904, 'epoch': 13.0}
+INFO - Storing metrics for DL10_reg/ANKH-Large (test): {'test_loss': 0.6831610798835754, 'test_f1': 0.64067, 'test_precision': 0.72116, 'test_recall': 0.63397, 'test_accuracy': 0.80546, 'test_mcc': 0.76472, 'test_auc': 0.96768}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with ANKH-Large
+INFO - Storing metrics for EC_reg/ANKH-Large (valid): {'eval_loss': 0.0034054231364279985, 'eval_accuracy': 0.99864, 'eval_f1': 0.77048, 'eval_precision': 0.81055, 'eval_recall': 0.73419, 'eval_hamming_loss': 0.00136, 'eval_threshold': 0.08, 'eval_mcc': 0.7012, 'eval_auc': 0.98948, 'epoch': 16.0}
+INFO - Storing metrics for EC_reg/ANKH-Large (test): {'test_loss': 0.004191782791167498, 'test_accuracy': 0.99787, 'test_f1': 0.78502, 'test_precision': 0.82303, 'test_recall': 0.75037, 'test_hamming_loss': 0.00213, 'test_threshold': 0.03, 'test_mcc': 0.63601, 'test_auc': 0.98795}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with ANKH-Large
+INFO - Storing metrics for CC_reg/ANKH-Large (valid): {'eval_loss': 0.013481544330716133, 'eval_accuracy': 0.99348, 'eval_f1': 0.35523, 'eval_precision': 0.29803, 'eval_recall': 0.43959, 'eval_hamming_loss': 0.00652, 'eval_threshold': 0.06, 'eval_mcc': 0.18995, 'eval_auc': 0.91847, 'epoch': 16.0}
+INFO - Storing metrics for CC_reg/ANKH-Large (test): {'test_loss': 0.1535211205482483, 'test_accuracy': 0.9644, 'test_f1': 0.42929, 'test_precision': 0.49603, 'test_recall': 0.37839, 'test_hamming_loss': 0.0356, 'test_threshold': 0.01, 'test_mcc': 0.16381, 'test_auc': 0.87273}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with ANKH-Large
+INFO - Storing metrics for BP_reg/ANKH-Large (valid): {'eval_loss': 0.014957047998905182, 'eval_accuracy': 0.9937, 'eval_f1': 0.49623, 'eval_precision': 0.50807, 'eval_recall': 0.48493, 'eval_hamming_loss': 0.0063, 'eval_threshold': 0.01, 'eval_mcc': 0.10619, 'eval_auc': 0.95716, 'epoch': 16.0}
+INFO - Storing metrics for BP_reg/ANKH-Large (test): {'test_loss': 0.16490216553211212, 'test_accuracy': 0.96669, 'test_f1': 0.22457, 'test_precision': 0.68021, 'test_recall': 0.13449, 'test_hamming_loss': 0.03331, 'test_threshold': 0.01, 'test_mcc': 0.03911, 'test_auc': 0.81833}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with ANKH-Large
+INFO - Storing metrics for MF_reg/ANKH-Large (valid): {'eval_loss': 0.011011149734258652, 'eval_accuracy': 0.9918, 'eval_f1': 0.64808, 'eval_precision': 0.6616, 'eval_recall': 0.6351, 'eval_hamming_loss': 0.0082, 'eval_threshold': 0.03, 'eval_mcc': 0.30227, 'eval_auc': 0.97596, 'epoch': 14.0}
+INFO - Storing metrics for MF_reg/ANKH-Large (test): {'test_loss': 0.0602794773876667, 'test_accuracy': 0.98268, 'test_f1': 0.54129, 'test_precision': 0.62172, 'test_recall': 0.47928, 'test_hamming_loss': 0.01732, 'test_threshold': 0.01, 'test_mcc': 0.21645, 'test_auc': 0.88941}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with ANKH-Large
+INFO - Storing metrics for MB_reg/ANKH-Large (valid): {'eval_loss': 0.603320837020874, 'eval_f1': 0.64877, 'eval_precision': 0.68443, 'eval_recall': 0.65334, 'eval_accuracy': 0.67221, 'eval_mcc': 0.33634, 'eval_auc': 0.65334, 'epoch': 11.0}
+INFO - Storing metrics for MB_reg/ANKH-Large (test): {'test_loss': 0.6434301137924194, 'test_f1': 0.64864, 'test_precision': 0.68662, 'test_recall': 0.65806, 'test_accuracy': 0.66466, 'test_mcc': 0.3435, 'test_auc': 0.65806}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with ANKH-Large
+INFO - Storing metrics for enzyme_kcat/ANKH-Large (valid): {'eval_loss': 15.772013664245605, 'eval_r_squared': 0.41354, 'eval_spearman_rho': 0.62401, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6478400230407715, 'eval_pear_pval': 0.0, 'eval_mse': 15.77200984954834, 'eval_mae': 2.977289915084839, 'eval_rmse': 3.971400022506714, 'epoch': 20.0}
+INFO - Storing metrics for enzyme_kcat/ANKH-Large (test): {'test_loss': 15.729083061218262, 'test_r_squared': 0.42536, 'test_spearman_rho': 0.61807, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.6533100008964539, 'test_pear_pval': 0.0, 'test_mse': 15.729089736938477, 'test_mae': 2.992449998855591, 'test_rmse': 3.9659900665283203}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with ANKH-Large
+INFO - Storing metrics for optimal_temperature/ANKH-Large (valid): {'eval_loss': 166.3300323486328, 'eval_r_squared': 0.52428, 'eval_spearman_rho': 0.71573, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.7394999861717224, 'eval_pear_pval': 0.0, 'eval_mse': 166.33006286621094, 'eval_mae': 9.905750274658203, 'eval_rmse': 12.896900177001953, 'epoch': 16.0}
+INFO - Storing metrics for optimal_temperature/ANKH-Large (test): {'test_loss': 184.2063751220703, 'test_r_squared': 0.46166, 'test_spearman_rho': 0.65495, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.710919976234436, 'test_pear_pval': 0.0, 'test_mse': 184.2063751220703, 'test_mae': 10.664660453796387, 'test_rmse': 13.572259902954102}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with ANKH-Large
+INFO - Storing metrics for optimal_ph/ANKH-Large (valid): {'eval_loss': 0.944653332233429, 'eval_r_squared': 0.31881, 'eval_spearman_rho': 0.60035, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6844499707221985, 'eval_pear_pval': 0.0, 'eval_mse': 0.9446499943733215, 'eval_mae': 0.7545499801635742, 'eval_rmse': 0.9719300270080566, 'epoch': 23.0}
+INFO - Storing metrics for optimal_ph/ANKH-Large (test): {'test_loss': 0.8632849454879761, 'test_r_squared': 0.35236, 'test_spearman_rho': 0.61234, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.7125300168991089, 'test_pear_pval': 0.0, 'test_mse': 0.8632799983024597, 'test_mae': 0.7212299704551697, 'test_rmse': 0.9291300177574158}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with ANKH-Large
+INFO - Storing metrics for HPPI/ANKH-Large (valid): {'eval_loss': 0.41538694500923157, 'eval_f1': 0.82279, 'eval_precision': 0.82817, 'eval_recall': 0.81953, 'eval_accuracy': 0.82906, 'eval_mcc': 0.64764, 'eval_auc': 0.81953, 'epoch': 11.0}
+INFO - Storing metrics for HPPI/ANKH-Large (test): {'test_loss': 0.47285428643226624, 'test_f1': 0.78108, 'test_precision': 0.7877, 'test_recall': 0.77783, 'test_accuracy': 0.78889, 'test_mcc': 0.56545, 'test_auc': 0.77783}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with ANKH-Large
+INFO - Storing metrics for bernett_gold_ppi/ANKH-Large (valid): {'eval_loss': 0.6637902855873108, 'eval_f1': 0.58081, 'eval_precision': 0.59473, 'eval_recall': 0.58812, 'eval_accuracy': 0.58812, 'eval_mcc': 0.18273, 'eval_auc': 0.58812, 'epoch': 23.529411764705884}
+INFO - Storing metrics for bernett_gold_ppi/ANKH-Large (test): {'test_loss': 0.6377703547477722, 'test_f1': 0.62919, 'test_precision': 0.63592, 'test_recall': 0.63192, 'test_accuracy': 0.63192, 'test_mcc': 0.26781, 'test_auc': 0.63192}
+INFO - Processing model: Random
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with Random
+INFO - Storing metrics for DL2_reg/Random (valid): {'eval_loss': 0.6686475872993469, 'eval_f1': 0.37675, 'eval_precision': 0.30225, 'eval_recall': 0.5, 'eval_accuracy': 0.60449, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 13.0}
+INFO - Storing metrics for DL2_reg/Random (test): {'test_loss': 0.6832078695297241, 'test_f1': 0.36527, 'test_precision': 0.28774, 'test_recall': 0.5, 'test_accuracy': 0.57548, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with Random
+INFO - Storing metrics for DL10_reg/Random (valid): {'eval_loss': 1.9590427875518799, 'eval_f1': 0.04669, 'eval_precision': 0.03046, 'eval_recall': 0.1, 'eval_accuracy': 0.30457, 'eval_mcc': 0.0, 'eval_auc': 0.57552, 'epoch': 18.0}
+INFO - Storing metrics for DL10_reg/Random (test): {'test_loss': 1.9778478145599365, 'test_f1': 0.04509, 'test_precision': 0.02911, 'test_recall': 0.1, 'test_accuracy': 0.29107, 'test_mcc': 0.0, 'test_auc': 0.54776}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with Random
+INFO - Storing metrics for EC_reg/Random (valid): {'eval_loss': 0.016169866546988487, 'eval_accuracy': 0.99736, 'eval_f1': 0.06374, 'eval_precision': 0.03851, 'eval_recall': 0.18487, 'eval_hamming_loss': 0.00264, 'eval_threshold': 0.02, 'eval_mcc': 0.0, 'eval_auc': 0.81161, 'epoch': 34.0}
+INFO - Storing metrics for EC_reg/Random (test): {'test_loss': 0.022041045129299164, 'test_accuracy': 0.99643, 'test_f1': 0.06427, 'test_precision': 0.04106, 'test_recall': 0.14793, 'test_hamming_loss': 0.00357, 'test_threshold': 0.02, 'test_mcc': 0.0, 'test_auc': 0.7815}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with Random
+INFO - Storing metrics for CC_reg/Random (valid): {'eval_loss': 0.031282663345336914, 'eval_accuracy': 0.99374, 'eval_f1': 0.11448, 'eval_precision': 0.07296, 'eval_recall': 0.26568, 'eval_hamming_loss': 0.00626, 'eval_threshold': 0.03, 'eval_mcc': 0.0, 'eval_auc': 0.85421, 'epoch': 57.0}
+INFO - Storing metrics for CC_reg/Random (test): {'test_loss': 0.1750638782978058, 'test_accuracy': 0.96339, 'test_f1': 0.27983, 'test_precision': 0.21793, 'test_recall': 0.39084, 'test_hamming_loss': 0.03661, 'test_threshold': 0.01, 'test_mcc': 0.0, 'test_auc': 0.7708}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with Random
+INFO - Storing metrics for BP_reg/Random (valid): {'eval_loss': 0.03221716359257698, 'eval_accuracy': 0.99362, 'eval_f1': 0.06455, 'eval_precision': 0.08938, 'eval_recall': 0.05051, 'eval_hamming_loss': 0.00638, 'eval_threshold': 0.01, 'eval_mcc': 0.0, 'eval_auc': 0.84444, 'epoch': 12.0}
+INFO - Storing metrics for BP_reg/Random (test): {'test_loss': 0.1698857694864273, 'test_accuracy': 0.96664, 'test_f1': 0.06457, 'test_precision': 0.03336, 'test_recall': 1.0, 'test_hamming_loss': 0.03336, 'test_threshold': 0.0, 'test_mcc': 0.0, 'test_auc': 0.73314}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with Random
+INFO - Storing metrics for MF_reg/Random (valid): {'eval_loss': 0.04421176388859749, 'eval_accuracy': 0.99098, 'eval_f1': 0.1338, 'eval_precision': 0.09944, 'eval_recall': 0.20447, 'eval_hamming_loss': 0.00902, 'eval_threshold': 0.02001, 'eval_mcc': 0.0, 'eval_auc': 0.82253, 'epoch': 17.0}
+INFO - Storing metrics for MF_reg/Random (test): {'test_loss': 0.09054534137248993, 'test_accuracy': 0.98182, 'test_f1': 0.15188, 'test_precision': 0.10868, 'test_recall': 0.25207, 'test_hamming_loss': 0.01818, 'test_threshold': 0.01001, 'test_mcc': 0.0, 'test_auc': 0.7424}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with Random
+INFO - Storing metrics for MB_reg/Random (valid): {'eval_loss': 0.6887848377227783, 'eval_f1': 0.35415, 'eval_precision': 0.27417, 'eval_recall': 0.5, 'eval_accuracy': 0.54834, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 18.0}
+INFO - Storing metrics for MB_reg/Random (test): {'test_loss': 0.6932116746902466, 'test_f1': 0.34093, 'test_precision': 0.25865, 'test_recall': 0.5, 'test_accuracy': 0.51729, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with Random
+INFO - Storing metrics for enzyme_kcat/Random (valid): {'eval_loss': 26.912614822387695, 'eval_r_squared': -0.00071, 'eval_spearman_rho': -0.0461, 'eval_spear_pval': 0.3046, 'eval_pearson_rho': -0.027710000053048134, 'eval_pear_pval': 0.53734, 'eval_mse': 26.912620544433594, 'eval_mae': 4.164889812469482, 'eval_rmse': 5.187739849090576, 'epoch': 11.0}
+INFO - Storing metrics for enzyme_kcat/Random (test): {'test_loss': 27.48178482055664, 'test_r_squared': -0.00401, 'test_spearman_rho': -0.0667, 'test_spear_pval': 0.14926, 'test_pearson_rho': -0.06807000190019608, 'test_pear_pval': 0.14104, 'test_mse': 27.48179054260254, 'test_mae': 4.131869792938232, 'test_rmse': 5.242310047149658}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with Random
+INFO - Storing metrics for optimal_temperature/Random (valid): {'eval_loss': 349.75714111328125, 'eval_r_squared': -0.00035, 'eval_spearman_rho': 0.1472, 'eval_spear_pval': 0.0427, 'eval_pearson_rho': 0.11462000012397766, 'eval_pear_pval': 0.11531, 'eval_mse': 349.7571716308594, 'eval_mae': 15.143309593200684, 'eval_rmse': 18.701799392700195, 'epoch': 12.0}
+INFO - Storing metrics for optimal_temperature/Random (test): {'test_loss': 352.081787109375, 'test_r_squared': -0.02895, 'test_spearman_rho': -0.06737, 'test_spear_pval': 0.3557, 'test_pearson_rho': 0.03815999999642372, 'test_pear_pval': 0.60113, 'test_mse': 352.0817565917969, 'test_mae': 14.997710227966309, 'test_rmse': 18.763839721679688}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with Random
+INFO - Storing metrics for optimal_ph/Random (valid): {'eval_loss': 1.5479058027267456, 'eval_r_squared': -0.11619, 'eval_spearman_rho': -0.0091, 'eval_spear_pval': 0.80223, 'eval_pearson_rho': -0.012090000323951244, 'eval_pear_pval': 0.73932, 'eval_mse': 1.5479099750518799, 'eval_mae': 0.8707900047302246, 'eval_rmse': 1.2441500425338745, 'epoch': 16.0}
+INFO - Storing metrics for optimal_ph/Random (test): {'test_loss': 1.498039960861206, 'test_r_squared': -0.12383, 'test_spearman_rho': 0.01906, 'test_spear_pval': 0.39761, 'test_pearson_rho': 0.025310000404715538, 'test_pear_pval': 0.26137, 'test_mse': 1.498039960861206, 'test_mae': 0.8586699962615967, 'test_rmse': 1.2239400148391724}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with Random
+INFO - Storing metrics for HPPI/Random (valid): {'eval_loss': 0.6818859577178955, 'eval_f1': 0.36585, 'eval_precision': 0.28846, 'eval_recall': 0.5, 'eval_accuracy': 0.57692, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 11.0}
+INFO - Storing metrics for HPPI/Random (test): {'test_loss': 0.6830190420150757, 'test_f1': 0.36396, 'test_precision': 0.28611, 'test_recall': 0.5, 'test_accuracy': 0.57222, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with Random
+INFO - Storing metrics for bernett_gold_ppi/Random (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 25.49019607843137}
+INFO - Storing metrics for bernett_gold_ppi/Random (test): {'test_loss': 0.6931471228599548, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Processing model: Random-Transformer
+INFO - Processing dataset: DL2_reg
+INFO - Training probe for DL2_reg with Random-Transformer
+INFO - Storing metrics for DL2_reg/Random-Transformer (valid): {'eval_loss': 0.42188140749931335, 'eval_f1': 0.77326, 'eval_precision': 0.81092, 'eval_recall': 0.76269, 'eval_accuracy': 0.797, 'eval_mcc': 0.57157, 'eval_auc': 0.76269, 'epoch': 21.0}
+INFO - Storing metrics for DL2_reg/Random-Transformer (test): {'test_loss': 0.47477275133132935, 'test_f1': 0.75768, 'test_precision': 0.79549, 'test_recall': 0.75153, 'test_accuracy': 0.77675, 'test_mcc': 0.54525, 'test_auc': 0.75153}
+INFO - Processing dataset: DL10_reg
+INFO - Training probe for DL10_reg with Random-Transformer
+INFO - Storing metrics for DL10_reg/Random-Transformer (valid): {'eval_loss': 1.2528010606765747, 'eval_f1': 0.3809, 'eval_precision': 0.39786, 'eval_recall': 0.38584, 'eval_accuracy': 0.57123, 'eval_mcc': 0.47211, 'eval_auc': 0.87082, 'epoch': 26.0}
+INFO - Storing metrics for DL10_reg/Random-Transformer (test): {'test_loss': 1.323871374130249, 'test_f1': 0.38273, 'test_precision': 0.43404, 'test_recall': 0.39085, 'test_accuracy': 0.55556, 'test_mcc': 0.4578, 'test_auc': 0.85865}
+INFO - Processing dataset: EC_reg
+INFO - Training probe for EC_reg with Random-Transformer
+INFO - Storing metrics for EC_reg/Random-Transformer (valid): {'eval_loss': 0.011063871905207634, 'eval_accuracy': 0.99757, 'eval_f1': 0.3886, 'eval_precision': 0.41562, 'eval_recall': 0.36488, 'eval_hamming_loss': 0.00243, 'eval_threshold': 0.17, 'eval_mcc': 0.33438, 'eval_auc': 0.95788, 'epoch': 31.0}
+INFO - Storing metrics for EC_reg/Random-Transformer (test): {'test_loss': 0.013791578821837902, 'test_accuracy': 0.99678, 'test_f1': 0.44328, 'test_precision': 0.49306, 'test_recall': 0.40262, 'test_hamming_loss': 0.00322, 'test_threshold': 0.14, 'test_mcc': 0.33731, 'test_auc': 0.96111}
+INFO - Processing dataset: CC_reg
+INFO - Training probe for CC_reg with Random-Transformer
+INFO - Storing metrics for CC_reg/Random-Transformer (valid): {'eval_loss': 0.022041626274585724, 'eval_accuracy': 0.99372, 'eval_f1': 0.25502, 'eval_precision': 0.2324, 'eval_recall': 0.28252, 'eval_hamming_loss': 0.00628, 'eval_threshold': 0.08, 'eval_mcc': 0.09411, 'eval_auc': 0.92039, 'epoch': 30.0}
+INFO - Storing metrics for CC_reg/Random-Transformer (test): {'test_loss': 0.18396295607089996, 'test_accuracy': 0.96351, 'test_f1': 0.33222, 'test_precision': 0.27255, 'test_recall': 0.42534, 'test_hamming_loss': 0.03649, 'test_threshold': 0.01, 'test_mcc': 0.05811, 'test_auc': 0.83635}
+INFO - Processing dataset: BP_reg
+INFO - Training probe for BP_reg with Random-Transformer
+INFO - Storing metrics for BP_reg/Random-Transformer (valid): {'eval_loss': 0.025197509676218033, 'eval_accuracy': 0.99364, 'eval_f1': 0.27598, 'eval_precision': 0.22653, 'eval_recall': 0.35302, 'eval_hamming_loss': 0.00636, 'eval_threshold': 0.01, 'eval_mcc': 0.04086, 'eval_auc': 0.92945, 'epoch': 31.0}
+INFO - Storing metrics for BP_reg/Random-Transformer (test): {'test_loss': 0.1907385140657425, 'test_accuracy': 0.96664, 'test_f1': 0.16614, 'test_precision': 0.37673, 'test_recall': 0.10657, 'test_hamming_loss': 0.03336, 'test_threshold': 0.01, 'test_mcc': 0.00886, 'test_auc': 0.78433}
+INFO - Processing dataset: MF_reg
+INFO - Training probe for MF_reg with Random-Transformer
+INFO - Storing metrics for MF_reg/Random-Transformer (valid): {'eval_loss': 0.030107254162430763, 'eval_accuracy': 0.99112, 'eval_f1': 0.36707, 'eval_precision': 0.33376, 'eval_recall': 0.40776, 'eval_hamming_loss': 0.00888, 'eval_threshold': 0.04, 'eval_mcc': 0.1287, 'eval_auc': 0.94069, 'epoch': 29.0}
+INFO - Storing metrics for MF_reg/Random-Transformer (test): {'test_loss': 0.08504550904035568, 'test_accuracy': 0.98193, 'test_f1': 0.30318, 'test_precision': 0.29023, 'test_recall': 0.31734, 'test_hamming_loss': 0.01807, 'test_threshold': 0.02, 'test_mcc': 0.07945, 'test_auc': 0.85276}
+INFO - Processing dataset: MB_reg
+INFO - Training probe for MB_reg with Random-Transformer
+INFO - Storing metrics for MB_reg/Random-Transformer (valid): {'eval_loss': 0.6408293843269348, 'eval_f1': 0.6051, 'eval_precision': 0.62389, 'eval_recall': 0.60917, 'eval_accuracy': 0.62538, 'eval_mcc': 0.23259, 'eval_auc': 0.60917, 'epoch': 39.0}
+INFO - Storing metrics for MB_reg/Random-Transformer (test): {'test_loss': 0.6293320059776306, 'test_f1': 0.59354, 'test_precision': 0.64744, 'test_recall': 0.61279, 'test_accuracy': 0.62105, 'test_mcc': 0.25791, 'test_auc': 0.61279}
+INFO - Processing dataset: enzyme_kcat
+INFO - Training probe for enzyme_kcat with Random-Transformer
+INFO - Storing metrics for enzyme_kcat/Random-Transformer (valid): {'eval_loss': 25.767812728881836, 'eval_r_squared': 0.04186, 'eval_spearman_rho': 0.20402, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.20834000408649445, 'eval_pear_pval': 0.0, 'eval_mse': 25.767810821533203, 'eval_mae': 4.0818400382995605, 'eval_rmse': 5.076200008392334, 'epoch': 21.0}
+INFO - Storing metrics for enzyme_kcat/Random-Transformer (test): {'test_loss': 25.95778465270996, 'test_r_squared': 0.05166, 'test_spearman_rho': 0.26436, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.24980999529361725, 'test_pear_pval': 0.0, 'test_mse': 25.957780838012695, 'test_mae': 4.007909774780273, 'test_rmse': 5.094880104064941}
+INFO - Processing dataset: optimal_temperature
+INFO - Training probe for optimal_temperature with Random-Transformer
+INFO - Storing metrics for optimal_temperature/Random-Transformer (valid): {'eval_loss': 227.8278350830078, 'eval_r_squared': 0.34839, 'eval_spearman_rho': 0.5089, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.6282200217247009, 'eval_pear_pval': 0.0, 'eval_mse': 227.827880859375, 'eval_mae': 12.122110366821289, 'eval_rmse': 15.09397029876709, 'epoch': 15.0}
+INFO - Storing metrics for optimal_temperature/Random-Transformer (test): {'test_loss': 249.1328582763672, 'test_r_squared': 0.27192, 'test_spearman_rho': 0.4308, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.5297399759292603, 'test_pear_pval': 0.0, 'test_mse': 249.1328125, 'test_mae': 12.791810035705566, 'test_rmse': 15.783940315246582}
+INFO - Processing dataset: optimal_ph
+INFO - Training probe for optimal_ph with Random-Transformer
+INFO - Storing metrics for optimal_ph/Random-Transformer (valid): {'eval_loss': 1.1772539615631104, 'eval_r_squared': 0.15109, 'eval_spearman_rho': 0.41804, 'eval_spear_pval': 0.0, 'eval_pearson_rho': 0.4755200147628784, 'eval_pear_pval': 0.0, 'eval_mse': 1.1772500276565552, 'eval_mae': 0.7877900004386902, 'eval_rmse': 1.085010051727295, 'epoch': 12.0}
+INFO - Storing metrics for optimal_ph/Random-Transformer (test): {'test_loss': 1.1132980585098267, 'test_r_squared': 0.1648, 'test_spearman_rho': 0.39095, 'test_spear_pval': 0.0, 'test_pearson_rho': 0.4862000048160553, 'test_pear_pval': 0.0, 'test_mse': 1.1132999658584595, 'test_mae': 0.7714700102806091, 'test_rmse': 1.0551300048828125}
+INFO - Processing dataset: HPPI
+INFO - Training probe for HPPI with Random-Transformer
+INFO - Storing metrics for HPPI/Random-Transformer (valid): {'eval_loss': 0.5432341694831848, 'eval_f1': 0.76997, 'eval_precision': 0.76865, 'eval_recall': 0.77273, 'eval_accuracy': 0.7735, 'eval_mcc': 0.54136, 'eval_auc': 0.77273, 'epoch': 25.0}
+INFO - Storing metrics for HPPI/Random-Transformer (test): {'test_loss': 0.5816721320152283, 'test_f1': 0.72463, 'test_precision': 0.72826, 'test_recall': 0.72273, 'test_accuracy': 0.73333, 'test_mcc': 0.45096, 'test_auc': 0.72273}
+INFO - Processing dataset: bernett_gold_ppi
+INFO - Training probe for bernett_gold_ppi with Random-Transformer
+INFO - Storing metrics for bernett_gold_ppi/Random-Transformer (valid): {'eval_loss': 0.6931470632553101, 'eval_f1': 0.33333, 'eval_precision': 0.25, 'eval_recall': 0.5, 'eval_accuracy': 0.5, 'eval_mcc': 0.0, 'eval_auc': 0.5, 'epoch': 33.333333333333336}
+INFO - Storing metrics for bernett_gold_ppi/Random-Transformer (test): {'test_loss': 0.6931470632553101, 'test_f1': 0.33333, 'test_precision': 0.25, 'test_recall': 0.5, 'test_accuracy': 0.5, 'test_mcc': 0.0, 'test_auc': 0.5}
+INFO - Called method: generate_plots
+INFO - 
+=======================================================
+
+INFO - System Information:
+INFO - Python Version: 3.10.11
+INFO - Python Executable: /home/azureuser/bioenv/bin/python
+INFO - Platform: Linux-6.8.0-1026-azure-x86_64-with-glibc2.35
+INFO - Processor: x86_64
+INFO - Machine: x86_64
+INFO - 
+Installed Packages:
+INFO - Package                      Version
+---------------------------- ------------
+absl-py                      2.2.2
+accelerate                   1.6.0
+aiohappyeyeballs             2.6.1
+aiohttp                      3.11.18
+aiosignal                    1.3.2
+astunparse                   1.6.3
+async-timeout                5.0.1
+attrs                        25.3.0
+certifi                      2025.4.26
+charset-normalizer           3.4.2
+contourpy                    1.3.2
+cycler                       0.12.1
+datasets                     3.5.1
+dill                         0.3.8
+einops                       0.8.1
+filelock                     3.13.1
+flatbuffers                  25.2.10
+fonttools                    4.57.0
+frozenlist                   1.6.0
+fsspec                       2024.6.1
+gast                         0.6.0
+google-pasta                 0.2.0
+grpcio                       1.71.0
+h5py                         3.13.0
+huggingface-hub              0.30.2
+idna                         3.10
+Jinja2                       3.1.4
+joblib                       1.5.0
+keras                        3.9.2
+kiwisolver                   1.4.8
+libclang                     18.1.1
+lightgbm                     4.6.0
+lightning-utilities          0.14.3
+Markdown                     3.8
+markdown-it-py               3.0.0
+MarkupSafe                   2.1.5
+matplotlib                   3.10.1
+mdurl                        0.1.2
+ml_dtypes                    0.5.1
+mpmath                       1.3.0
+multidict                    6.4.3
+multiprocess                 0.70.16
+namex                        0.0.9
+networkx                     3.4.2
+numpy                        1.26.4
+nvidia-cublas-cu12           12.6.4.1
+nvidia-cuda-cupti-cu12       12.6.80
+nvidia-cuda-nvrtc-cu12       12.6.77
+nvidia-cuda-runtime-cu12     12.6.77
+nvidia-cudnn-cu12            9.5.1.17
+nvidia-cufft-cu12            11.3.0.4
+nvidia-cufile-cu12           1.11.1.6
+nvidia-curand-cu12           10.3.7.77
+nvidia-cusolver-cu12         11.7.1.2
+nvidia-cusparse-cu12         12.5.4.2
+nvidia-cusparselt-cu12       0.6.3
+nvidia-nccl-cu12             2.26.2
+nvidia-nvjitlink-cu12        12.6.85
+nvidia-nvtx-cu12             12.6.77
+opt_einsum                   3.4.0
+optree                       0.15.0
+packaging                    25.0
+pandas                       2.2.3
+peft                         0.15.2
+pillow                       11.0.0
+pip                          25.1.1
+propcache                    0.3.1
+protobuf                     5.29.4
+psutil                       7.0.0
+pyarrow                      20.0.0
+pyfiglet                     1.0.2
+Pygments                     2.19.1
+pyparsing                    3.2.3
+python-dateutil              2.9.0.post0
+pytz                         2025.2
+PyYAML                       6.0.2
+regex                        2024.11.6
+requests                     2.32.3
+rich                         14.0.0
+safetensors                  0.5.3
+scikit-learn                 1.5.0
+scipy                        1.15.2
+seaborn                      0.13.2
+sentencepiece                0.2.0
+setuptools                   70.2.0
+six                          1.17.0
+sympy                        1.13.3
+tensorboard                  2.19.0
+tensorboard-data-server      0.7.2
+tensorflow                   2.19.0
+tensorflow-io-gcs-filesystem 0.37.1
+termcolor                    3.1.0
+tf_keras                     2.19.0
+threadpoolctl                3.6.0
+tokenizers                   0.21.1
+torch                        2.7.0+cu126
+torchinfo                    1.8.0
+torchmetrics                 1.7.1
+torchvision                  0.22.0+cu126
+tqdm                         4.67.1
+transformers                 4.51.3
+triton                       3.3.0
+typing_extensions            4.12.2
+tzdata                       2025.2
+urllib3                      2.4.0
+Werkzeug                     3.1.3
+wheel                        0.45.1
+wrapt                        1.17.2
+xgboost                      3.0.0
+xxhash                       3.5.0
+yarl                         1.20.0
+INFO - 
+GPU Information:
+INFO - Fri May  9 08:51:03 2025       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.247.01             Driver Version: 535.247.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA A100 80GB PCIe          On  | 00000001:00:00.0 Off |                    0 |
+| N/A   43C    P0              74W / 300W |   1396MiB / 81920MiB |      0%      Default |
+|                                         |                      |             Disabled |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    0   N/A  N/A    465505      C   python                                     1384MiB |
++---------------------------------------------------------------------------------------+
+INFO - 
+=======================================================
+

@@ -6,3 +6,4 @@
 *.pth
 *.bin
 *.png
+/evaluation/generations
