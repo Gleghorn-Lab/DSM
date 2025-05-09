@@ -5,5 +5,4 @@
 *.pt
 *.pth
 *.bin
-*.png
 /evaluation/generations
