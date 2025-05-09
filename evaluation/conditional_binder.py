@@ -18,7 +18,6 @@ TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 100
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 NUM_NEGATIVE_CONTROLS = 20
 
@@ -33,6 +32,7 @@ def arg_parser():
     parser.add_argument('--api_batch_size', type=int, default=25, help='API batch size')
     parser.add_argument('--synthyra_api_key', type=str, default=None, help='Synthyra API key')
     parser.add_argument('--output_file', type=str, default='designs.csv', help='Output file name')
+    parser.add_argument('--step_divisor', type=int, default=100, help='Step divisor')
     return parser.parse_args()
 
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         #print(f'Decoded template: {decoded_template}')
 
         # number of masked tokens
-        steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // STEP_DIVISOR
+        steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // args.step_divisor
         output_tokens = model.mask_diffusion_generate(
             template_tokens=template_tokens,
             block_wise=False,
