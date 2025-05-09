@@ -2,31 +2,18 @@ import torch
 import argparse
 import pandas as pd
 from tqdm import tqdm
-from datasets import Dataset
-from huggingface_hub import login, hf_hub_download
+from huggingface_hub import login
 from IPython.display import display
 
 from models.modeling_esm_diff import ESM_Diff
 from evaluation.compare_distributions import compare_corpora_kmers
+from .utils import get_eval_data
 
 
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
 PREVIEW = False
 SLOW = False
 REMASKING = 'random'
-
-
-def get_eval_data(num_samples):
-    local_file = hf_hub_download(
-        repo_id="Synthyra/omg_prot50",
-        filename=f"data/valid-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=888).select(range(num_samples))
-    data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
-    print(data)
-    valid_seqs = sorted(data['sequence'], key=len, reverse=True)
-    return valid_seqs
 
 
 def arg_parser():

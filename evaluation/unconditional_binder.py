@@ -7,10 +7,11 @@ import queue
 import os
 from tqdm import tqdm
 from huggingface_hub import login
-from models.modeling_esm_diff import ESM_Diff
 
+from models.modeling_esm_diff import ESM_Diff
+from synthyra_api.affinity_pred import predict_against_target
 from .binder_info import BINDING_INFO
-from ..synthyra_api.affinity_pred import predict_against_target
+from .utils import generate_random_aa_sequence
 
 
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
@@ -58,12 +59,6 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
         # Put result in queue
         result_queue.put(batch_df)
         design_queue.task_done()
-
-
-# Added helper function for random sequences
-def generate_random_aa_sequence(length: int, alphabet: str) -> str:
-    """Generates a random amino acid sequence of a given length."""
-    return "".join(random.choice(alphabet) for _ in range(length))
 
 
 if __name__ == '__main__':

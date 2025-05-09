@@ -6,13 +6,11 @@ import threading
 import queue
 import os
 from tqdm import tqdm
-from huggingface_hub import login, hf_hub_download
-from safetensors.torch import load_file
-from models.modeling_esm_diff import ESM_Diff_Binders, ESMDiffConfig
-from models.utils import wrap_lora
-from synthyra_api.affinity_pred import predict_against_target
+from huggingface_hub import login
 
+from synthyra_api.affinity_pred import predict_against_target
 from .binder_info import BINDING_INFO
+from .utils import generate_random_aa_sequence, load_binder_model
 
 
 MODEL_PATH = 'lhallee/ESM_diff_bind_650'
@@ -59,50 +57,6 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
         # Put result in queue
         result_queue.put(batch_df)
         design_queue.task_done()
-
-
-def load_binder_model(model_path):
-    local_weight_file = hf_hub_download(
-        repo_id=model_path,
-        filename='model.safetensors',
-        repo_type='model',
-    )
-
-    config = ESMDiffConfig.from_pretrained(model_path)
-    model = ESM_Diff_Binders(config=config)
-    model = wrap_lora(model, r=config.lora_r, lora_alpha=config.lora_alpha, lora_dropout=config.lora_dropout)
-    state_dict = load_file(local_weight_file)
-
-    # Track which parameters were loaded
-    loaded_params = set()
-    missing_params = set()
-
-    for name, param in model.named_parameters():
-        found = False
-        for key in state_dict.keys():
-            if key in name:
-                param.data = state_dict[key]
-                loaded_params.add(name)
-                found = True
-                break
-        if not found:
-            missing_params.add(name)
-
-    # Verify all weights were loaded correctly
-    print(f"Loaded {len(loaded_params)} parameters")
-    print(f"Missing {len(missing_params)} parameters")
-    if missing_params:
-        print("Missing parameters:")
-        for param in sorted(missing_params):
-            print(f"  - {param}")
-
-    return model
-
-
-# Added helper function for random sequences
-def generate_random_aa_sequence(length: int, alphabet: str) -> str:
-    """Generates a random amino acid sequence of a given length."""
-    return "".join(random.choice(alphabet) for _ in range(length))
 
 
 if __name__ == '__main__':

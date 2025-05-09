@@ -3,33 +3,18 @@ import argparse
 import os
 import pandas as pd
 from tqdm import tqdm
-from datasets import Dataset
-from huggingface_hub import login, hf_hub_download
+from huggingface_hub import login
 
 from models.modeling_esm_diff import ESM_Diff
 from evaluation.compare_distributions import CorpusComparator, AA20
+from .utils import get_eval_data
 
 
 MODEL_PATH = 'GleghornLab/ESM_diff_650'
-
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
 PREVIEW = False
-STEP_DIVISOR = 5
-
-
-def get_eval_data():
-    local_file = hf_hub_download(
-        repo_id="Synthyra/omg_prot50",
-        filename=f"data/valid-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=888)
-    data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
-    print(data)
-    valid_seqs = data['sequence']
-    return valid_seqs
 
 
 def arg_parser():
@@ -37,6 +22,7 @@ def arg_parser():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--output_path', type=str, default='unconditional_generation_seqs.csv', help='Output path')
+    parser.add_argument('--step_divisor', type=int, default=5, help='Step divisor')
     return parser.parse_args()
 
 
@@ -62,7 +48,7 @@ if __name__ == '__main__':
             length=len(seq),
             block_wise=False,
             batch_size=args.batch_size,
-            steps=len(seq) // STEP_DIVISOR,
+            steps=len(seq) // args.step_divisor,
             temperature=TEMPERATURE,
             remasking=REMASKING,
             preview=PREVIEW,
@@ -73,11 +59,6 @@ if __name__ == '__main__':
             gen_seq = model._decode_seq(output_token)
             assert len(gen_seq) == len(seq), f'Differing lengths: {len(gen_seq)} != {len(seq)}'
             assert gen_seq.count('-') == 0, f'Masks present: {gen_seq.count("-")} != 0'
-
-            #if len(gen_seq) != len(seq):
-            #    print(f'WARNING: Differing lengths: {len(gen_seq)} != {len(seq)}')
-            #if gen_seq.count('-') != 0:
-            #    print(f'WARNING: Gaps present: {gen_seq.count("-")} != 0')
             generated_seqs.append(gen_seq)
 
     comparator = CorpusComparator(vocabulary=AA20)
