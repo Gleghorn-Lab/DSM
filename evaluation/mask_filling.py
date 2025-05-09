@@ -98,7 +98,7 @@ def main():
         for type in args.data_splits:
             if type == 'ppi':
                 data = load_dataset("lhallee/string_model_org_90_90_split", split='test')
-                sequences = data['test']['SeqB']
+                sequences = data['SeqB']
             else:
                 local_file = hf_hub_download(
                     repo_id="Synthyra/omg_prot50",
