@@ -2,12 +2,11 @@ import torch
 import torch.nn as nn
 import pandas as pd
 import numpy as np
-import random
 import argparse
 import matplotlib.pyplot as plt
 import os
 from torch.utils.data import DataLoader
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from huggingface_hub import hf_hub_download, login
 from tqdm.auto import tqdm
 from sklearn.metrics import (
@@ -25,6 +24,7 @@ from data.data_collators import SequenceCollator_mask
 from models.modeling_esm_diff import ESM_Diff
 from models.alignment_helpers import AlignmentScorer
 from evaluation.plot_mask_fill_results import generate_comparison_plot
+from .utils import set_seed
 
 
 def parse_args():
@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--mask_rates', nargs='+', type=float, default=[0.05, 0.15, 0.30, 0.50, 0.70, 0.90])
-    parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test'])
+    parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test', 'ppi'])
     parser.add_argument('--max_length', type=int, default=1022)
     parser.add_argument('--results_dir', type=str, default='results')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
@@ -96,19 +96,21 @@ def main():
     all_results = {}
     for mask_rate in mask_rates:
         for type in args.data_splits:
-            local_file = hf_hub_download(
-                repo_id="Synthyra/omg_prot50",
-                filename=f"data/{type}-00000-of-00001.parquet",
-                repo_type="dataset"
-            )
-            data = Dataset.from_parquet(local_file)
-            print(data)
-            sequences = data['sequence']
+            if type == 'ppi':
+                data = load_dataset("lhallee/string_model_org_90_90_split", split='test')
+                sequences = data['test']['SeqB']
+            else:
+                local_file = hf_hub_download(
+                    repo_id="Synthyra/omg_prot50",
+                    filename=f"data/{type}-00000-of-00001.parquet",
+                    repo_type="dataset"
+                )
+                data = Dataset.from_parquet(local_file)
+                print(data)
+                sequences = data['sequence']
             sequences = sorted(sequences, key=len, reverse=True)
             #sequences = sequences[:10]
             print(sequences[-1])
-            total_tokens = sum(len(seq[:1022]) for seq in sequences)
-            print(f"Total tokens: {total_tokens}")
 
             results = []
             for model_name, nickname in model_names.items():
