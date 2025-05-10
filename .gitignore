@@ -6,3 +6,4 @@
 *.pth
 *.bin
 /evaluation/generations
+/results/generated_proteins
