@@ -22,6 +22,7 @@ from glob import glob
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator_mask
 from models.modeling_esm_diff import ESM_Diff
+from models.dplm import DiffusionProteinLanguageModel
 from models.alignment_helpers import AlignmentScorer
 from evaluation.plot_mask_fill_results import generate_comparison_plot
 from .utils import set_seed
@@ -80,17 +81,19 @@ def main():
     
     # Define models once
     model_names = {
-        'Synthyra/ESM2-8M': 'ESM2-8M',
-        'Synthyra/ESM2-35M': 'ESM2-35M',
-        'Synthyra/ESM2-150M': 'ESM2-150M',
-        'GleghornLab/eval_diff_150': 'ESMdiff-150M',
-        'Synthyra/ESMplusplus_small': 'ESMC-300M',
-        'Synthyra/ESMplusplus_large': 'ESMC-600M',
-        'Synthyra/ESM2-650M': 'ESM2-650M',
-        'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
-        'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
-        'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
-        'Synthyra/ESM2-3B': 'ESM2-3B'
+        #'Synthyra/ESM2-8M': 'ESM2-8M',
+        #'Synthyra/ESM2-35M': 'ESM2-35M',
+        #'Synthyra/ESM2-150M': 'ESM2-150M',
+        #'GleghornLab/eval_diff_150': 'ESMdiff-150M',
+        #'Synthyra/ESMplusplus_small': 'ESMC-300M',
+        #'Synthyra/ESMplusplus_large': 'ESMC-600M',
+        #'Synthyra/ESM2-650M': 'ESM2-650M',
+        #'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
+        #'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
+        #'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
+        #'Synthyra/ESM2-3B': 'ESM2-3B',
+        'airkingbd/dplm_650m': 'DPLM-650M',
+        'airkingbd/dplm_150m': 'DPLM-150M'
     }
 
     all_results = {}
@@ -109,7 +112,7 @@ def main():
                 print(data)
                 sequences = data['sequence']
             sequences = sorted(sequences, key=len, reverse=True)
-            #sequences = sequences[:10]
+            #sequences = sequences[-100:]
             print(sequences[-1])
 
             results = []
@@ -118,11 +121,15 @@ def main():
                 if 'diff' in model_name.lower():
                     model = ESM_Diff.from_pretrained(model_name).to(device).eval()
                     tokenizer = model.tokenizer
-                    diff = True
+                    diff, dplm = True, False
+                elif 'dplm' in model_name.lower():
+                    model = DiffusionProteinLanguageModel.from_pretrained(model_name).to(device).eval()
+                    tokenizer = model.tokenizer
+                    diff, dplm = False, True
                 else:
                     model = AutoModelForMaskedLM.from_pretrained(model_name, trust_remote_code=True).to(device).eval()
                     tokenizer = model.tokenizer
-                    diff = False
+                    diff, dplm = False, False
                 
                 dataset = SequenceDatasetFromList(sequences)
                 collator = SequenceCollator_mask(tokenizer, max_length, mask_rate)
@@ -133,8 +140,10 @@ def main():
                     num_workers=4 if os.cpu_count() > 8 else 0,
                     collate_fn=collator
                 )
-
-                vocab_size = model.config.vocab_size
+                try:
+                    vocab_size = model.config.vocab_size
+                except:
+                    vocab_size = model.net.config.vocab_size
                 total_loss, count = 0.0, 0
                 all_true, all_pred, pred_seqs, true_seqs = [], [], [], []
                 
@@ -147,6 +156,21 @@ def main():
                                 input_ids=batch['input_ids'],
                                 attention_mask=batch['attention_mask'],
                             )
+                        elif dplm:
+                            batch['input_mask'] = batch['attention_mask'].bool()
+                            partial_mask = batch["input_ids"].ne(model.mask_id).type_as(batch["input_mask"])
+                            outputs = model.generate(
+                                batch=batch,
+                                tokenizer=tokenizer,
+                                max_iter=1,
+                                sampling_strategy='gumbel_argmax',
+                                partial_masks=partial_mask,
+                                disable_resample='False',
+                                resample_ratio=0.25,
+                                temperature=1.0,
+                            )
+                            preds = outputs[0]
+                            logits = None
                         else:
                             logits = model(
                                 input_ids=batch['input_ids'],
@@ -155,9 +179,11 @@ def main():
 
                         original_ids = batch['original_ids']
                         labels = batch['labels']
-                        loss = ce_loss(logits.view(-1, vocab_size), labels.view(-1))
-                        preds = logits.argmax(dim=-1)
-
+                        if logits is not None:
+                            loss = ce_loss(logits.view(-1, vocab_size), labels.view(-1))
+                            preds = logits.argmax(dim=-1)
+                        else:
+                            loss = torch.tensor(-100)
                         all_true.extend(labels.cpu().numpy().flatten())
                         all_pred.extend(preds.cpu().numpy().flatten())
                         for ids, pred in zip(original_ids, preds):
