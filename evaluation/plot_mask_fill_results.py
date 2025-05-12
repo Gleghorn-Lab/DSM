@@ -45,7 +45,9 @@ model_name_to_nickname = {
     'ESMC-300M': r'ESMC$_{300M}$',
     'ESM2-35M': r'ESM2$_{35M}$',
     'ESM2-8M': r'ESM2$_{8M}$',
-    'ESM2-3B': r'ESM2$_{3B}$'
+    'ESM2-3B': r'ESM2$_{3B}$',
+    'DPLM-650M': r'DPLM$_{650M}$',
+    'DPLM-150M': r'DPLM$_{150M}$'
 }
 
 """
@@ -86,7 +88,11 @@ model_name_to_color = {
     'ESM2-150M': 'mediumseagreen',
     'ESM2-35M': 'darkturquoise',
     'ESM2-8M': 'teal',
-    'ESM2-3B': 'darkgreen'
+    'ESM2-3B': 'darkgreen',
+    
+    # DPLM models - gold/silver family
+    'DPLM-650M': 'gold',
+    'DPLM-150M': 'silver'
 }
 
 
@@ -156,6 +162,16 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
                     **{metric: [] for metric in available_metrics}
                 }
             
+            # Check for invalid metric values
+            skip_datapoint = False
+            if 'loss' in available_metrics and row['loss'] == -100:
+                skip_datapoint = True
+            if 'perplexity' in available_metrics and row['perplexity'] == 0:
+                skip_datapoint = True
+                
+            if skip_datapoint:
+                continue
+                
             results_data[model_name]['mask_rates'].append(mask_rate)
             results_data[model_name]['dataset_types'].append(dataset_type)
             

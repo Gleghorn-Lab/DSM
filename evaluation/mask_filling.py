@@ -40,10 +40,10 @@ def parse_args():
     parser.add_argument('--mask_rates', nargs='+', type=float, default=[0.05, 0.15, 0.30, 0.50, 0.70, 0.90])
     parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test'])
     parser.add_argument('--max_length', type=int, default=1022)
-    parser.add_argument('--results_dir', type=str, default='results')
+    parser.add_argument('--results_dir', type=str, default='results/mask_fill')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
                        help='Generate a plot comparing all models across all mask rates')
-    parser.add_argument('--plot_output', type=str, default='results/mask_rate_comparison.png',
+    parser.add_argument('--plot_output', type=str, default='results/mask_fill/mask_rate_comparison.png',
                        help='Path to save comparison plot')
     return parser.parse_args()
 

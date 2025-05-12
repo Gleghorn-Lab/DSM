@@ -1,0 +1,3 @@
+model,loss,perplexity,precision,recall,f1,accuracy,mcc,alignment_score
+DPLM-650M,-100.0,0.0,0.2555,0.2559,0.2557,0.2559,0.2086,0.4559
+DPLM-150M,-100.0,0.0,0.2072,0.2074,0.2073,0.2074,0.1569,0.4396
