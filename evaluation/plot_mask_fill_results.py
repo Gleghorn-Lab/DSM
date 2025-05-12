@@ -161,16 +161,6 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
                     'dataset_types': [], 
                     **{metric: [] for metric in available_metrics}
                 }
-            
-            # Check for invalid metric values
-            skip_datapoint = False
-            if 'loss' in available_metrics and row['loss'] == -100:
-                skip_datapoint = True
-            if 'perplexity' in available_metrics and row['perplexity'] == 0:
-                skip_datapoint = True
-                
-            if skip_datapoint:
-                continue
                 
             results_data[model_name]['mask_rates'].append(mask_rate)
             results_data[model_name]['dataset_types'].append(dataset_type)
@@ -222,6 +212,13 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
                 
                 # Filter for current dataset type
                 dataset_df = model_df[model_df['dataset_type'] == dataset_type]
+                
+                # Filter out invalid values for specific metrics
+                if metric == 'loss':
+                    dataset_df = dataset_df[dataset_df['metric'] != -100]
+                elif metric == 'perplexity':
+                    dataset_df = dataset_df[dataset_df['metric'] != 0]
+                
                 if not dataset_df.empty:
                     # Group by mask_rate and calculate mean to handle potential duplicates
                     grouped = dataset_df.groupby('mask_rate')['metric'].mean().reset_index()
@@ -264,16 +261,25 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
             axes[row_idx, col_idx].set_visible(False)
     
     # Add a single legend for the entire figure
-    handles, labels = axes[0, 0].get_legend_handles_labels()
+    # Get handles and labels from all subplots to ensure all models are included
+    all_handles = []
+    all_labels = []
+    for row_idx in range(n_rows):
+        for col_idx in range(min(len(metrics), n_cols)):
+            h, l = axes[row_idx, col_idx].get_legend_handles_labels()
+            for handle, label in zip(h, l):
+                if label not in all_labels:
+                    all_handles.append(handle)
+                    all_labels.append(label)
     
     # Reorder handles and labels according to model_name_to_nickname order
     ordered_handles_labels = []
     for model_name in model_name_to_nickname.keys():
         # Find this model name in the existing labels
         nickname = model_name_to_nickname[model_name]
-        if nickname in labels:
-            idx = labels.index(nickname)
-            ordered_handles_labels.append((handles[idx], labels[idx]))
+        if nickname in all_labels:
+            idx = all_labels.index(nickname)
+            ordered_handles_labels.append((all_handles[idx], all_labels[idx]))
     
     # Use only the models that were actually plotted
     if ordered_handles_labels:
@@ -281,7 +287,7 @@ def generate_comparison_plot(results_dir, metrics=None, output_file='results/mas
         fig.legend(ordered_handles, ordered_labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
     else:
         # Fallback to original order if none of the expected models were found
-        fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
+        fig.legend(all_handles, all_labels, loc='upper right', bbox_to_anchor=(1.05, 0.5))
     
     # Adjust layout
     plt.tight_layout(rect=[0, 0, 0.95, 0.95])
