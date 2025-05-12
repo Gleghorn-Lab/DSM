@@ -2,12 +2,11 @@ import torch
 import torch.nn as nn
 import pandas as pd
 import numpy as np
-import random
 import argparse
 import matplotlib.pyplot as plt
 import os
 from torch.utils.data import DataLoader
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from huggingface_hub import hf_hub_download, login
 from tqdm.auto import tqdm
 from sklearn.metrics import (
@@ -23,14 +22,10 @@ from glob import glob
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator_mask
 from models.modeling_esm_diff import ESM_Diff
+from models.dplm import DiffusionProteinLanguageModel
 from models.alignment_helpers import AlignmentScorer
 from evaluation.plot_mask_fill_results import generate_comparison_plot
-
-
-def set_seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+from .utils import set_seed
 
 
 def parse_args():
@@ -38,7 +33,7 @@ def parse_args():
     parser.add_argument('--token', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--mask_rates', nargs='+', type=float, default=[0.05, 0.15, 0.30, 0.50, 0.70, 0.90])
-    parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test'])
+    parser.add_argument('--data_splits', nargs='+', type=str, default=['valid', 'test', 'ppi'])
     parser.add_argument('--max_length', type=int, default=1022)
     parser.add_argument('--results_dir', type=str, default='results/mask_fill')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
@@ -60,7 +55,6 @@ def main():
                                  exclude_models=[
                                      'ESMdiff-650M-80k',
                                      'ESMdiff-650M-40k',
-                                     #'ESMdiff-650M',
                                      'ESMC-600M',
                                      'ESMC-300M',
                                      
@@ -95,27 +89,31 @@ def main():
         #'Synthyra/ESMplusplus_large': 'ESMC-600M',
         #'Synthyra/ESM2-650M': 'ESM2-650M',
         #'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
-        'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
-        'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
-        #'Synthyra/ESM2-3B': 'ESM2-3B'
+        #'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
+        #'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
+        #'Synthyra/ESM2-3B': 'ESM2-3B',
+        'airkingbd/dplm_650m': 'DPLM-650M',
+        'airkingbd/dplm_150m': 'DPLM-150M'
     }
 
     all_results = {}
     for mask_rate in mask_rates:
         for type in args.data_splits:
-            local_file = hf_hub_download(
-                repo_id="Synthyra/omg_prot50",
-                filename=f"data/{type}-00000-of-00001.parquet",
-                repo_type="dataset"
-            )
-            data = Dataset.from_parquet(local_file)
-            print(data)
-            sequences = data['sequence']
+            if type == 'ppi':
+                data = load_dataset("lhallee/string_model_org_90_90_split", split='test')
+                sequences = data['SeqB']
+            else:
+                local_file = hf_hub_download(
+                    repo_id="Synthyra/omg_prot50",
+                    filename=f"data/{type}-00000-of-00001.parquet",
+                    repo_type="dataset"
+                )
+                data = Dataset.from_parquet(local_file)
+                print(data)
+                sequences = data['sequence']
             sequences = sorted(sequences, key=len, reverse=True)
-            #sequences = sequences[:10]
+            #sequences = sequences[-100:]
             print(sequences[-1])
-            total_tokens = sum(len(seq[:1022]) for seq in sequences)
-            print(f"Total tokens: {total_tokens}")
 
             results = []
             for model_name, nickname in model_names.items():
@@ -123,11 +121,15 @@ def main():
                 if 'diff' in model_name.lower():
                     model = ESM_Diff.from_pretrained(model_name).to(device).eval()
                     tokenizer = model.tokenizer
-                    diff = True
+                    diff, dplm = True, False
+                elif 'dplm' in model_name.lower():
+                    model = DiffusionProteinLanguageModel.from_pretrained(model_name).to(device).eval()
+                    tokenizer = model.tokenizer
+                    diff, dplm = False, True
                 else:
                     model = AutoModelForMaskedLM.from_pretrained(model_name, trust_remote_code=True).to(device).eval()
                     tokenizer = model.tokenizer
-                    diff = False
+                    diff, dplm = False, False
                 
                 dataset = SequenceDatasetFromList(sequences)
                 collator = SequenceCollator_mask(tokenizer, max_length, mask_rate)
@@ -138,8 +140,10 @@ def main():
                     num_workers=4 if os.cpu_count() > 8 else 0,
                     collate_fn=collator
                 )
-
-                vocab_size = model.config.vocab_size
+                try:
+                    vocab_size = model.config.vocab_size
+                except:
+                    vocab_size = model.net.config.vocab_size
                 total_loss, count = 0.0, 0
                 all_true, all_pred, pred_seqs, true_seqs = [], [], [], []
                 
@@ -152,6 +156,21 @@ def main():
                                 input_ids=batch['input_ids'],
                                 attention_mask=batch['attention_mask'],
                             )
+                        elif dplm:
+                            batch['input_mask'] = batch['attention_mask'].bool()
+                            partial_mask = batch["input_ids"].ne(model.mask_id).type_as(batch["input_mask"])
+                            outputs = model.generate(
+                                batch=batch,
+                                tokenizer=tokenizer,
+                                max_iter=1,
+                                sampling_strategy='gumbel_argmax',
+                                partial_masks=partial_mask,
+                                disable_resample='False',
+                                resample_ratio=0.25,
+                                temperature=1.0,
+                            )
+                            preds = outputs[0]
+                            logits = None
                         else:
                             logits = model(
                                 input_ids=batch['input_ids'],
@@ -160,9 +179,11 @@ def main():
 
                         original_ids = batch['original_ids']
                         labels = batch['labels']
-                        loss = ce_loss(logits.view(-1, vocab_size), labels.view(-1))
-                        preds = logits.argmax(dim=-1)
-
+                        if logits is not None:
+                            loss = ce_loss(logits.view(-1, vocab_size), labels.view(-1))
+                            preds = logits.argmax(dim=-1)
+                        else:
+                            loss = torch.tensor(-100)
                         all_true.extend(labels.cpu().numpy().flatten())
                         all_pred.extend(preds.cpu().numpy().flatten())
                         for ids, pred in zip(original_ids, preds):

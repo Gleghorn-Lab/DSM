@@ -5,4 +5,5 @@
 *.pt
 *.pth
 *.bin
-*.png
+/evaluation/generations
+/results/generated_proteins

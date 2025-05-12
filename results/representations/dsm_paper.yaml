@@ -32,10 +32,10 @@ data_names:
   - GO-BP
   - GO-MF
   - MB
+  - human-ppi
   - enzyme-kcat
   - optimal-temperature
   - optimal-ph
-  - human-ppi
   - gold-ppi
 
 data_dirs: []

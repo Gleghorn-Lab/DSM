@@ -1,0 +1,9 @@
+dataset	ProtCLM-1b
+BP_reg	"{""test_loss"": 0.17702963948249817, ""test_accuracy"": 0.96667, ""test_f1"": 0.21146, ""test_precision"": 0.5928, ""test_recall"": 0.12868, ""test_hamming_loss"": 0.03333, ""test_threshold"": 0.01, ""test_mcc"": 0.02925, ""test_auc"": 0.78956}"
+CC_reg	"{""test_loss"": 0.16461093723773956, ""test_accuracy"": 0.96408, ""test_f1"": 0.41423, ""test_precision"": 0.41346, ""test_recall"": 0.415, ""test_hamming_loss"": 0.03592, ""test_threshold"": 0.01, ""test_mcc"": 0.13613, ""test_auc"": 0.87097}"
+DL10_reg	"{""test_loss"": 0.982239305973053, ""test_f1"": 0.57435, ""test_precision"": 0.61952, ""test_recall"": 0.56743, ""test_accuracy"": 0.70783, ""test_mcc"": 0.65016, ""test_auc"": 0.94106}"
+DL2_reg	"{""test_loss"": 0.38034602999687195, ""test_f1"": 0.86266, ""test_precision"": 0.88279, ""test_recall"": 0.85477, ""test_accuracy"": 0.86987, ""test_mcc"": 0.73703, ""test_auc"": 0.85477}"
+EC_reg	"{""test_loss"": 0.005687270313501358, ""test_accuracy"": 0.99771, ""test_f1"": 0.71515, ""test_precision"": 0.76276, ""test_recall"": 0.67313, ""test_hamming_loss"": 0.00229, ""test_threshold"": 0.05, ""test_mcc"": 0.60146, ""test_auc"": 0.98351}"
+HPPI	"{""test_loss"": 0.5166845321655273, ""test_f1"": 0.80412, ""test_precision"": 0.8112, ""test_recall"": 0.80053, ""test_accuracy"": 0.81111, ""test_mcc"": 0.61164, ""test_auc"": 0.80053}"
+MB_reg	"{""test_loss"": 0.5914508700370789, ""test_f1"": 0.65887, ""test_precision"": 0.7062, ""test_recall"": 0.66959, ""test_accuracy"": 0.67669, ""test_mcc"": 0.374, ""test_auc"": 0.66959}"
+MF_reg	"{""test_loss"": 0.06356316059827805, ""test_accuracy"": 0.98246, ""test_f1"": 0.47691, ""test_precision"": 0.6289, ""test_recall"": 0.38409, ""test_hamming_loss"": 0.01754, ""test_threshold"": 0.02, ""test_mcc"": 0.1875, ""test_auc"": 0.87094}"
