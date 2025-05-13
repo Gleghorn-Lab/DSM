@@ -104,7 +104,7 @@ class CorpusComparator:
 
             pA = (a + pseudo) / (a.sum() + pseudo * len(a))
             pB = (b + pseudo) / (b.sum() + pseudo * len(b))
-            js = jensenshannon(pA, pB, base=2) ** 2      # scipy returns sqrt(JS)
+            js = jensenshannon(pA, pB, base=2) ** 2  # scipy returns JS distance (sqrt(JS))
 
             freq_A = pA
             freq_B = pB
