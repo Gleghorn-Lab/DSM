@@ -5,5 +5,4 @@
 *.pt
 *.pth
 *.bin
-/evaluation/generations
-/results/generated_proteins
+not_published/

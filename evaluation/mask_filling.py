@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('--results_dir', type=str, default='results/mask_fill')
     parser.add_argument('--generate_comparison_plot', action='store_true', 
                        help='Generate a plot comparing all models across all mask rates')
-    parser.add_argument('--plot_output', type=str, default='results/mask_fill/mask_rate_comparison.png',
+    parser.add_argument('--plot_output', type=str, default='results/mask_fill/mask_rate_all.png',
                        help='Path to save comparison plot')
     return parser.parse_args()
 
@@ -53,10 +53,10 @@ def main():
         print("Generating comparison plot from existing results...")
         generate_comparison_plot(args.results_dir, metrics, args.plot_output,
                                  exclude_models=[
-                                     'ESMdiff-650M-80k',
-                                     'ESMdiff-650M-40k',
-                                     'ESMC-600M',
-                                     'ESMC-300M',
+                                     #'ESMdiff-650M-80k',
+                                     #'ESMdiff-650M-40k',
+                                     #'ESMC-600M',
+                                     #'ESMC-300M',
                                      
         ])
         return
