@@ -5,12 +5,12 @@ import pandas as pd
 from tqdm import tqdm
 from huggingface_hub import login
 
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_dsm import DSM
 from evaluation.compare_distributions import CorpusComparator, AA20
 from .utils import get_eval_data
 
 
-MODEL_PATH = 'GleghornLab/ESM_diff_650'
+MODEL_PATH = 'GleghornLab/DSM_650'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
+    model = DSM.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
     sequence_lengths = range(args.min_length, args.max_length + 1, args.length_step)

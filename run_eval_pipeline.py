@@ -18,7 +18,7 @@ def run_command(command, description=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the complete ESM-Diff evaluation pipeline")
+    parser = argparse.ArgumentParser(description="Run the complete DSM evaluation pipeline")
     parser.add_argument("--token", required=True, help="Hugging Face token")
     parser.add_argument("--data_dir", default="evaluation_data", help="Directory to store output data")
     parser.add_argument("--temp_sweep_divisor", type=int, default=100, 

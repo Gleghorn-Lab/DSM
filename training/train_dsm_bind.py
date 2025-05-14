@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# py -m train_esm_diff
+# py -m train_dsm
 import argparse
 import torch
 import torch.nn.functional as F
@@ -16,9 +16,8 @@ from huggingface_hub import login
 from datasets import load_dataset
 
 from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
-from data.data_collators import DummyPairCollator_input_ids
-from models.modeling_esm_diff import ESM_Diff
-from models.alignment_helpers import GetAlignmentScoreFromLogits
+from data.data_collators import PairCollator_input_ids
+from models.modeling_dsm import DSM_Binders
 from models.utils import wrap_lora
 from utils import set_seed
 
@@ -34,14 +33,11 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 
-def compute_esm_diff_metrics(eval_preds: EvalPrediction):
+def compute_dsm_metrics(eval_preds: EvalPrediction):
     ### NOTE the eval mask percentage is fixed at 15%
     metrics = {}
     lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
-    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
     lm_logits, labels = lm_logits
-
-    scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.tensor(lm_logits)
@@ -54,7 +50,6 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     )
 
     metrics['cross_entropy_loss'] = cross_entropy_loss
-    metrics['alignment_score'] = scores.mean()
 
     y_pred = lm_logits.argmax(axis=-1).flatten()
     y_true = labels.flatten()
@@ -72,23 +67,29 @@ def compute_esm_diff_metrics(eval_preds: EvalPrediction):
     metrics["acc"] = acc
     metrics["mcc"] = mcc
 
+    del lm_logits, labels, lm_logits_torch, labels_torch
+    torch.cuda.empty_cache()
     return metrics
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="GleghornLab/esm_diff_150", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/esm_diff_bind_150_control", help="Path to save the model and report to wandb")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_650", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="lhallee/DSM_bind_650", help="Path to save the model and report to wandb")
+    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=2, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=8, help="Gradient accumulation steps")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
-    parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=1024, help="Maximum length of sequences fed to the model")
-    parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
+    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--save_every", type=int, default=500, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
+    parser.add_argument("--lora", action="store_true", help="Use LoRA for training")
+    parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank")
+    parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
+    parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
     args = parser.parse_args()
     return args
 
@@ -96,11 +97,12 @@ def parse_args():
 def main(args):
     set_seed(42)
     ### Load model
-    model = ESM_Diff.from_pretrained(args.model_path)
-    model = wrap_lora(model, r=8, lora_alpha=32.0, lora_dropout=0.01)
+    model = DSM_Binders.from_pretrained(args.model_path)
+    if args.lora:
+        model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
     tokenizer = model.tokenizer
     summary(model)
-
+    
     ### Load Dataset
     train_dataset = load_dataset("lhallee/string_model_org_90_90_split")
 
@@ -109,7 +111,7 @@ def main(args):
     )
     train_dataset = train_dataset.shuffle(seed=42)
 
-    valid_dataset = train_dataset['valid']
+    valid_dataset = train_dataset['valid'].select(range(1000))
     test_dataset = train_dataset['test']
     train_dataset = train_dataset['train']
     
@@ -122,7 +124,7 @@ def main(args):
     train_dataset = PairDatasetTrainHF(train_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
     valid_dataset = PairDatasetTestHF(valid_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
     test_dataset = PairDatasetTestHF(test_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
-    data_collator = DummyPairCollator_input_ids(tokenizer, args.max_length)
+    data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
     training_args = TrainingArguments(
@@ -137,8 +139,8 @@ def main(args):
         eval_strategy="steps",
         save_steps=args.save_every,
         eval_steps=args.save_every,
-        warmup_steps=args.save_every,
-        logging_dir="./logs",
+        warmup_steps=args.save_every * 2 if args.lora else args.save_every,
+        logging_dir="./logs", 
         learning_rate=args.lr,
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
@@ -155,7 +157,7 @@ def main(args):
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
         data_collator=data_collator,
-        compute_metrics=compute_esm_diff_metrics,
+        compute_metrics=compute_dsm_metrics,
     )
 
     ### Train
@@ -170,7 +172,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m train_esm_diff_bind_control
+    # py -m train_dsm_bind
     args = parse_args()
 
     if WANDB_AVAILABLE:

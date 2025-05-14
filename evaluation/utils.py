@@ -7,7 +7,7 @@ from datasets import Dataset
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
-from models.modeling_esm_diff import ESM_Diff_Binders, ESMDiffConfig
+from models.modeling_dsm import DSM_Binders, DSMConfig
 from models.utils import wrap_lora
 
 
@@ -29,8 +29,8 @@ def load_binder_model(model_path):
         repo_type='model',
     )
 
-    config = ESMDiffConfig.from_pretrained(model_path)
-    model = ESM_Diff_Binders(config=config)
+    config = DSMConfig.from_pretrained(model_path)
+    model = DSM_Binders(config=config)
     model = wrap_lora(model, r=config.lora_r, lora_alpha=config.lora_alpha, lora_dropout=config.lora_dropout)
     state_dict = load_file(local_weight_file)
 

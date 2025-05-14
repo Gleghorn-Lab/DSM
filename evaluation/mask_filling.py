@@ -21,7 +21,7 @@ from glob import glob
 
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator_mask
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_dsm import DSM
 from models.dplm import DiffusionProteinLanguageModel
 from models.alignment_helpers import AlignmentScorer
 from evaluation.plot_mask_fill_results import generate_comparison_plot
@@ -53,8 +53,8 @@ def main():
         print("Generating comparison plot from existing results...")
         generate_comparison_plot(args.results_dir, metrics, args.plot_output,
                                  exclude_models=[
-                                     #'ESMdiff-650M-80k',
-                                     #'ESMdiff-650M-40k',
+                                     #'DSM-650M-80k',
+                                     #'DSM-650M-40k',
                                      #'ESMC-600M',
                                      #'ESMC-300M',
                                      
@@ -84,13 +84,13 @@ def main():
         #'Synthyra/ESM2-8M': 'ESM2-8M',
         #'Synthyra/ESM2-35M': 'ESM2-35M',
         #'Synthyra/ESM2-150M': 'ESM2-150M',
-        #'GleghornLab/eval_diff_150': 'ESMdiff-150M',
+        #'GleghornLab/DSM_150': 'DSM-150M',
         #'Synthyra/ESMplusplus_small': 'ESMC-300M',
         #'Synthyra/ESMplusplus_large': 'ESMC-600M',
         #'Synthyra/ESM2-650M': 'ESM2-650M',
-        #'lhallee/esm_diff_650_40000': 'ESMdiff-650M-40k',
-        #'lhallee/esm_diff_650_80000': 'ESMdiff-650M-80k',
-        #'GleghornLab/ESM_diff_650': 'ESMdiff-650M',
+        #'lhallee/dsm_650_40000': 'DSM-650M-40k',
+        #'lhallee/dsm_650_80000': 'DSM-650M-80k',
+        #'GleghornLab/DSM_650': 'DSM-650M',
         #'Synthyra/ESM2-3B': 'ESM2-3B',
         'airkingbd/dplm_650m': 'DPLM-650M',
         'airkingbd/dplm_150m': 'DPLM-150M'
@@ -119,7 +119,7 @@ def main():
             for model_name, nickname in model_names.items():
                 set_seed(42)
                 if 'diff' in model_name.lower():
-                    model = ESM_Diff.from_pretrained(model_name).to(device).eval()
+                    model = DSM.from_pretrained(model_name).to(device).eval()
                     tokenizer = model.tokenizer
                     diff, dplm = True, False
                 elif 'dplm' in model_name.lower():

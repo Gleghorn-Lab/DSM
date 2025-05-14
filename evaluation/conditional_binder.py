@@ -13,7 +13,7 @@ from .binder_info import BINDING_INFO
 from .utils import generate_random_aa_sequence, load_binder_model
 
 
-MODEL_PATH = 'lhallee/ESM_diff_bind_650'
+MODEL_PATH = 'lhallee/DSM_bind_650'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False

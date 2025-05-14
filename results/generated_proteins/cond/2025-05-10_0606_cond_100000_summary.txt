@@ -1,7 +1,7 @@
 Multi-target CONDITIONAL design run - 2025-05-10 06:06 UTC
 num_samples per template: 100000
 Negative controls per template: 20
-Model: lhallee/ESM_diff_bind_650
+Model: lhallee/DSM_bind_650
 
 ── EGFR ──
 Template predicted pKd: 8.8306

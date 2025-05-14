@@ -8,13 +8,13 @@ import os
 from tqdm import tqdm
 from huggingface_hub import login
 
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_dsm import DSM
 from synthyra_api.affinity_pred import predict_against_target
 from .binder_info import BINDING_INFO
 from .utils import generate_random_aa_sequence
 
 
-MODEL_PATH = 'GleghornLab/ESM_diff_650'
+MODEL_PATH = 'GleghornLab/DSM_650'
 
 TEMPERATURE = 1.0
 REMASKING = 'random'
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     TARGET, TARGET_AMINOS, TARGET_IDX, TEMPLATE, TRUE_PKD, SOURCE, BINDER_SOURCE = BINDING_INFO[args.target]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff.from_pretrained(MODEL_PATH).to(device).eval()
+    model = DSM.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
     designs, design_info, design_set = [], [], set()

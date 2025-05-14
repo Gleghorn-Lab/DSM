@@ -34,10 +34,10 @@ direction_arrows = {
 }
 
 model_name_to_nickname = {
-    'ESMdiff-650M': r'DSM$_{650M}$',
-    'ESMdiff-650M-80k': r'DSM$_{650M-80k}$',
-    'ESMdiff-650M-40k': r'DSM$_{650M-40k}$',
-    'ESMdiff-150M': r'DSM$_{150M}$',
+    'DSM-650M': r'DSM$_{650M}$',
+    'DSM-650M-80k': r'DSM$_{650M-80k}$',
+    'DSM-650M-40k': r'DSM$_{650M-40k}$',
+    'DSM-150M': r'DSM$_{150M}$',
     'ESM2-3B': r'ESM2$_{3B}$',
     'ESM2-650M': r'ESM2$_{650M}$',
     'ESMC-600M': r'ESMC$_{600M}$',
@@ -52,11 +52,11 @@ model_name_to_nickname = {
 
 """
 model_name_to_color = {
-    # ESMdiff models - blue family (distinguishable for most color blindness types)
-    'ESMdiff-650M-80k': '#0072B2',  # dark blue
-    'ESMdiff-650M-40k': '#56B4E9',  # light blue
-    'ESMdiff-650M': '#009E73',      # teal
-    'ESMdiff-150M': '#00BFC4',      # cyan
+    # DSM models - blue family (distinguishable for most color blindness types)
+    'DSM-650M-80k': '#0072B2',  # dark blue
+    'DSM-650M-40k': '#56B4E9',  # light blue
+    'DSM-650M': '#009E73',      # teal
+    'DSM-150M': '#00BFC4',      # cyan
     
     # ESMC models - orange/brown family
     'ESMC-600M': '#E69F00',         # orange
@@ -73,11 +73,11 @@ model_name_to_color = {
 
 
 model_name_to_color = {
-    # ESMdiff models - red/orange family
-    'ESMdiff-650M-80k': 'crimson',
-    'ESMdiff-650M-40k': 'firebrick',
-    'ESMdiff-650M': 'tomato',
-    'ESMdiff-150M': 'coral',
+    # DSM models - red/orange family
+    'DSM-650M-80k': 'crimson',
+    'DSM-650M-40k': 'firebrick',
+    'DSM-650M': 'tomato',
+    'DSM-150M': 'coral',
     
     # ESMC models - blue/purple family
     'ESMC-600M': 'royalblue',

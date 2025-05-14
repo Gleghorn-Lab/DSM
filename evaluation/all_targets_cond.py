@@ -115,7 +115,7 @@ def main() -> None:
         f"Multi-target CONDITIONAL design run - {datetime.now():%Y-%m-%d %H:%M UTC}",
         f"num_samples per template: {args.num_samples}",
         f"Negative controls per template: 20", # Hardcoded to match conditional_binder.py
-        f"Model: lhallee/ESM_diff_bind_650", # Hardcoded to match conditional_binder.py
+        f"Model: lhallee/DSM_bind_650", # Hardcoded to match conditional_binder.py
         "",
     ]
     

@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# py -m train_esm_diff
+# py -m train_dsm
 import argparse
 import torch
 import torch.nn.functional as F
@@ -15,7 +15,7 @@ from sklearn.metrics import (
 from huggingface_hub import login, hf_hub_download
 from datasets import load_dataset, Dataset
 
-from models.modeling_esm_diff import ESM_Diff
+from models.modeling_dsm import DSM
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
@@ -34,7 +34,7 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 
-def compute_esm_diff_metrics(eval_preds: EvalPrediction):
+def compute_dsm_metrics(eval_preds: EvalPrediction):
     ### NOTE the eval mask percentage is fixed at 15%
     metrics = {}
     lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
@@ -99,12 +99,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
     parser.add_argument("--model_path", type=str, default="Synthyra/ESM2-650M", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="GleghornLab/ESM_diff_650", help="Path to save the model and report to wandb")
+    parser.add_argument("--save_path", type=str, default="GleghornLab/DSM_650", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
-    parser.add_argument("--wandb_project", type=str, default="ESM-Diff", help="Wandb project name")
+    parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
@@ -115,7 +115,7 @@ def parse_args():
 
 def main(args):
     ### Load model
-    model = ESM_Diff.from_pretrained(args.model_path)
+    model = DSM.from_pretrained(args.model_path)
     tokenizer = model.tokenizer
     summary(model)
 
@@ -164,7 +164,7 @@ def main(args):
         col_name="sequence",
         num_workers=4,
         prefetch_factor=10,
-        compute_metrics=compute_esm_diff_metrics,
+        compute_metrics=compute_dsm_metrics,
         callbacks=None,
         eval_dataset=valid_dataset,
     )
@@ -181,7 +181,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m train_esm_diff
+    # py -m train_dsm
     args = parse_args()
 
     if WANDB_AVAILABLE:

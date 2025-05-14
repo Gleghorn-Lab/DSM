@@ -9,8 +9,8 @@ from .modeling_transformer import Transformer
 from .utils import wrap_lora
 
 
-class ESMDiffConfig(FastEsmConfig):
-    model_type = "esm_diff"
+class DSMConfig(FastEsmConfig):
+    model_type = "dsm"
     def __init__(
         self,
         num_at_layers: int = 1,
@@ -57,9 +57,9 @@ class LMHead(nn.Module):
         return self.soft_logit_cap * torch.tanh(x / self.soft_logit_cap)
 
 
-class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits EmbeddingMixin
-    config_class = ESMDiffConfig
-    def __init__(self, config: ESMDiffConfig, **kwargs):
+class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits EmbeddingMixin
+    config_class = DSMConfig
+    def __init__(self, config: DSMConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self, self.tokenizer)
         self.config = config
@@ -144,9 +144,9 @@ class ESM_Diff(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Emb
         )
     
 
-class ESM_Diff_Binders(FastEsmModel, GenerateMixin):
-    config_class = ESMDiffConfig
-    def __init__(self, config: ESMDiffConfig, **kwargs):
+class DSM_Binders(FastEsmModel, GenerateMixin):
+    config_class = DSMConfig
+    def __init__(self, config: DSMConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self, self.tokenizer)
         self.config = config
@@ -194,7 +194,7 @@ class ESM_Diff_Binders(FastEsmModel, GenerateMixin):
         **kwargs: Any
     ) -> EsmDiffOutput:
         """
-        For ESM_Diff_Binders, there are two input sequences in each input_ids
+        For DSM_Binders, there are two input sequences in each input_ids
         The first sequence is the target sequence, and the second sequence is a known interactor
         We only want to mask the interactor sequence, not the target sequence
         The format is cls, target, eos, interactor, eos
@@ -253,9 +253,9 @@ class ESM_Diff_Binders(FastEsmModel, GenerateMixin):
         )
 
 
-class ESM_Diff_AV(ESM_Diff):
-    config_class = ESMDiffConfig
-    def __init__(self, config: ESMDiffConfig, **kwargs):
+class DSM_AV(DSM):
+    config_class = DSMConfig
+    def __init__(self, config: DSMConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.at_embedding = nn.Embedding(config.at_vocab_size, config.hidden_size)
         self.at = Transformer(
@@ -359,9 +359,9 @@ class ESM_Diff_AV(ESM_Diff):
 
 
 
-class ESM_Diff_ESM2(FastEsmForMaskedLM, GenerateMixin):
-    config_class = ESMDiffConfig
-    def __init__(self, config: ESMDiffConfig, **kwargs):
+class DSM_ESM2(FastEsmForMaskedLM, GenerateMixin):
+    config_class = DSMConfig
+    def __init__(self, config: DSMConfig, **kwargs):
         FastEsmForMaskedLM.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self, self.tokenizer)
         self.config = config
@@ -381,9 +381,9 @@ class ESM_Diff_ESM2(FastEsmForMaskedLM, GenerateMixin):
 
 
 if __name__ == "__main__":
-    # py -m models.modeling_esm_diff
+    # py -m models.modeling_dsm
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ESM_Diff.from_pretrained('Synthyra/ESM2-8M').to(device)
+    model = DSM.from_pretrained('Synthyra/ESM2-8M').to(device)
     print(model)
 
     # test forward
@@ -394,15 +394,15 @@ if __name__ == "__main__":
     lm_logits, lm_labels = output.logits
     print(output.loss, lm_logits.shape, lm_labels.shape, output.t)
     
-    model = ESM_Diff_ESM2.from_pretrained('Synthyra/ESM2-8M').to(device)
+    model = DSM_ESM2.from_pretrained('Synthyra/ESM2-8M').to(device)
     print(model)
 
     logits = model._get_logits(input_ids, attention_mask)
     print(logits.shape)
 
-    # Test for ESM_Diff_Binders: confirm target is not masked and interactor is masked
-    print("\n--- ESM_Diff_Binders Masking Test ---")
-    binder_model = ESM_Diff_Binders.from_pretrained('Synthyra/ESM2-8M').to(device)
+    # Test for DSM_Binders: confirm target is not masked and interactor is masked
+    print("\n--- DSM_Binders Masking Test ---")
+    binder_model = DSM_Binders.from_pretrained('Synthyra/ESM2-8M').to(device)
     # Create a batch with format: [CLS, target, EOS, interactor, EOS]
     # Let's say target=5 tokens, interactor=7 tokens, vocab size=33
     batch_size = 2

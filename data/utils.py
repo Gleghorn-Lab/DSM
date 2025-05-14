@@ -9,7 +9,7 @@ Standardized MLM masking approach for consistency
 class ProteinMasker(nn.Module):
     def __init__(self, tokenizer, mask_rate=0.15):
         """
-        Implements the masking scheme from ESM_Diff with a default 15% mask probability.
+        Implements the masking scheme from DSM with a default 15% mask probability.
         """
         super().__init__()
         self.mask_token_id = tokenizer.mask_token_id
