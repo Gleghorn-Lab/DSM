@@ -164,7 +164,7 @@ def alignment_score(label, pred, gap_score=-10):
     return score
 
 
-def analyze_two_seqs(label, pred, gap_score=-10):
+def analyze_two_seqs(label, pred, gap_score=-10, wrap_length=100, save_fig=None):
     # ANSI escape codes for colors
     label = sanitize_sequence(label)
     pred = sanitize_sequence(pred)
@@ -173,6 +173,7 @@ def analyze_two_seqs(label, pred, gap_score=-10):
     YELLOW = '\033[93m'
     BLUE = '\033[94m'
     RESET = '\033[0m'
+    BLACK_BOX = '\033[40m'  # Black background
     
     # Get biotite matrix for scoring
     matrix = align.SubstitutionMatrix.std_protein_matrix()
@@ -199,41 +200,202 @@ def analyze_two_seqs(label, pred, gap_score=-10):
     for a, b in zip(aligned_label, aligned_pred):
         total_aligned += 1
         if a == '-' or b == '-':
-            result.append((BLUE, a, b, gap_score))
+            result.append((BLUE, a, b, gap_score, True))  # Different
         else:
             # Access the substitution matrix score
             score = matrix.get_score(a, b)
+            is_different = a != b
             if score > 0:
-                result.append((GREEN, a, b, score))
+                result.append((GREEN, a, b, score, is_different))
                 positive_count += 1
             elif score < 0:
-                result.append((RED, a, b, score))
+                result.append((RED, a, b, score, is_different))
             else:
-                result.append((YELLOW, a, b, score))
+                result.append((YELLOW, a, b, score, is_different))
                 positive_count += 1
                 
     percent_positive = (positive_count / total_aligned) * 100 if total_aligned > 0 else 0
     a_score = alignment_score(label, pred, gap_score)
 
-    label_line = ""
-    pred_line = ""
-    score_line = ""
-
-    for color, a, b, score in result:
-        label_line += f"{color}{a}{RESET}"
-        pred_line += f"{color}{b}{RESET}"
-        if a == '-' or b == '-':
-            score_line += f"{color}-{RESET}"
-        elif score > 0:
-            score_line += f"{color}+{RESET}"
-        elif score < 0:
-            score_line += f"{color}-{RESET}"
-        else:
-            score_line += f"{color}0{RESET}"
-
+    # Prepare wrapped output
+    def wrap_result(result, wrap_length):
+        chunks = []
+        for i in range(0, len(result), wrap_length):
+            chunks.append(result[i:i+wrap_length])
+        return chunks
+    
+    chunks = wrap_result(result, wrap_length)
+    
     print(f"\nPositive: {percent_positive:.2f}%")
     print(f"Score: {a_score:.4f}")
-    print(f"Label: {label_line}")
-    print(f"Pred : {pred_line}")
-    print(f"Score: {score_line}\n")
+    
+    for chunk in chunks:
+        label_line = ""
+        pred_line = ""
+        score_line = ""
+        
+        for color, a, b, score, is_different in chunk:
+            # Add black box background for differing residues
+            if is_different:
+                label_line += f"{color}{BLACK_BOX}{a}{RESET}"
+                pred_line += f"{color}{BLACK_BOX}{b}{RESET}"
+            else:
+                label_line += f"{color}{a}{RESET}"
+                pred_line += f"{color}{b}{RESET}"
+                
+            if a == '-' or b == '-':
+                score_line += f"{color}-{RESET}"
+            elif score > 0:
+                score_line += f"{color}+{RESET}"
+            elif score < 0:
+                score_line += f"{color}-{RESET}"
+            else:
+                score_line += f"{color}0{RESET}"
+
+        print(f"Label: {label_line}")
+        print(f"Pred : {pred_line}")
+        print(f"Score: {score_line}\n")
+    
+    # Save visualization if requested
+    if save_fig:
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib.patches as patches
+            from matplotlib.colors import LinearSegmentedColormap
+            import numpy as np
+            
+            # Set up the figure - add extra space on the right for the legend
+            fig_height = max(3, len(chunks) * 0.6)
+            fig, ax = plt.subplots(figsize=(12, fig_height))
+            
+            # Generate matrix representation for visualization
+            matrix_data = []
+            
+            for i in range(len(chunks)):
+                row_label = []
+                row_pred = []
+                row_scores = []
+                
+                for color, a, b, score, is_different in chunks[i]:
+                    # Convert to numeric representation for visualization
+                    if a == '-' or b == '-':
+                        row_scores.append(-0.5)  # Gap
+                    elif score > 0:
+                        row_scores.append(1.0)  # Positive
+                    elif score < 0:
+                        row_scores.append(-1.0)  # Negative
+                    else:
+                        row_scores.append(0.0)  # Neutral
+                    
+                    row_label.append(a)
+                    row_pred.append(b)
+                
+                # Pad shorter rows with empty spaces
+                if len(row_scores) < wrap_length:
+                    padding = wrap_length - len(row_scores)
+                    row_scores.extend([np.nan] * padding)  # Using NaN instead of None
+                    row_label.extend([' '] * padding)
+                    row_pred.extend([' '] * padding)
+                
+                matrix_data.append((row_label, row_pred, row_scores))
+            
+            # Create better colormap where neutral values are clearly visible
+            # Red for negative, blue for gaps, light gray for background, 
+            # gold/yellow for neutral, green for positive
+            colors = [
+                (0.8, 0, 0),      # Red - negative
+                (0, 0, 0.8),      # Blue - gap
+                (0.9, 0.9, 0.9),  # Light gray - background (NaN)
+                (0.95, 0.85, 0),  # Gold - neutral (0 score)
+                (0, 0.8, 0)       # Green - positive
+            ]
+            positions = [0, 0.25, 0.5, 0.5, 1]
+            cmap = LinearSegmentedColormap.from_list("alignment_cmap", list(zip(positions, colors)))
+            
+            # Create an image-like representation
+            im_height = len(matrix_data) * 2  # 2 rows per chunk (label & pred)
+            im_data = np.full((im_height, wrap_length), np.nan, dtype=float)  # Using NaN
+            
+            for i, (label_row, pred_row, scores) in enumerate(matrix_data):
+                row_idx = i * 2
+                for j, (l, p, s) in enumerate(zip(label_row, pred_row, scores)):
+                    if not np.isnan(s):  # Check for NaN instead of None
+                        # Convert score to color value between -1 and 1
+                        # -1: negative (red), -0.5: gap (blue), 0: neutral (yellow), 1: positive (green)
+                        im_data[row_idx, j] = s
+                        im_data[row_idx+1, j] = s
+            
+            # Normalize to 0-1 range for plotting
+            norm_data = np.copy(im_data)  # Copy instead of creating new array
+            mask = ~np.isnan(im_data)  # Using isnan check
+            if np.any(mask):  # Only normalize if there are non-NaN values
+                norm_data[mask] = (im_data[mask] + 1) / 2  # Convert from [-1,1] to [0,1]
+            
+            # Plot the image with the new colormap
+            im = ax.imshow(norm_data, cmap=cmap, aspect='auto', interpolation='nearest')
+            
+            # Add text annotations
+            for i, (label_row, pred_row, scores) in enumerate(matrix_data):
+                row_idx = i * 2
+                for j, (l, p, s) in enumerate(zip(label_row, pred_row, scores)):
+                    if l != ' ':
+                        # Check if position is valid before accessing
+                        if 0 <= row_idx < im_height and 0 <= j < wrap_length and not np.isnan(norm_data[row_idx, j]):
+                            # Use black text for yellow/gold (neutral) and green (positive) backgrounds
+                            # Use white text for red (negative) and blue (gap) backgrounds
+                            text_color = 'black' if norm_data[row_idx, j] >= 0.5 else 'white'
+                            ax.text(j, row_idx, l, ha='center', va='center', color=text_color, fontsize=8)
+                    if p != ' ':
+                        # Check if position is valid before accessing
+                        if 0 <= row_idx+1 < im_height and 0 <= j < wrap_length and not np.isnan(norm_data[row_idx+1, j]):
+                            text_color = 'black' if norm_data[row_idx+1, j] >= 0.5 else 'white'
+                            ax.text(j, row_idx+1, p, ha='center', va='center', color=text_color, fontsize=8)
+            
+            # Add labels
+            chunk_labels = [f"Label ({i*wrap_length+1}-{min((i+1)*wrap_length, total_aligned)})" for i in range(len(chunks))]
+            chunk_preds = [f"Pred ({i*wrap_length+1}-{min((i+1)*wrap_length, total_aligned)})" for i in range(len(chunks))]
+            
+            # Create custom y-tick positions and labels
+            y_positions = []
+            y_labels = []
+            for i in range(len(chunks)):
+                y_positions.extend([i*2, i*2+1])
+                y_labels.extend([chunk_labels[i], chunk_preds[i]])
+            
+            ax.set_yticks(y_positions)
+            ax.set_yticklabels(y_labels)
+            
+            # Remove x-ticks
+            ax.set_xticks([])
+            
+            # Add a title with scores
+            plt.title(f"Sequence Alignment\nPositive: {percent_positive:.2f}%, Alignment Score: {a_score:.2f}")
+            
+            # Add only a legend (no colorbar)
+            from matplotlib.patches import Patch
+            legend_elements = [
+                Patch(facecolor=colors[0], label='Negative score'),
+                Patch(facecolor=colors[1], label='Gap'),
+                Patch(facecolor=colors[3], label='Neutral score'),
+                Patch(facecolor=colors[4], label='Positive score')
+            ]
+            
+            # Adjust figure to make room for the legend on the right
+            plt.tight_layout(rect=[0, 0, 0.8, 1])  # Leave 20% of width for legend
+            
+            # Create a new axis for the legend on the right side
+            legend_ax = fig.add_axes([0.82, 0.5, 0.15, 0.4])  # [left, bottom, width, height]
+            legend_ax.axis('off')  # Turn off axis
+            legend = legend_ax.legend(handles=legend_elements, loc='center left', frameon=True)
+            
+            # Save the figure
+            plt.savefig(save_fig, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            print(f"Visualization saved to {save_fig}")
+            
+        except ImportError:
+            print("Could not create visualization: matplotlib is required.")
+        except Exception as e:
+            print(f"Error creating visualization: {str(e)}")
+    
     return a_score
