@@ -5,7 +5,7 @@ DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) trained w
 DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM-ppi, a variant fine-tuned to generate protein binders by attending to target sequences.
 
 The repository provides scripts for:
--   Training `DSM` models (e.g., DSM-150, DSM-650) and its variants like DSM-ppi.
+-   Training `DSM` models (e.g., [DSM-150](https://huggingface.co/GleghornLab/DSM_150), [DSM-650](https://huggingface.co/GleghornLab/DSM_650)) and its variants like [DSM-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi).
 -   Comprehensive evaluation of unconditional generation, sequence reconstruction (mask filling), and representation quality.
 -   Generating protein sequences using diffusion and autoregressive methods.
 
@@ -17,6 +17,7 @@ The repository provides scripts for:
 - [Evaluation](#evaluation)
 - [Usage](#usage)
 - [Results](#results)
+- [Models](#models)
 
 ## Installation
 
@@ -66,7 +67,7 @@ The core models in this repository, `DSM` and its variants (defined in `models/m
     *   This also uses the `mask_diffusion_generate` method.
 
 3.  **Conditional Generation (Protein Binders):**
-    *   The DSM-ppi model variant is specifically fine-tuned for protein binder generation. It takes a target sequence as input and generates a potential interacting sequence (binder).
+    *   The DSM-ppi model variant ([DSM-150-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi), [DSM-650-ppi](https://huggingface.co/GleghornLab/DSM_650_ppi)) is specifically fine-tuned for protein binder generation. It takes a target sequence as input and generates a potential interacting sequence (binder).
     *   The input format for DSM-ppi during training and generation is typically `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
     *   The `mask_diffusion_generate` method in general also includes a `prompt_tokens` argument, suggesting broader capabilities for conditional generation.
 
@@ -80,7 +81,7 @@ DSM models feature a modified language modeling head with a soft-logit cap (scal
 
 ## Training
 
-The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like OMG-prot50.
+The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like [OMG-prot50](https://huggingface.co/Synthyra/omg_prot50).
 
 ### Main Training Script: `train_dsm.py`
 
@@ -88,7 +89,7 @@ The primary script for training models is `training/train_dsm.py`. This script f
 -   **Training Objective**: Masked diffusion loss, where the model predicts masked tokens. The loss is scaled by `1/(t + epsilon)` where `t` is the corruption level, penalizing errors more at low mask rates.
 -   **Language Modeling Head**: Uses a modified head with a soft-logit cap (`tau=30`) and tied output projection weights to the token embeddings.
 -   **Data Handling**:
-    -   Training data can be streamed from datasets like `Synthyra/omg_prot50` (a version of Open MetaGenomic dataset clustered at 50% identity).
+    -   Training data can be streamed from datasets like [Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50) (a version of Open MetaGenomic dataset clustered at 50% identity).
     -   Uses `data.dataset_classes.SequenceDatasetFromList` for validation/test sets and `data.dataset_classes.IterableDatasetFromHF` for streaming training.
     -   `data.data_collators.SequenceCollator` is used for batching.
 -   **Training Process**:
@@ -97,21 +98,21 @@ The primary script for training models is `training/train_dsm.py`. This script f
     -   Uses AdamW optimizer and a cosine learning rate scheduler with linear warmup.
     -   Supports logging to Weights & Biases (wandb).
     -   The trained model can be pushed to Hugging Face Hub.
-    -   Example checkpoints mentioned in the paper: DSM-150 (from ESM2-150M, 100k steps, batch 32, seqlen 512, LR 1e-4) and DSM-650 (from ESM2-650M, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
+    -   Example checkpoints mentioned in the paper: [DSM-150](https://huggingface.co/GleghornLab/DSM_150) (from ESM2-150M, 100k steps, batch 32, seqlen 512, LR 1e-4) and [DSM-650](https://huggingface.co/GleghornLab/DSM_650) (from ESM2-650M, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
 
 **Usage Example:**
 
 ```bash
-python -m training.train_dsm \\
-    --model_path facebook/esm2_t33_650M_UR50D \\
-    --save_path YourHuggingFaceUser/DSM_650M_finetuned \\
-    --lr 1e-4 \\
-    --batch_size 8 \\
-    --grad_accum 16 \\
-    --max_steps 100000 \\
-    --save_every 1000 \\
-    --fp16 \\
-    --wandb_project "DSM_Training" \\
+python -m training.train_dsm \
+    --model_path facebook/esm2_t33_650M_UR50D \
+    --save_path GleghornLab/DSM_650 \
+    --lr 1e-4 \
+    --batch_size 8 \
+    --grad_accum 16 \
+    --max_steps 100000 \
+    --save_every 1000 \
+    --fp16 \
+    --wandb_project "DSM_Training" \
     --token <your_hf_token_if_needed_for_private_repo_or_saving>
 ```
 
@@ -133,7 +134,7 @@ python -m training.train_dsm \\
 ### Other Training Scripts (e.g., for DSM-ppi)
 
 The `training/` directory may also contain scripts like `train_dsm_bind.py`.
--   DSM-ppi (e.g., DSM-150-ppi, DSM-650-ppi) is fine-tuned on PPI datasets.
+-   DSM-ppi (e.g., [DSM-150-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi), [DSM-650-ppi](https://huggingface.co/GleghornLab/DSM_650_ppi)) is fine-tuned on PPI datasets.
 -   Training involves conditioning on a target sequence (SeqA) to generate an interactor (SeqB) using the format `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
 -   LoRA (Low-Rank Adaptation) can be applied to attention layers for efficient fine-tuning.
 
@@ -151,7 +152,7 @@ The repository includes a comprehensive suite for evaluating model performance, 
     *   Generate a corpus of sequences based on lengths from a reference set (e.g., validation data).
     *   Compare distributions (1-mers, 2-mers, 3-mers) of amino acids and predicted secondary structures between generated and natural sequences using χ² test and Jensen-Shannon (JS) divergence.
     *   Compare distributions of predicted functional annotations (e.g., using Annotation Vocabulary - AV terms).
-    *   Scripts involved: `evaluation/unconditional_generation_tuning.py` (to find optimal generation parameters like temperature and step divisor `s`), `evaluation/unconditional_generation.py`, `evaluation/ss_pred.py`, `evaluation/annotate_comparisons.py`, `evaluation/compare_distributions.py`, `evaluation/plot_distribution_comparisons.py`.
+    *   Scripts involved: `evaluation/unconditional_generation_tuning.py` (to find optimal generation parameters like temperature and step divisor `s`), `evaluation/unconditional_generation.py`, `evaluation/ss_pred.py` (using [production_ss4_model](https://huggingface.co/GleghornLab/production_ss4_model) or [production_ss9_model](https://huggingface.co/GleghornLab/production_ss9_model)), `evaluation/annotate_comparisons.py`, `evaluation/compare_distributions.py`, `evaluation/plot_distribution_comparisons.py`.
     *   The `run_eval_pipeline.py` script automates this workflow.
 
 3.  **Representation Quality (Model Probing):**
@@ -181,7 +182,7 @@ The script `evaluation/mask_filling.py` is used to evaluate models on their abil
 
 -   **Functionality:**
     -   Evaluates different models (DSM, DPLM, standard ESM models).
-    -   Tests across multiple datasets (`Synthyra/omg_prot50`, `lhallee/string_model_org_90_90_split`).
+    -   Tests across multiple datasets ([Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50), [GleghornLab/stringv12_modelorgs_9090](https://huggingface.co/GleghornLab/stringv12_modelorgs_9090)).
     -   Calculates metrics: loss, perplexity, precision, recall, F1, accuracy, MCC, and alignment score.
     -   Saves detailed results to CSV files.
     -   Can generate a summary plot comparing model performance across different mask rates using `evaluation/plot_mask_fill_results.py`.
@@ -223,7 +224,7 @@ import torch
 from models.modeling_dsm import DSM # Or DSM_ppi for binder generation
 
 # Load a pre-trained model
-model_name_or_path = "YourHuggingFaceUser/DSM_650M_finetuned" # Replace with your model
+model_name_or_path = "GleghornLab/DSM_650" # Replace with your model of choice
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DSM.from_pretrained(model_name_or_path).to(device).eval()
 tokenizer = model.tokenizer
@@ -275,30 +276,30 @@ print(f"Filled sequence: {filled_sequence.replace(' ', '')}")
 If using DSM-ppi, the input format is specific for generating a binder (SeqB) for a target (SeqA).
 
 ```python
-# from models.modeling_dsm import DSM_ppi # Assuming DSM_ppi is a class or loaded correctly
-# model_binder = DSM_ppi.from_pretrained("YourHuggingFaceUser/DSM_650M_ppi_finetuned").to(device).eval()
+from models.modeling_dsm import DSM_ppi # Assuming DSM_ppi is a class or loaded correctly
+model_binder = DSM_ppi.from_pretrained("GleghornLab/DSM_650_ppi").to(device).eval()
 
 target_seq = "TARGETSEQUENCEAMINOACIDS"
 # For binder generation, the 'interactor' (SeqB) part is what gets generated/filled.
 # Start with a fully masked interactor of desired length.
 interactor_template_len = 20
-interactor_template = model.tokenizer.mask_token * interactor_template_len
+interactor_template = model_binder.tokenizer.mask_token * interactor_template_len
 
-combined_input_str = f"{model.tokenizer.cls_token}{target_seq}{model.tokenizer.eos_token}{interactor_template}{model.tokenizer.eos_token}"
+combined_input_str = f"{model_binder.tokenizer.cls_token}{target_seq}{model_binder.tokenizer.eos_token}{interactor_template}{model_binder.tokenizer.eos_token}"
 # Ensure the total length is within model's max_length
 
-binder_template_tokens = model.tokenizer.encode(combined_input_str, return_tensors="pt", truncation=True, max_length=model.config.max_position_embeddings).to(device)
+binder_template_tokens = model_binder.tokenizer.encode(combined_input_str, return_tensors="pt", truncation=True, max_length=model_binder.config.max_position_embeddings).to(device)
 
-generated_binder_ids = model.mask_diffusion_generate( # Assuming 'model' here is an instance of DSM_ppi
+generated_binder_ids = model_binder.mask_diffusion_generate(
     template_tokens=binder_template_tokens,
     steps=int(interactor_template_len / 1) + 10, # More steps for conditional/complex tasks, e.g., one token at a time + refinement
     temperature=1.0,
     remasking="random"
 )
 
-generated_full_seq_str = model.tokenizer.decode(generated_binder_ids[0], skip_special_tokens=False)
+generated_full_seq_str = model_binder.tokenizer.decode(generated_binder_ids[0], skip_special_tokens=False)
 # Parse out the generated interactor part based on EOS tokens.
-# Example: generated_full_seq_str.split(model.tokenizer.eos_token)[1]
+# Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
 print(f"Generated (target+binder): {generated_full_seq_str.replace(' ', '')}")
 ```
 
@@ -314,12 +315,33 @@ DSM demonstrates strong performance in both protein sequence generation and repr
     -   At 90% masking, DSM achieves an Alignment Score (ASc) of ~0.27, considerably higher than random.
     -   DSM models show higher F1 scores in reconstruction tasks compared to DPLM models, especially at high mask rates.
 
--   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. DSM-650 generally provides the best representations among tested models of similar size.
+-   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. [DSM-650](https://huggingface.co/GleghornLab/DSM_650) generally provides the best representations among tested models of similar size.
 
 -   **Effective Binder Design (DSM-ppi):**
-    -   DSM-ppi fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
+    -   [DSM-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi) fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
     -   On the BenchBB benchmark, DSM-generated binders (both unconditional DSM and conditional DSM-ppi) show promising predicted binding affinities, in some cases superior to known binders. For example, designs for EGFR showed high predicted pKd and good structural metrics (ipTM, pTM with AlphaFold3).
 
 -   **Efficiency**: DSM can generate realistic protein sequences from a single forward pass during reconstruction tasks at high mask rates, offering potential efficiency advantages over iterative AR or some discrete diffusion models.
 
 These results highlight DSM's capability to unify high-quality protein representation learning and biologically coherent generative modeling within a single framework.
+
+## Models
+
+The following models are available on Hugging Face:
+
+- **Base DSM Models**:
+  - [GleghornLab/DSM_150](https://huggingface.co/GleghornLab/DSM_150) - 150M parameter DSM model
+  - [GleghornLab/DSM_650](https://huggingface.co/GleghornLab/DSM_650) - 650M parameter DSM model
+
+- **DSM-ppi Models** (for protein binder generation):
+  - [GleghornLab/DSM_150_ppi](https://huggingface.co/GleghornLab/DSM_150_ppi) - 150M parameter DSM-ppi model
+  - [GleghornLab/DSM_650_ppi](https://huggingface.co/GleghornLab/DSM_650_ppi) - 650M parameter DSM-ppi model
+  - [GleghornLab/DSM_150_ppi_control](https://huggingface.co/GleghornLab/DSM_150_ppi_control) - Control version of DSM-ppi
+
+- **Datasets**:
+  - [Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50) - Open MetaGenomic dataset clustered at 50% identity (207M sequences)
+  - [GleghornLab/stringv12_modelorgs_9090](https://huggingface.co/GleghornLab/stringv12_modelorgs_9090) - STRING database model organisms (653k sequences)
+
+- **Utility Models**:
+  - [GleghornLab/production_ss4_model](https://huggingface.co/GleghornLab/production_ss4_model) - Secondary structure prediction (4-class)
+  - [GleghornLab/production_ss9_model](https://huggingface.co/GleghornLab/production_ss9_model) - Secondary structure prediction (9-class)
