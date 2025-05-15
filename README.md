@@ -2,10 +2,10 @@
 
 DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) trained with masked diffusion to enable both high-quality representation learning and generative protein design. This repository contains the code for training and evaluating DSM and its variants. DSM builds upon the ESM2 architecture by incorporating a masked forward diffusion process inspired by the LLaDA framework.
 
-DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes $\text{DSM}_{ppi}$, a variant fine-tuned to generate protein binders by attending to target sequences.
+DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM-ppi, a variant fine-tuned to generate protein binders by attending to target sequences.
 
 The repository provides scripts for:
--   Training `DSM` models (e.g., $\text{DSM}_{\text{150}}$, $\text{DSM}_{650}$) and its variants like $\text{DSM}_{ppi}$.
+-   Training `DSM` models (e.g., DSM-150, DSM-650) and its variants like DSM-ppi.
 -   Comprehensive evaluation of unconditional generation, sequence reconstruction (mask filling), and representation quality.
 -   Generating protein sequences using diffusion and autoregressive methods.
 
@@ -66,8 +66,8 @@ The core models in this repository, `DSM` and its variants (defined in `models/m
     *   This also uses the `mask_diffusion_generate` method.
 
 3.  **Conditional Generation (Protein Binders):**
-    *   The $\text{DSM}_{ppi}$ model variant is specifically fine-tuned for protein binder generation. It takes a target sequence as input and generates a potential interacting sequence (binder).
-    *   The input format for $\text{DSM}_{ppi}$ during training and generation is typically `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
+    *   The DSM-ppi model variant is specifically fine-tuned for protein binder generation. It takes a target sequence as input and generates a potential interacting sequence (binder).
+    *   The input format for DSM-ppi during training and generation is typically `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
     *   The `mask_diffusion_generate` method in general also includes a `prompt_tokens` argument, suggesting broader capabilities for conditional generation.
 
 4.  **High-Quality Protein Representations:**
@@ -80,11 +80,11 @@ DSM models feature a modified language modeling head with a soft-logit cap (scal
 
 ## Training
 
-The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like $\text{OMG}_{prot50}$.
+The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like OMG-prot50.
 
 ### Main Training Script: `train_dsm.py`
 
--   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., $\text{ESM2}_{150M}$, $\text{ESM2}_{650M}$).
+-   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., ESM2-150M, ESM2-650M).
 -   **Training Objective**: Masked diffusion loss, where the model predicts masked tokens. The loss is scaled by `1/(t + epsilon)` where `t` is the corruption level, penalizing errors more at low mask rates.
 -   **Language Modeling Head**: Uses a modified head with a soft-logit cap (`tau=30`) and tied output projection weights to the token embeddings.
 -   **Data Handling**:
@@ -97,7 +97,7 @@ The primary script for training models is `training/train_dsm.py`. This script f
     -   Uses AdamW optimizer and a cosine learning rate scheduler with linear warmup.
     -   Supports logging to Weights & Biases (wandb).
     -   The trained model can be pushed to Hugging Face Hub.
-    -   Example checkpoints mentioned in the paper: $\text{DSM}_{150}$ (from $\text{ESM2}_{150M}$, 100k steps, batch 32, seqlen 512, LR 1e-4) and $\text{DSM}_{650}$ (from $\text{ESM2}_{650M}$, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
+    -   Example checkpoints mentioned in the paper: DSM-150 (from ESM2-150M, 100k steps, batch 32, seqlen 512, LR 1e-4) and DSM-650 (from ESM2-650M, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
 
 **Usage Example:**
 
@@ -130,10 +130,10 @@ python -m training.train_dsm \\
 *   `--fp16`: Enable mixed-precision training.
 *   `--bugfix`: Use small batch size and max length for debugging.
 
-### Other Training Scripts (e.g., for $\text{DSM}_{ppi}$)
+### Other Training Scripts (e.g., for DSM-ppi)
 
 The `training/` directory may also contain scripts like `train_dsm_bind.py`.
--   $\text{DSM}_{ppi}$ (e.g., $\text{DSM}_{150-ppi}$, $\text{DSM}_{650-ppi}$) is fine-tuned on PPI datasets.
+-   DSM-ppi (e.g., DSM-150-ppi, DSM-650-ppi) is fine-tuned on PPI datasets.
 -   Training involves conditioning on a target sequence (SeqA) to generate an interactor (SeqB) using the format `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
 -   LoRA (Low-Rank Adaptation) can be applied to attention layers for efficient fine-tuning.
 
@@ -149,7 +149,7 @@ The repository includes a comprehensive suite for evaluating model performance, 
 
 2.  **Unconditional Generation Quality:**
     *   Generate a corpus of sequences based on lengths from a reference set (e.g., validation data).
-    *   Compare distributions (1-mers, 2-mers, 3-mers) of amino acids and predicted secondary structures between generated and natural sequences using $\chi^2$ test and Jensen-Shannon (JS) divergence.
+    *   Compare distributions (1-mers, 2-mers, 3-mers) of amino acids and predicted secondary structures between generated and natural sequences using χ² test and Jensen-Shannon (JS) divergence.
     *   Compare distributions of predicted functional annotations (e.g., using Annotation Vocabulary - AV terms).
     *   Scripts involved: `evaluation/unconditional_generation_tuning.py` (to find optimal generation parameters like temperature and step divisor `s`), `evaluation/unconditional_generation.py`, `evaluation/ss_pred.py`, `evaluation/annotate_comparisons.py`, `evaluation/compare_distributions.py`, `evaluation/plot_distribution_comparisons.py`.
     *   The `run_eval_pipeline.py` script automates this workflow.
@@ -158,13 +158,13 @@ The repository includes a comprehensive suite for evaluating model performance, 
     *   Evaluate learned embeddings by training linear probes (or simple transformer blocks) on various downstream tasks (e.g., secondary structure prediction, localization prediction, etc.).
     *   Performance is compared against random vectors, randomized transformers, and other established pLMs.
 
-4.  **Conditional Generation (Binder Design for $\text{DSM}_{ppi}$):**
-    *   Evaluate $\text{DSM}_{ppi}$ on benchmarks like BenchBB.
+4.  **Conditional Generation (Binder Design for DSM-ppi):**
+    *   Evaluate DSM-ppi on benchmarks like BenchBB.
     *   Generate binders for target proteins using template-based masking strategies.
-    *   Assess generated binders using \textit{in-silico} tools like Synteract2 for predicted binding affinity (ppKd).
+    *   Assess generated binders using *in-silico* tools like Synteract2 for predicted binding affinity (ppKd).
 
 The `evaluation/` directory also contains a `readme.md` which provides further details on some evaluation workflows. Key metrics used include:
--   **Alignment Score (ASc):** A normalized Needleman-Wunsch global alignment score (using BLOSUM62) to measure sequence similarity, robust to length variations. $ASc(a, b) = \frac{l}{f(a, a) - f(a, b) + l}$.
+-   **Alignment Score (ASc):** A normalized Needleman-Wunsch global alignment score (using BLOSUM62) to measure sequence similarity, robust to length variations. ASc(a, b) = l/(f(a, a) - f(a, b) + l).
 -   **Jensen-Shannon (JS) Divergence:** To compare distributions of k-mers and functional terms.
 
 **Running the Full Unconditional Evaluation Pipeline:**
@@ -271,8 +271,8 @@ filled_sequence = model.tokenizer.decode(filled_ids[0], skip_special_tokens=True
 print(f"Filled sequence: {filled_sequence.replace(' ', '')}")
 ```
 
-### 3. Conditional Generation (e.g., Binders - using $\text{DSM}_{ppi}$)
-If using $\text{DSM}_{ppi}$, the input format is specific for generating a binder (SeqB) for a target (SeqA).
+### 3. Conditional Generation (e.g., Binders - using DSM-ppi)
+If using DSM-ppi, the input format is specific for generating a binder (SeqB) for a target (SeqA).
 
 ```python
 # from models.modeling_dsm import DSM_ppi # Assuming DSM_ppi is a class or loaded correctly
@@ -314,11 +314,11 @@ DSM demonstrates strong performance in both protein sequence generation and repr
     -   At 90% masking, DSM achieves an Alignment Score (ASc) of ~0.27, considerably higher than random.
     -   DSM models show higher F1 scores in reconstruction tasks compared to DPLM models, especially at high mask rates.
 
--   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. $\text{DSM}_{650}$ generally provides the best representations among tested models of similar size.
+-   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. DSM-650 generally provides the best representations among tested models of similar size.
 
--   **Effective Binder Design ($\text{DSM}_{ppi}$):**
-    -   $\text{DSM}_{ppi}$ fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
-    -   On the BenchBB benchmark, DSM-generated binders (both unconditional DSM and conditional $\text{DSM}_{ppi}$) show promising predicted binding affinities, in some cases superior to known binders. For example, designs for EGFR showed high predicted pKd and good structural metrics (ipTM, pTM with AlphaFold3).
+-   **Effective Binder Design (DSM-ppi):**
+    -   DSM-ppi fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
+    -   On the BenchBB benchmark, DSM-generated binders (both unconditional DSM and conditional DSM-ppi) show promising predicted binding affinities, in some cases superior to known binders. For example, designs for EGFR showed high predicted pKd and good structural metrics (ipTM, pTM with AlphaFold3).
 
 -   **Efficiency**: DSM can generate realistic protein sequences from a single forward pass during reconstruction tasks at high mask rates, offering potential efficiency advantages over iterative AR or some discrete diffusion models.
 
