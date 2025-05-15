@@ -135,27 +135,40 @@ if __name__ == "__main__":
     import ast
     import argparse
     from collections import defaultdict
-    from datasets import Dataset
+    from datasets import Dataset, load_dataset
 
     from .utils import describe_prompt, aspect_dict, id2label, annotation_vocab_dict
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--synthyra_api_key", type=str, default=None, help="Synthyra API key")
     parser.add_argument("--result_path", type=str, default=None, help="Path to save results")
+    parser.add_argument("--data_path", type=str, default=None, help="Path to data")
     args = parser.parse_args()
 
-    data_path = 'synthyra_api/new_uniprot.csv'
-    result_path = args.result_path if args.result_path is not None else 'synthyra_api/new_output.csv'
-    df = pd.read_csv(data_path)
-    data = Dataset.from_pandas(df).map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
+
+    if args.data_path == 'test':
+        train_dataset = load_dataset('lhallee/AV', split='train').shuffle(seed=1234)
+        train_dataset = train_dataset.train_test_split(test_size=2000, seed=42)
+        valid_dataset = train_dataset['test']
+        train_dataset = train_dataset['train']
+        valid_dataset = valid_dataset.train_test_split(test_size=1000, seed=24)
+        data = valid_dataset['test']
+        valid_dataset = valid_dataset['train']
+        del train_dataset, valid_dataset
+    else:
+        df = pd.read_csv(args.data_path)
+        data = Dataset.from_pandas(df)
+
+    data = data.map(lambda x: {'annotations': ast.literal_eval(x['annotations'])})
     seqs = data['sequence']
+    seqs = [seq[:2000] for seq in seqs]
     annotations = data['annotations']
 
     if args.result_path is None:
         data = [{'seq': seqs[i]} for i in range(len(seqs))]
         result_df = send_request(data, 'annotation', args.synthyra_api_key)
     else:
-        result_df = pd.read_csv(result_path)
+        result_df = pd.read_csv(args.result_path)
 
     metrics = defaultdict(dict)
     # Initialize counters for all aspects

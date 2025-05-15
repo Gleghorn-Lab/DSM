@@ -1,0 +1,9 @@
+Metrics by aspect:
+ec: Precision=0.21, Recall=0.85, F1=0.33, Accuracy=0.85
+bp: Precision=0.16, Recall=0.75, F1=0.27, Accuracy=0.75
+cc: Precision=0.25, Recall=0.77, F1=0.38, Accuracy=0.77
+mf: Precision=0.37, Recall=0.73, F1=0.49, Accuracy=0.73
+ip: Precision=0.78, Recall=0.76, F1=0.77, Accuracy=0.76
+threed: Precision=0.82, Recall=0.81, F1=0.81, Accuracy=0.81
+keywords: Precision=0.41, Recall=0.86, F1=0.56, Accuracy=0.86
+cofactor: Precision=0.38, Recall=0.81, F1=0.52, Accuracy=0.81

@@ -62,5 +62,6 @@ aspect_dict = {
     'mf': 'GO Molecular Function',
     'ip': 'InterPro',
     'threed': 'Gene3D',
-    'keywords': 'Uniprot Keywords'
+    'keywords': 'Uniprot Keywords',
+    'cofactor': 'cofactor'
 }
