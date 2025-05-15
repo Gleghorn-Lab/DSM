@@ -5,7 +5,7 @@ DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) trained w
 DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes $\text{DSM}_{ppi}$, a variant fine-tuned to generate protein binders by attending to target sequences.
 
 The repository provides scripts for:
--   Training `DSM` models (e.g., $\mathrm{DSM}_{150}$, $\mathrm{DSM}_{650}$) and its variants like $\text{DSM}_{ppi}$.
+-   Training `DSM` models (e.g., $\text{DSM}_{\text{150}}$, $\text{DSM}_{650}$) and its variants like $\text{DSM}_{ppi}$.
 -   Comprehensive evaluation of unconditional generation, sequence reconstruction (mask filling), and representation quality.
 -   Generating protein sequences using diffusion and autoregressive methods.
 
@@ -80,11 +80,11 @@ DSM models feature a modified language modeling head with a soft-logit cap (scal
 
 ## Training
 
-The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like $\mathrm{OMG}_{prot50}$.
+The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like $\text{OMG}_{prot50}$.
 
 ### Main Training Script: `train_dsm.py`
 
--   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., $\mathrm{ESM2}_{150M}$, $\mathrm{ESM2}_{650M}$).
+-   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., $\text{ESM2}_{150M}$, $\text{ESM2}_{650M}$).
 -   **Training Objective**: Masked diffusion loss, where the model predicts masked tokens. The loss is scaled by `1/(t + epsilon)` where `t` is the corruption level, penalizing errors more at low mask rates.
 -   **Language Modeling Head**: Uses a modified head with a soft-logit cap (`tau=30`) and tied output projection weights to the token embeddings.
 -   **Data Handling**:
@@ -97,7 +97,7 @@ The primary script for training models is `training/train_dsm.py`. This script f
     -   Uses AdamW optimizer and a cosine learning rate scheduler with linear warmup.
     -   Supports logging to Weights & Biases (wandb).
     -   The trained model can be pushed to Hugging Face Hub.
-    -   Example checkpoints mentioned in the paper: $\mathrm{DSM}_{150}$ (from $\mathrm{ESM2}_{150M}$, 100k steps, batch 32, seqlen 512, LR 1e-4) and $\mathrm{DSM}_{650}$ (from $\mathrm{ESM2}_{650M}$, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
+    -   Example checkpoints mentioned in the paper: $\text{DSM}_{150}$ (from $\text{ESM2}_{150M}$, 100k steps, batch 32, seqlen 512, LR 1e-4) and $\text{DSM}_{650}$ (from $\text{ESM2}_{650M}$, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
 
 **Usage Example:**
 
@@ -133,7 +133,7 @@ python -m training.train_dsm \\
 ### Other Training Scripts (e.g., for $\text{DSM}_{ppi}$)
 
 The `training/` directory may also contain scripts like `train_dsm_bind.py`.
--   $\text{DSM}_{ppi}$ (e.g., $\mathrm{DSM}_{150-ppi}$, $\mathrm{DSM}_{650-ppi}$) is fine-tuned on PPI datasets.
+-   $\text{DSM}_{ppi}$ (e.g., $\text{DSM}_{150-ppi}$, $\text{DSM}_{650-ppi}$) is fine-tuned on PPI datasets.
 -   Training involves conditioning on a target sequence (SeqA) to generate an interactor (SeqB) using the format `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
 -   LoRA (Low-Rank Adaptation) can be applied to attention layers for efficient fine-tuning.
 
@@ -314,7 +314,7 @@ DSM demonstrates strong performance in both protein sequence generation and repr
     -   At 90% masking, DSM achieves an Alignment Score (ASc) of ~0.27, considerably higher than random.
     -   DSM models show higher F1 scores in reconstruction tasks compared to DPLM models, especially at high mask rates.
 
--   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. $\mathrm{DSM}_{650}$ generally provides the best representations among tested models of similar size.
+-   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. $\text{DSM}_{650}$ generally provides the best representations among tested models of similar size.
 
 -   **Effective Binder Design ($\text{DSM}_{ppi}$):**
     -   $\text{DSM}_{ppi}$ fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
