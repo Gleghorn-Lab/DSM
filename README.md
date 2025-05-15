@@ -2,10 +2,10 @@
 
 DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) trained with masked diffusion to enable both high-quality representation learning and generative protein design. This repository contains the code for training and evaluating DSM and its variants. DSM builds upon the ESM2 architecture by incorporating a masked forward diffusion process inspired by the LLaDA framework.
 
-DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM$_{ppi}$, a variant fine-tuned to generate protein binders by attending to target sequences.
+DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM_{ppi}, a variant fine-tuned to generate protein binders by attending to target sequences.
 
 The repository provides scripts for:
--   Training `DSM` models (e.g., DSM$_{150}$, DSM$_{650}$) and its variants like DSM$_{ppi}$.
+-   Training `DSM` models (e.g., DSM_{150}, DSM_{650}) and its variants like DSM_{ppi}.
 -   Comprehensive evaluation of unconditional generation, sequence reconstruction (mask filling), and representation quality.
 -   Generating protein sequences using diffusion and autoregressive methods.
 
@@ -53,32 +53,6 @@ The repository provides scripts for:
 
 The project relies on the following major libraries. All dependencies are listed in `requirements.txt` and installed by the `setup_bioenv.sh` script.
 
--   torch>=2.6.0
--   torchvision
--   torchmetrics
--   torchaudio
--   torchinfo
--   tf-keras
--   tensorflow
--   transformers>=4.48
--   accelerate>=1.1.0
--   datasets
--   einops
--   numpy==1.26.1
--   pandas
--   scikit-learn
--   scipy
--   wandb
--   peft
--   matplotlib
--   biopython
--   biotite
--   seaborn
--   pauc
--   sentencepiece
--   IPython
--   wordcloud
-
 ## Functionality
 
 The core models in this repository, `DSM` and its variants (defined in `models/modeling_dsm.py`), offer several functionalities related to protein sequence generation:
@@ -106,11 +80,11 @@ DSM models feature a modified language modeling head with a soft-logit cap (scal
 
 ## Training
 
-The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like OMG$_{prot50}$.
+The primary script for training models is `training/train_dsm.py`. This script further pretrains an ESM2 checkpoint using the DSM objective (masked diffusion based on LLaDA) on a large protein sequence dataset like OMG_{prot50}.
 
 ### Main Training Script: `train_dsm.py`
 
--   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., ESM2$_{150M}$, ESM2$_{650M}$).
+-   **Base Model**: DSM models are extended from pre-trained ESM2 checkpoints (e.g., ESM2_{150M}, ESM2_{650M}).
 -   **Training Objective**: Masked diffusion loss, where the model predicts masked tokens. The loss is scaled by `1/(t + epsilon)` where `t` is the corruption level, penalizing errors more at low mask rates.
 -   **Language Modeling Head**: Uses a modified head with a soft-logit cap (`tau=30`) and tied output projection weights to the token embeddings.
 -   **Data Handling**:
@@ -123,7 +97,7 @@ The primary script for training models is `training/train_dsm.py`. This script f
     -   Uses AdamW optimizer and a cosine learning rate scheduler with linear warmup.
     -   Supports logging to Weights & Biases (wandb).
     -   The trained model can be pushed to Hugging Face Hub.
-    -   Example checkpoints mentioned in the paper: DSM$_{150}$ (from ESM2$_{150M}$, 100k steps, batch 32, seqlen 512, LR 1e-4) and DSM$_{650}$ (from ESM2$_{650M}$, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
+    -   Example checkpoints mentioned in the paper: DSM_{150} (from ESM2_{150M}, 100k steps, batch 32, seqlen 512, LR 1e-4) and DSM_{650} (from ESM2_{650M}, 100k steps, global batch 128, seqlen 2048, LR 1e-4).
 
 **Usage Example:**
 
@@ -159,7 +133,7 @@ python -m training.train_dsm \\
 ### Other Training Scripts (e.g., for `DSM_{ppi}`)
 
 The `training/` directory may also contain scripts like `train_dsm_bind.py`.
--   `DSM_{ppi}` (e.g., DSM$_{150-ppi}$, DSM$_{650-ppi}$) is fine-tuned on PPI datasets.
+-   `DSM_{ppi}` (e.g., DSM_{150-ppi}, DSM_{650-ppi}) is fine-tuned on PPI datasets.
 -   Training involves conditioning on a target sequence (SeqA) to generate an interactor (SeqB) using the format `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
 -   LoRA (Low-Rank Adaptation) can be applied to attention layers for efficient fine-tuning.
 
@@ -187,7 +161,7 @@ The repository includes a comprehensive suite for evaluating model performance, 
 4.  **Conditional Generation (Binder Design for `DSM_{ppi}`):**
     *   Evaluate `DSM_{ppi}` on benchmarks like BenchBB.
     *   Generate binders for target proteins using template-based masking strategies.
-    *   Assess generated binders using \textit{in-silico} tools like Synteract2 for predicted binding affinity (ppKd).
+    *   Assess generated binders using *in-silico* tools like Synteract2 for predicted binding affinity (ppKd).
 
 The `evaluation/` directory also contains a `readme.md` which provides further details on some evaluation workflows. Key metrics used include:
 -   **Alignment Score (ASc):** A normalized Needleman-Wunsch global alignment score (using BLOSUM62) to measure sequence similarity, robust to length variations. $ASc(a, b) = \frac{l}{f(a, a) - f(a, b) + l}$.
@@ -247,13 +221,12 @@ First, ensure you have a trained model (either one you trained or a pre-trained 
 ```python
 import torch
 from models.modeling_dsm import DSM # Or DSM_ppi for binder generation
-# from transformers import AutoTokenizer # Tokenizer is usually part of the DSM model
 
 # Load a pre-trained model
 model_name_or_path = "YourHuggingFaceUser/DSM_650M_finetuned" # Replace with your model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = DSM.from_pretrained(model_name_or_path).to(device).eval()
-# model.tokenizer is available
+tokenizer = model.tokenizer
 ```
 
 ### 1. Unconditional Sequence Generation
@@ -264,14 +237,7 @@ To generate a novel sequence of a specific length. DSM uses a progressive denois
 generated_ids = model.mask_diffusion_generate(
     batch_size=1,
     length=100,  # Desired length of the protein (excluding CLS/EOS)
-    steps=5, # Number of diffusion steps (s value from paper, e.g. length // 5 for 5 tokens per step, or a fixed number of steps)
-                # The paper mentions s=5 (step divisor) meaning L/5 steps, or filling L/s tokens per step.
-                # Or simpler: steps = desired number of iterations, e.g., 20-100. Let's use a fixed number.
-    # For full diffusion, steps might be ~num_tokens_to_generate / tokens_per_step
-    # The paper mentions "s=5 for future experimentation" where s is a step divisor.
-    # And "filling in one token at a time (s=1)" or "s tokens were chosen to keep".
-    # Let's use 'steps' as the number of iterations for clarity here.
-    steps=int(100 / 5), # Example: if length is 100 and we unmask 5 tokens effectively per step
+    steps=100,
     temperature=1.0,    # Sampling temperature
     remasking="random", # Strategy for remasking tokens not kept
     start_with_methionine=True,
@@ -287,20 +253,15 @@ To fill in masked regions of a template sequence:
 
 ```python
 # Mask Filling / Inpainting
-template_sequence = "MA<MASK><MASK><MASK>KEG<MASK><MASK>STL"
-# Ensure template includes CLS and EOS if model expects them for processing, 
-# or handle tokenization appropriately. The GenerateMixin adds them if not template_tokens.
-# For direct use with mask_diffusion_generate, provide tokenized template_tokens.
-
-# Tokenize the template (model.tokenizer can be used)
-# Example assumes CLS and EOS are handled by the model or GenerateMixin
+template_sequence = "MA<mask><mask><mask>KEG<mask><mask>STL"
 input_str_for_tokenizer = f"{model.tokenizer.cls_token}{template_sequence}{model.tokenizer.eos_token}"
 
 template_tokens = model.tokenizer.encode(input_str_for_tokenizer, return_tensors="pt").to(device)
+mask_tokens = (template_tokens == '<mask>').sum()
 
 filled_ids = model.mask_diffusion_generate(
     template_tokens=template_tokens,
-    steps=int(template_tokens.shape[1] / 5), # Adjust steps based on sequence length or number of masks
+    steps=mask_tokens,
     temperature=0.8,
     remasking="low_confidence",
     preview=False
@@ -314,7 +275,6 @@ print(f"Filled sequence: {filled_sequence.replace(' ', '')}")
 If using `DSM_{ppi}`, the input format is specific for generating a binder (SeqB) for a target (SeqA).
 
 ```python
-# Example conceptual sketch for DSM_ppi
 # from models.modeling_dsm import DSM_ppi # Assuming DSM_ppi is a class or loaded correctly
 # model_binder = DSM_ppi.from_pretrained("YourHuggingFaceUser/DSM_650M_ppi_finetuned").to(device).eval()
 
@@ -342,24 +302,6 @@ generated_full_seq_str = model.tokenizer.decode(generated_binder_ids[0], skip_sp
 print(f"Generated (target+binder): {generated_full_seq_str.replace(' ', '')}")
 ```
 
-### 4. Autoregressive Generation
-
-```python
-# Autoregressive generation
-ar_generated_ids = model.auto_regressive_generate(
-    batch_size=1,
-    length=100,  # Desired length of the protein (excluding CLS/EOS)
-    steps=50,    # Number of autoregressive steps
-    temperature=0.8,
-    remasking="random",
-    start_with_methionine=True,
-    preview=False
-)
-
-ar_generated_sequence = model.tokenizer.decode(ar_generated_ids[0], skip_special_tokens=True)
-print(f"Autoregressively generated sequence: {ar_generated_sequence.replace(' ', '')}")
-```
-
 **Note:** The exact tokenizer handling and model loading might vary. `model.tokenizer.decode` often adds spaces between tokens; `replace(' ', '')` can remove them for a contiguous sequence. Always check generation parameters like `steps` for optimal results.
 
 ## Results
@@ -372,7 +314,7 @@ DSM demonstrates strong performance in both protein sequence generation and repr
     -   At 90% masking, DSM achieves an Alignment Score (ASc) of ~0.27, considerably higher than random.
     -   DSM models show higher F1 scores in reconstruction tasks compared to DPLM models, especially at high mask rates.
 
--   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. DSM$_{650}$ generally provides the best representations among tested models of similar size.
+-   **High-Quality Embeddings**: DSM embeddings match or exceed the quality of those from comparably sized pLMs (ESM2, DPLM) and even larger autoregressive models (ProtCLM 1B) on various downstream tasks evaluated by linear probing. DSM_{650} generally provides the best representations among tested models of similar size.
 
 -   **Effective Binder Design (`DSM_{ppi}`):**
     -   `DSM_{ppi}` fine-tuned on protein-protein interaction data, demonstrates the ability to generate protein binders conditioned on target sequences.
