@@ -94,6 +94,7 @@ class GenerateMixin:
         self,
         template_tokens: Optional[torch.LongTensor] = None,
         prompt_tokens: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
         batch_size: Optional[int] = 1,
         block_wise: Optional[bool] = False,
         block_length: Optional[int] = 32,
@@ -135,17 +136,21 @@ class GenerateMixin:
             batch_size = batch_size if prompt_tokens is None else prompt_tokens.shape[0]
 
         # Add 2 for CLS and EOS tokens
-
         if template_tokens is not None:
             total_length = template_tokens.shape[1]
             x = template_tokens
             has_prompt = False
+            if attention_mask is None:
+                attention_mask = torch.ones_like(template_tokens)
         else:
             total_length = length + 2
             # Initialize with all mask tokens and add CLS/EOS tokens
             x = torch.full((batch_size, total_length), self.mask_token_id, dtype=torch.long, device=device)
             x[:, 0], x[:, -1] = self.cls_token_id, self.eos_token_id
+            if attention_mask is None:
+                attention_mask = torch.ones_like(x)
         
+
         if prompt_tokens is None:
             has_prompt = False
         else:
@@ -170,7 +175,7 @@ class GenerateMixin:
             
             logits = self._get_logits(
                 input_ids=x,
-                attention_mask=torch.ones_like(x),
+                attention_mask=attention_mask,
                 prompt_tokens=prompt_tokens,
                 prompt_attention_mask=torch.ones_like(prompt_tokens) if has_prompt else None,
             )
@@ -268,7 +273,7 @@ class GenerateMixin:
             # Final step to fill all remaining masks
             logits = self._get_logits(
                 input_ids=x,
-                attention_mask=torch.ones_like(x),
+                attention_mask=attention_mask,
                 prompt_tokens=prompt_tokens,
                 prompt_attention_mask=torch.ones_like(prompt_tokens) if has_prompt else None,
             )
