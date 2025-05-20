@@ -1,6 +1,7 @@
 import torch
 from typing import Tuple, List, Dict, Union, Any
-from models.alignment_helpers import AlignmentScorer
+
+from ..models.alignment_helpers import AlignmentScorer
 from .utils import ProteinMasker
 
 
