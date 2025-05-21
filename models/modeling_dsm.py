@@ -31,7 +31,7 @@ class DSMConfig(FastEsmConfig):
 
 
 @dataclass
-class EsmDiffOutput(ModelOutput):
+class DSMOutput(ModelOutput):
     loss: Optional[torch.Tensor] = None
     logits: Optional[Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]] = None
     last_hidden_state: Optional[torch.Tensor] = None
@@ -91,7 +91,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         **kwargs: Any
-    ) -> EsmDiffOutput:
+    ) -> DSMOutput:
         eps = 1e-3
         batch_size, seq_len = input_ids.shape
         device = input_ids.device
@@ -134,7 +134,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
 
         loss = token_loss.sum() / (batch_size * seq_len)
 
-        return EsmDiffOutput(
+        return DSMOutput(
             loss=loss,
             logits=(lm_logits, labels),
             last_hidden_state=x,
@@ -162,8 +162,8 @@ class DSM_Binders(FastEsmModel, GenerateMixin):
     @staticmethod
     def _make_interactor_mask(eos_mask: torch.BoolTensor) -> torch.BoolTensor:
         """
-        eos_mask: (b, L) – True where <eos> appears.
-        Returns:  (b, L) – True for tokens strictly between the *first* and *second*
+        eos_mask: (b, L) - True where <eos> appears.
+        Returns:  (b, L) - True for tokens strictly between the first and second
                            <eos> (the interactor), False elsewhere.
         """
         # Cumulative count of <eos> along sequence dimension:
@@ -192,7 +192,7 @@ class DSM_Binders(FastEsmModel, GenerateMixin):
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         **kwargs: Any
-    ) -> EsmDiffOutput:
+    ) -> DSMOutput:
         """
         For DSM_Binders, there are two input sequences in each input_ids
         The first sequence is the target sequence, and the second sequence is a known interactor
@@ -243,7 +243,7 @@ class DSM_Binders(FastEsmModel, GenerateMixin):
         ) / p_mask[joint_mask]
         loss = token_loss.sum() / (batch_size * seq_len)
 
-        return EsmDiffOutput(
+        return DSMOutput(
             loss = loss,
             logits = (lm_logits, labels),
             last_hidden_state = x,
@@ -300,7 +300,7 @@ class DSM_AV(DSM):
         at_ids: Optional[torch.Tensor] = None,
         at_attention_mask: Optional[torch.Tensor] = None,
         **kwargs: Any
-    ) -> EsmDiffOutput:
+    ) -> DSMOutput:
         x_at = self.at_embedding(at_ids)
         x_at = self.at(x_at, at_attention_mask)
 
@@ -348,7 +348,7 @@ class DSM_AV(DSM):
 
         loss = token_loss.sum() / (batch_size * seq_len)
 
-        return EsmDiffOutput(
+        return DSMOutput(
             loss=loss,
             logits=(logits, labels),
             last_hidden_state=x,
