@@ -63,7 +63,11 @@ class GenerateMixin:
 
     def _mask_sampling(self, logits: torch.Tensor, temperature: float, remasking: str, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         logits_with_noise = self._add_gumbel_noise(logits, temperature=temperature)
-        logits_with_noise[:, :, self.mask_token_id] = -torch.inf # prevent mask token from being selected
+        # Prevent non-canonical amino acids from being selected
+        for i in range(self.vocab_size):
+            if not self._is_canonical_amino_acid(i):
+                logits_with_noise[:, :, i] = -torch.inf
+        
         x0 = torch.argmax(logits_with_noise, dim=-1)  # b, l
         if remasking == 'low_confidence':
             p = F.softmax(logits.to(torch.float64), dim=-1)
@@ -251,7 +255,6 @@ class GenerateMixin:
             for i in range(steps):
                 x = __step(x, num_transfer_tokens, temperature, remasking)
         
-        
         # Final step: convert any special tokens (except CLS and EOS) to masks and fill them all
         # Necessary for when steps is not divisible by the number of tokens in the sequence
         special_tokens = ~self.canonical_mask.to(device)
@@ -267,8 +270,6 @@ class GenerateMixin:
         # Check if any mask tokens remain
         mask_index = (x == self.mask_token_id)
         if mask_index.any():
-            # Prepare for final step that fills all remaining masks at once
-            num_final_tokens = torch.sum(mask_index, dim=1, keepdim=True)
             
             # Final step to fill all remaining masks
             logits = self._get_logits(
