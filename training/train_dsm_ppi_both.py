@@ -3,6 +3,8 @@
 import argparse
 import torch
 import torch.nn.functional as F
+import random
+from torch.utils.data import Dataset as TorchDataset
 from torchinfo import summary
 from transformers import TrainingArguments, EvalPrediction, Trainer
 from sklearn.metrics import (
@@ -16,7 +18,6 @@ from huggingface_hub import login
 from datasets import load_dataset
 
 from models.modeling_dsm import DSM
-from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
 from data.data_collators import PairCollator_input_ids
 
 
@@ -96,26 +97,66 @@ def main(args):
     summary(model)
 
     ### Load Dataset
-    train_dataset = load_dataset("GleghornLab/stringv12_modelorgs_9090")
+    seq_dict = load_dataset('Synthyra/StringDBSeqsv12_unique', split='train')
+    seq_dict = dict(zip(seq_dict['id'], seq_dict['sequence']))
 
-    train_dataset = train_dataset.filter(
-        lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < args.max_length
-    )
+    train_dataset = load_dataset("Synthyra/all_string_pairs_900_unique", split='train')
+
+    def filter_func(x):
+        id_a, id_b = x['pairs'].split('|')
+        seq_a = seq_dict[id_a]
+        seq_b = seq_dict[id_b]
+        return len(seq_a) > 20 and len(seq_b) > 20 and len(seq_a) + len(seq_b) < args.max_length
+
+    train_dataset = train_dataset.filter(filter_func)
     train_dataset = train_dataset.shuffle(seed=42)
 
-    valid_dataset = train_dataset['valid'].select(range(1000))
-    test_dataset = train_dataset['test']
-    train_dataset = train_dataset['train']
+    ### make random eval split
+    train_dataset, valid_dataset = train_dataset.train_test_split(test_size=1000, seed=42)
     
     if args.bugfix:
         train_dataset = train_dataset.select(range(10000))
         valid_dataset = valid_dataset.select(range(10))
-        test_dataset = test_dataset.select(range(10))
-    
+
+
+    class PairDatasetTrainHF(TorchDataset):
+        def __init__(self, data, pairs_col: str = 'pairs', label_col: str = 'score', **kwargs):
+            self.pairs = data[pairs_col]
+            self.labels = data[label_col]
+
+        def __len__(self):
+            return len(self.pairs)
+
+        def __getitem__(self, idx):
+            pair = self.pairs[idx]
+            id_a, id_b = pair.split('|')
+            seq_a = seq_dict[id_a]
+            seq_b = seq_dict[id_b]
+            if random.random() < 0.5:
+                seq_a, seq_b = seq_b, seq_a
+            return seq_a, seq_b, self.labels[idx]
+        
+
+    class PairDatasetTestHF(TorchDataset):
+        def __init__(self, data, pairs_col: str = 'pairs', label_col: str = 'score', **kwargs):
+            self.pairs = data[pairs_col]
+            self.labels = data[label_col]
+
+        def __len__(self):
+            return len(self.pairs)
+
+        def __getitem__(self, idx):
+            pair = self.pairs[idx]
+            id_a, id_b = pair.split('|')
+            seq_a = seq_dict[id_a]
+            seq_b = seq_dict[id_b]
+            return seq_a, seq_b, self.labels[idx]
+
+
     # the labels are not actually used, we include them to play nice with existing collators
-    train_dataset = PairDatasetTrainHF(train_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
-    valid_dataset = PairDatasetTestHF(valid_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
-    test_dataset = PairDatasetTestHF(test_dataset, col_a='SeqA', col_b='SeqB', label_col='score')
+    train_dataset = PairDatasetTrainHF(train_dataset)
+    valid_dataset = PairDatasetTestHF(valid_dataset)
+    test_dataset = PairDatasetTestHF(test_dataset)
     data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
@@ -153,10 +194,10 @@ def main(args):
     )
 
     ### Train
-    metrics = trainer.evaluate(test_dataset)
+    metrics = trainer.evaluate(valid_dataset)
     print('Initial Metrics: \n', metrics)
     trainer.train()
-    metrics = trainer.evaluate(test_dataset)
+    metrics = trainer.evaluate(valid_dataset)
     print('Final Metrics: \n', metrics)
     trainer.model.push_to_hub(args.save_path, private=True)
     if WANDB_AVAILABLE:
