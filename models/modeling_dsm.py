@@ -142,7 +142,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
             attentions=None,
             t=t,
         )
-    
+
 
 class DSM_Binders(FastEsmModel, GenerateMixin):
     config_class = DSMConfig

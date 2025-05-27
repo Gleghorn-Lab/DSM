@@ -1,6 +1,5 @@
 import torch
 import random
-from tqdm import tqdm
 
 from models.modeling_dsm import DSM
 
@@ -44,6 +43,3 @@ if __name__ == '__main__':
                 continue
             if token.item() not in model.canonical_amino_acid_ids:
                 raise ValueError(f'{token} found')
-
-
-

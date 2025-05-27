@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
-# py -m train_dsm
+# py -m train_dsm_ppi_both
 import argparse
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
-from transformers import TrainingArguments, Trainer, EvalPrediction
+from transformers import TrainingArguments, EvalPrediction, Trainer
 from sklearn.metrics import (
     f1_score,
     accuracy_score,
@@ -15,11 +15,10 @@ from sklearn.metrics import (
 from huggingface_hub import login
 from datasets import load_dataset
 
+from models.modeling_dsm import DSM
 from data.dataset_classes import PairDatasetTrainHF, PairDatasetTestHF
 from data.data_collators import PairCollator_input_ids
-from models.modeling_dsm import DSM_Binders
-from models.utils import wrap_lora
-from utils import set_seed
+
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -76,35 +75,28 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
     parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_650", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/DSM_bind_650", help="Path to save the model and report to wandb")
-    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=2, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=8, help="Gradient accumulation steps")
-    parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
+    parser.add_argument("--save_path", type=str, default="lhallee/DSM_650_ppi_both", help="Path to save the model and report to wandb")
+    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
+    parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
     parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
-    parser.add_argument("--save_every", type=int, default=500, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
-    parser.add_argument("--lora", action="store_true", help="Use LoRA for training")
-    parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank")
-    parser.add_argument("--lora_alpha", type=float, default=32.0, help="LoRA alpha")
-    parser.add_argument("--lora_dropout", type=float, default=0.01, help="LoRA dropout")
     args = parser.parse_args()
     return args
 
 
 def main(args):
-    set_seed(42)
     ### Load model
-    model = DSM_Binders.from_pretrained(args.model_path)
-    if args.lora:
-        model = wrap_lora(model, r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout)
+    model = DSM.from_pretrained(args.model_path)
     tokenizer = model.tokenizer
     summary(model)
-    
+
     ### Load Dataset
-    train_dataset = load_dataset("lhallee/string_model_org_90_90_split")
+    train_dataset = load_dataset("GleghornLab/stringv12_modelorgs_9090")
 
     train_dataset = train_dataset.filter(
         lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < args.max_length
@@ -132,15 +124,15 @@ def main(args):
         overwrite_output_dir=True,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        num_train_epochs=args.num_epochs,
+        max_steps=args.max_steps,
         gradient_accumulation_steps=args.grad_accum,
         logging_steps=100,
         save_strategy="steps",
         eval_strategy="steps",
         save_steps=args.save_every,
         eval_steps=args.save_every,
-        warmup_steps=args.save_every * 2 if args.lora else args.save_every,
-        logging_dir="./logs", 
+        warmup_steps=args.save_every,
+        logging_dir="./logs",
         learning_rate=args.lr,
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
@@ -172,7 +164,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    # py -m train_dsm_bind
+    # py -m train_dsm_ppi_both
     args = parse_args()
 
     if WANDB_AVAILABLE:
