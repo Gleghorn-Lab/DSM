@@ -4,9 +4,31 @@ import argparse
 import torch
 import torch.nn.functional as F
 import random
+import pathlib
+import os
 from torch.utils.data import Dataset as TorchDataset
 from torchinfo import summary
+
+
+base_path = "/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee1/code"
+cache_root = f"{base_path}/hf_cache"
+tmp_root   = f"{base_path}/tmp"
+
+if os.path.exists(base_path):
+    # Create the directories once
+    pathlib.Path(cache_root).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(tmp_root).mkdir(parents=True, exist_ok=True)
+
+    os.environ["HF_HOME"]            = cache_root              # master switch
+    os.environ["HF_DATASETS_CACHE"]  = f"{cache_root}/datasets"
+    os.environ["TRANSFORMERS_CACHE"] = f"{cache_root}/transformers"
+    os.environ["HF_HUB_CACHE"]       = f"{cache_root}/hub"
+
+### HF imports, needs to happen after HOME is set
 from transformers import TrainingArguments, EvalPrediction, Trainer
+from huggingface_hub import login
+from datasets import load_dataset
+
 from sklearn.metrics import (
     f1_score,
     accuracy_score,
@@ -14,8 +36,6 @@ from sklearn.metrics import (
     recall_score,
     matthews_corrcoef,
 )
-from huggingface_hub import login
-from datasets import load_dataset
 
 from models.modeling_dsm import DSM
 from data.data_collators import PairCollator_input_ids
