@@ -204,7 +204,7 @@ def main(args):
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
         report_to="wandb" if WANDB_AVAILABLE else 'none',
-        save_total_limit=3,
+        save_total_limit=5,
         max_grad_norm=10.0,
         label_names=['input_ids'],
         hub_always_push=False if args.bugfix else True,
@@ -212,7 +212,6 @@ def main(args):
         hub_strategy='every_save',
         hub_model_id=args.save_path,
         hub_private_repo=True,
-        save_total_limit=5,
     )
 
     ### Create a trainer
