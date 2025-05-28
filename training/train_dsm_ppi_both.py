@@ -23,6 +23,12 @@ if os.path.exists(base_path):
     os.environ["HF_DATASETS_CACHE"]  = f"{cache_root}/datasets"
     os.environ["TRANSFORMERS_CACHE"] = f"{cache_root}/transformers"
     os.environ["HF_HUB_CACHE"]       = f"{cache_root}/hub"
+    print(f"HF_HOME: {os.environ['HF_HOME']}")
+    print(f"HF_DATASETS_CACHE: {os.environ['HF_DATASETS_CACHE']}")
+    print(f"TRANSFORMERS_CACHE: {os.environ['TRANSFORMERS_CACHE']}")
+    print(f"HF_HUB_CACHE: {os.environ['HF_HUB_CACHE']}")
+else:
+    print("HF_HOME not set, skipping cache setup")
 
 ### HF imports, needs to happen after HOME is set
 from transformers import TrainingArguments, EvalPrediction, Trainer
