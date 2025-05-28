@@ -114,6 +114,7 @@ def main(args):
     ### make random eval split
     train_dataset = train_dataset.train_test_split(test_size=1000, seed=42)
     valid_dataset = train_dataset['test']
+    train_dataset = train_dataset['train']
 
     if args.bugfix:
         train_dataset = train_dataset.select(range(10000))
