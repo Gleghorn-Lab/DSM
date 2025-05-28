@@ -10,7 +10,7 @@ from torch.utils.data import Dataset as TorchDataset
 from torchinfo import summary
 
 
-base_path = "/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee1/code"
+base_path = "/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee-dsm-ppi/code"
 cache_root = f"{base_path}/hf_cache"
 tmp_root   = f"{base_path}/tmp"
 
