@@ -1,8 +1,8 @@
 import torch
 from typing import Tuple, List, Dict, Union, Any
 
-from ..models.alignment_helpers import AlignmentScorer
-from .utils import ProteinMasker
+from models.alignment_helpers import AlignmentScorer
+from data.utils import ProteinMasker
 
 
 def standard_data_collator(batch):

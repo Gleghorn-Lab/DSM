@@ -79,7 +79,7 @@ def parse_args():
     parser.add_argument("--save_path", type=str, default="lhallee/DSM_650_ppi_both", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
+    parser.add_argument("--grad_accum", type=int, default=8, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for")
     parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
@@ -151,7 +151,6 @@ def main(args):
             seq_a = seq_dict[id_a]
             seq_b = seq_dict[id_b]
             return seq_a, seq_b, self.labels[idx]
-
 
     # the labels are not actually used, we include them to play nice with existing collators
     train_dataset = PairDatasetTrainHF(train_dataset)
