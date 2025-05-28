@@ -112,8 +112,9 @@ def main(args):
     train_dataset = train_dataset.shuffle(seed=42)
 
     ### make random eval split
-    train_dataset, valid_dataset = train_dataset.train_test_split(test_size=1000, seed=42)
-    
+    train_dataset = train_dataset.train_test_split(test_size=1000, seed=42)
+    valid_dataset = train_dataset['test']
+
     if args.bugfix:
         train_dataset = train_dataset.select(range(10000))
         valid_dataset = valid_dataset.select(range(10))
@@ -155,7 +156,6 @@ def main(args):
     # the labels are not actually used, we include them to play nice with existing collators
     train_dataset = PairDatasetTrainHF(train_dataset)
     valid_dataset = PairDatasetTestHF(valid_dataset)
-    test_dataset = PairDatasetTestHF(test_dataset)
     data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
