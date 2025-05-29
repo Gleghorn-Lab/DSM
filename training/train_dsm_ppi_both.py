@@ -208,6 +208,7 @@ def main(args):
         max_grad_norm=10.0,
         label_names=['input_ids'],
         hub_always_push=False if args.bugfix else True,
+        push_to_hub=True,
         save_only_model=True,
         hub_strategy='every_save',
         hub_model_id=args.save_path,
