@@ -62,7 +62,7 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
 
 
 if __name__ == '__main__':
-    # py -m design.unconditional_binder
+    # py -m evaluation.unconditional_binder
     args = arg_parser()
     if args.token is not None:
         login(args.token)
