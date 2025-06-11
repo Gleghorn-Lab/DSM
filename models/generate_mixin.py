@@ -109,6 +109,7 @@ class GenerateMixin:
         start_with_methionine: Optional[bool] = False,
         preview: Optional[bool] = False,
         slow: Optional[bool] = False,
+        return_trajectory: Optional[bool] = False,
     ) -> torch.LongTensor:
         """
         Mask diffusion generation that combines all aspects of different generation methods.
@@ -129,6 +130,8 @@ class GenerateMixin:
         Returns:
             Generated token IDs
         """
+
+        trajectory = []
 
         assert template_tokens is None or prompt_tokens is None, "Cannot provide both template and prompt tokens"
 
@@ -221,12 +224,13 @@ class GenerateMixin:
             to_remask[eos_mask] = False
             x[to_remask] = self.mask_token_id
             
+            decoded_tokens = self._decode_seq(x[0])
             if preview:
-                decoded_tokens = self._decode_seq(x[0])
                 print(f'\r{decoded_tokens}', end='', flush=True)
                 if slow:
                     import time
                     time.sleep(0.2)
+            trajectory.append(decoded_tokens)
             return x
 
         if block_wise:
@@ -248,46 +252,50 @@ class GenerateMixin:
                 for i in range(steps_per_block):
                     x = __step(x, num_transfer_tokens, temperature, remasking, num_block, num_blocks)
         else:
-            # Global sampling approach
             mask_index = (x == self.mask_token_id)
             num_transfer_tokens = self._get_num_transfer_tokens(mask_index, steps)
-            
+
             for i in range(steps):
                 x = __step(x, num_transfer_tokens, temperature, remasking)
-        
-        # Final step: convert any special tokens (except CLS and EOS) to masks and fill them all
-        # Necessary for when steps is not divisible by the number of tokens in the sequence
-        special_tokens = ~self.canonical_mask.to(device)
-        special_tokens[self.cls_token_id] = False  # Don't mask CLS
-        special_tokens[self.eos_token_id] = False  # Don't mask EOS
-        
-        # Find remaining special tokens in the sequence
-        remaining_special = special_tokens[x]
-        
-        # Convert special tokens to mask tokens
-        x[remaining_special] = self.mask_token_id
-        
-        # Check if any mask tokens remain
-        mask_index = (x == self.mask_token_id)
-        if mask_index.any():
-            
-            # Final step to fill all remaining masks
-            logits = self._get_logits(
-                input_ids=x,
-                attention_mask=attention_mask,
-                prompt_tokens=prompt_tokens,
-                prompt_attention_mask=torch.ones_like(prompt_tokens) if has_prompt else None,
-            )
-            
-            x0, _ = self._mask_sampling(logits, temperature, remasking, device)
-            x = torch.where(mask_index, x0, x)
-        
-        if preview:
-            print('\nFinal sequence:')
-            print('=' * length)
-            print(self._decode_seq(x[0]))
-            print('=' * length)
-        return x
+
+            # Final step: convert any special tokens (except CLS and EOS) to masks and fill them all
+            # Necessary for when steps is not divisible by the number of tokens in the sequence
+            special_tokens = ~self.canonical_mask.to(device)
+            special_tokens[self.cls_token_id] = False  # Don't mask CLS
+            special_tokens[self.eos_token_id] = False  # Don't mask EOS
+
+            # Find remaining special tokens in the sequence
+            remaining_special = special_tokens[x]
+
+            # Convert special tokens to mask tokens
+            x[remaining_special] = self.mask_token_id
+
+            # Check if any mask tokens remain
+            mask_index = (x == self.mask_token_id)
+            if mask_index.any():
+
+                # Final step to fill all remaining masks
+                logits = self._get_logits(
+                    input_ids=x,
+                    attention_mask=attention_mask,
+                    prompt_tokens=prompt_tokens,
+                    prompt_attention_mask=torch.ones_like(prompt_tokens) if has_prompt else None,
+                )
+
+                x0, _ = self._mask_sampling(logits, temperature, remasking, device)
+                x = torch.where(mask_index, x0, x)
+
+            final_seq = self._decode_seq(x[0])
+            if preview:
+                print('\nFinal sequence:')
+                print('=' * length)
+                print(final_seq)
+                print('=' * length)
+            trajectory.append(final_seq)
+            if return_trajectory:
+                return x, trajectory
+            else:
+                return x
 
     def auto_regressive_generate(
         self,

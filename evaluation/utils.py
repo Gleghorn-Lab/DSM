@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import random
 from typing import List
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
@@ -71,3 +71,13 @@ def get_eval_data(num_samples: int = None) -> List[str]:
     print(data)
     valid_seqs = sorted(data['sequence'], key=len, reverse=True)
     return valid_seqs
+
+
+def get_ppi_examples(num_samples: int = 100, max_combined_length: int = 1024):
+    positives = load_dataset('Synthyra/BIOGRID-MV', split='train')
+    positives = positives.filter(lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < max_combined_length)
+    negatives = load_dataset('Synthyra/NEGATOME', split='combined')
+    negatives = negatives.filter(lambda x: len(x['SeqA']) > 20 and len(x['SeqB']) > 20 and len(x['SeqA']) + len(x['SeqB']) < max_combined_length)
+    positives = positives.shuffle(seed=42).select(range(num_samples))
+    negatives = negatives.shuffle(seed=42).select(range(num_samples))
+    return positives, negatives
