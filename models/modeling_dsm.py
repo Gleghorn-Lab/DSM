@@ -71,6 +71,10 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         self.mask_token_id = self.tokenizer.mask_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
         self.eos_token_id = self.tokenizer.eos_token_id
+        try:
+            self.sep_token_id = self.tokenizer.sep_token_id
+        except:
+            self.sep_token_id = '<sep>'
 
     def _get_logits(
         self,
@@ -110,7 +114,8 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         # prevent cls and eos from being masked
         cls_mask = input_ids == self.cls_token_id
         eos_mask = input_ids == self.eos_token_id
-        mask_indices = mask_indices & ~cls_mask & ~eos_mask & attention_mask.bool()
+        sep_mask = input_ids == self.sep_token_id
+        mask_indices = mask_indices & ~cls_mask & ~eos_mask & ~sep_mask & attention_mask.bool()
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
