@@ -215,6 +215,7 @@ def main(args):
     # the labels are not actually used, we include them to play nice with existing collators
     train_dataset = PairDatasetTrainHF(train_dataset)
     valid_dataset = PairDatasetTestHF(valid_dataset)
+    test_dataset = PairDatasetTestHF(test_dataset)
     data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
