@@ -160,8 +160,8 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
     # extend from vocabulary 33 -> 64
     new_model = copy.deepcopy(model)
     hidden_size = model.config.hidden_size
-    new_model.esm.embeddings.word_embeddings.weight = torch.nn.Parameter(torch.zeros(64, hidden_size))
-    new_model.lm_head.decoder.weight = torch.nn.Parameter(torch.zeros(64, hidden_size))
+    new_model.esm.embeddings.word_embeddings.weight = torch.nn.Parameter(torch.randn(64, hidden_size))
+    new_model.lm_head.decoder.weight = torch.nn.Parameter(torch.randn(64, hidden_size))
     with torch.no_grad():
         for i in range(33):
             for j in range(64):
