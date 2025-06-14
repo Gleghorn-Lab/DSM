@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple, Any, Union
+from typing import Optional, Tuple, Any, Union, List
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
 from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
@@ -68,13 +68,19 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         # tie to word embeddings
         self.lm_head.decoder.weight = self.esm.embeddings.word_embeddings.weight
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
-        self.mask_token_id = self.tokenizer.mask_token_id
-        self.cls_token_id = self.tokenizer.cls_token_id
-        self.eos_token_id = self.tokenizer.eos_token_id
-        try:
-            self.sep_token_id = self.tokenizer.sep_token_id
-        except:
-            self.sep_token_id = '<sep>'
+        self.special_token_ids = self.get_special_token_ids()
+
+    def get_special_token_ids(self, extra_tokens: Optional[List[str]] = None):
+        # Do not include the mask token
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mask_token = self.tokenizer.mask_token
+        self.special_token_ids = [self.tokenizer.convert_tokens_to_ids(v) for k, v in self.tokenizer.special_tokens_map.items() if v != mask_token]
+        if extra_tokens is not None:
+            self.special_token_ids.extend([self.tokenizer.convert_tokens_to_ids(v) for v in extra_tokens])
+
+        self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
+        return self.special_token_ids
+
 
     def _get_logits(
         self,
@@ -111,11 +117,9 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         
         p_mask = t[:, None].repeat(1, seq_len)
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
-        # prevent cls and eos from being masked
-        cls_mask = input_ids == self.cls_token_id
-        eos_mask = input_ids == self.eos_token_id
-        sep_mask = input_ids == self.sep_token_id
-        mask_indices = mask_indices & ~cls_mask & ~eos_mask & ~sep_mask & attention_mask.bool()
+        # prevent special tokens from being masked (cls, sep, eos, etc.)
+        special_mask = torch.isin(input_ids, self.special_token_ids)
+        mask_indices = mask_indices & ~special_mask & attention_mask.bool()
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
@@ -388,56 +392,166 @@ class DSM_ESM2(FastEsmForMaskedLM, GenerateMixin):
 if __name__ == "__main__":
     # py -m models.modeling_dsm
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = DSM.from_pretrained('Synthyra/ESM2-8M').to(device)
-    print(model)
-
-    # test forward
-    input_ids = torch.randint(0, 33, (8, 256)).to(device)
-    attention_mask = torch.ones_like(input_ids).to(device)
-
-    output = model(input_ids, attention_mask)
-    lm_logits, lm_labels = output.logits
-    print(output.loss, lm_logits.shape, lm_labels.shape, output.t)
+    print(f"Using device: {device}")
     
-    model = DSM_ESM2.from_pretrained('Synthyra/ESM2-8M').to(device)
-    print(model)
-
-    logits = model._get_logits(input_ids, attention_mask)
-    print(logits.shape)
-
-    # Test for DSM_Binders: confirm target is not masked and interactor is masked
-    print("\n--- DSM_Binders Masking Test ---")
-    binder_model = DSM_Binders.from_pretrained('Synthyra/ESM2-8M').to(device)
-    # Create a batch with format: [CLS, target, EOS, interactor, EOS]
-    # Let's say target=5 tokens, interactor=7 tokens, vocab size=33
-    batch_size = 2
-    target_len = 5
-    interactor_len = 7
-    cls_id = binder_model.cls_token_id
-    eos_id = binder_model.eos_token_id
-    mask_id = binder_model.mask_token_id
-    # Random target and interactor
-    target = torch.randint(0, 33, (batch_size, target_len)).to(device)
-    interactor = torch.randint(0, 33, (batch_size, interactor_len)).to(device)
-    input_ids = torch.cat([
-        torch.full((batch_size, 1), cls_id, device=device),
-        target,
-        torch.full((batch_size, 1), eos_id, device=device),
-        interactor,
-        torch.full((batch_size, 1), eos_id, device=device)
-    ], dim=1)
+    # Test DSM Model
+    print("\n=== Testing DSM Model ===")
+    model = DSM.from_pretrained('Synthyra/ESM2-8M').to(device)
+    model.train()  # Enable training mode for masking
+    
+    # Get special token IDs for testing
+    cls_id = model.tokenizer.cls_token_id
+    eos_id = model.tokenizer.eos_token_id
+    pad_id = model.tokenizer.pad_token_id
+    mask_id = model.tokenizer.mask_token_id
+    
+    print(f"Special tokens - CLS: {cls_id}, EOS: {eos_id}, PAD: {pad_id}, MASK: {mask_id}")
+    
+    # Create test input with known special tokens
+    batch_size = 4
+    seq_len = 64
+    
+    # Create input with special tokens at specific positions
+    input_ids = torch.randint(4, 33, (batch_size, seq_len)).to(device)  # Avoid special tokens initially
+    input_ids[:, 0] = cls_id  # Start with CLS
+    input_ids[:, -1] = eos_id  # End with EOS
+    input_ids[:, seq_len//2] = eos_id  # Add EOS in middle
+    if pad_id is not None:
+        input_ids[:, -5:-1] = pad_id  # Add some padding tokens
+    
     attention_mask = torch.ones_like(input_ids).to(device)
-    # Run forward pass
-    binder_model.train()  # ensure masking happens
-    output = binder_model(input_ids, attention_mask)
-    _, labels = output.logits
-    # Find which positions are masked (labels != -100)
-    masked_positions = (labels != -100)
-    print("Input IDs:\n", input_ids)
-    print("Labels (masked positions):\n", labels)
-    print("Masked positions (True=masked):\n", masked_positions)
-    # Check that target region (positions 1:1+target_len) is never masked
-    print("Target region masked?", masked_positions[:, 1:1+target_len].any().item())
-    # Check that interactor region (positions after first eos, before last eos) is sometimes masked
-    print("Interactor region masked?", masked_positions[:, 2+target_len:-1].any().item())
+    if pad_id is not None:
+        attention_mask[input_ids == pad_id] = 0  # Mask padding tokens
+    
+    # Run multiple forward passes to test masking consistency
+    special_token_masked_count = 0
+    total_runs = 10
+    
+    for run in range(total_runs):
+        output = model(input_ids, attention_mask)
+        lm_logits, labels = output.logits
+        
+        # Check if any special tokens were masked (labels != -100 means token was masked)
+        for special_id in model.special_token_ids:
+            special_positions = (input_ids == special_id)
+            masked_special = (labels != -100) & special_positions
+            if masked_special.any():
+                special_token_masked_count += 1
+                print(f"WARNING: Special token {special_id} was masked in run {run}")
+    
+    print(f"DSM Special Token Masking Test: {special_token_masked_count}/{total_runs} runs had special tokens masked")
+    assert special_token_masked_count == 0, "Special tokens should never be masked in DSM!"
+    
+    # Test that regular tokens can be masked
+    regular_token_positions = ~torch.isin(input_ids, model.special_token_ids) & attention_mask.bool()
+    masked_regular = (labels != -100) & regular_token_positions
+    print(f"Regular tokens masked: {masked_regular.sum().item()}/{regular_token_positions.sum().item()}")
+    assert masked_regular.any(), "Some regular tokens should be masked!"
+    
+    print("✓ DSM masking test passed!")
+    
+    # Test DSM_Binders Model
+    print("\n=== Testing DSM_Binders Model ===")
+    binder_model = DSM_Binders.from_pretrained('Synthyra/ESM2-8M').to(device)
+    binder_model.train()  # Enable training mode for masking
+    
+    # Create test data with format: [CLS, target, EOS, interactor, EOS]
+    batch_size = 3
+    target_len = 8
+    interactor_len = 12
+    
+    # Build sequences with clear structure
+    target_tokens = torch.randint(4, 33, (batch_size, target_len)).to(device)
+    interactor_tokens = torch.randint(4, 33, (batch_size, interactor_len)).to(device)
+    
+    input_ids = torch.cat([
+        torch.full((batch_size, 1), cls_id, device=device),  # CLS token
+        target_tokens,                                        # Target sequence
+        torch.full((batch_size, 1), eos_id, device=device), # First EOS
+        interactor_tokens,                                    # Interactor sequence
+        torch.full((batch_size, 1), eos_id, device=device)  # Second EOS
+    ], dim=1)
+    
+    attention_mask = torch.ones_like(input_ids).to(device)
+    
+    # Define expected regions
+    cls_region = slice(0, 1)
+    target_region = slice(1, 1 + target_len)
+    first_eos_region = slice(1 + target_len, 1 + target_len + 1)
+    interactor_region = slice(1 + target_len + 1, 1 + target_len + 1 + interactor_len)
+    second_eos_region = slice(-1, None)
+    
+    # Run multiple tests to ensure consistency
+    target_masked_count = 0
+    interactor_masked_count = 0
+    eos_masked_count = 0
+    cls_masked_count = 0
+    
+    for run in range(total_runs):
+        output = binder_model(input_ids, attention_mask)
+        _, labels = output.logits
+        masked_positions = (labels != -100)
+        
+        # Check each region
+        if masked_positions[:, cls_region].any():
+            cls_masked_count += 1
+        if masked_positions[:, target_region].any():
+            target_masked_count += 1
+        if masked_positions[:, first_eos_region].any() or masked_positions[:, second_eos_region].any():
+            eos_masked_count += 1
+        if masked_positions[:, interactor_region].any():
+            interactor_masked_count += 1
+    
+    print(f"DSM_Binders Masking Results over {total_runs} runs:")
+    print(f"  CLS tokens masked: {cls_masked_count}/{total_runs}")
+    print(f"  Target tokens masked: {target_masked_count}/{total_runs}")
+    print(f"  EOS tokens masked: {eos_masked_count}/{total_runs}")
+    print(f"  Interactor tokens masked: {interactor_masked_count}/{total_runs}")
+    
+    # Assertions
+    assert cls_masked_count == 0, "CLS tokens should never be masked in DSM_Binders!"
+    assert target_masked_count == 0, "Target tokens should never be masked in DSM_Binders!"
+    assert eos_masked_count == 0, "EOS tokens should never be masked in DSM_Binders!"
+    assert interactor_masked_count > 0, "Interactor tokens should sometimes be masked in DSM_Binders!"
+    
+    print("✓ DSM_Binders masking test passed!")
+    
+    # Test _make_interactor_mask function directly
+    print("\n=== Testing _make_interactor_mask Function ===")
+    test_input = torch.tensor([
+        [cls_id, 5, 6, 7, eos_id, 8, 9, 10, eos_id],  # CLS, target, EOS, interactor, EOS
+        [cls_id, 11, 12, eos_id, 13, 14, 15, 16, eos_id]  # Different lengths
+    ]).to(device)
+    
+    eos_mask = (test_input == eos_id)
+    interactor_mask = DSM_Binders._make_interactor_mask(eos_mask)
+    
+    print("Test input:")
+    print(test_input)
+    print("EOS mask:")
+    print(eos_mask)
+    print("Interactor mask (should be True only between first and second EOS):")
+    print(interactor_mask)
+    
+    # Verify interactor mask is correct
+    expected_interactor_0 = torch.tensor([False, False, False, False, False, True, True, True, False])
+    expected_interactor_1 = torch.tensor([False, False, False, False, True, True, True, True, False])
+    
+    assert torch.equal(interactor_mask[0], expected_interactor_0), "Interactor mask incorrect for sequence 0"
+    assert torch.equal(interactor_mask[1], expected_interactor_1), "Interactor mask incorrect for sequence 1"
+    
+    print("✓ _make_interactor_mask function test passed!")
+    
+    # Test DSM_ESM2 model
+    print("\n=== Testing DSM_ESM2 Model ===")
+    esm2_model = DSM_ESM2.from_pretrained('Synthyra/ESM2-8M').to(device)
+    test_input = torch.randint(0, 33, (2, 32)).to(device)
+    test_attention = torch.ones_like(test_input).to(device)
+    
+    logits = esm2_model._get_logits(test_input, test_attention)
+    print(f"DSM_ESM2 logits shape: {logits.shape}")
+    assert logits.shape == (2, 32, esm2_model.config.vocab_size), "DSM_ESM2 logits shape incorrect"
+    
+    print("✓ DSM_ESM2 test passed!")
+    print("\n=== All Tests Passed! ===")
 

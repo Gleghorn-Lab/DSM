@@ -99,33 +99,19 @@ def compute_dsm_metrics(eval_preds: EvalPrediction):
     return metrics
 
 
-class PairDatasetTrainHF(TorchDataset):
+class PairDataset(TorchDataset):
     def __init__(self, data, a_col: str = 'seqs', b_col: str = 'labels', **kwargs):
         self.seqs_a = data[a_col]
         self.seqs_b = data[b_col]
 
     def __len__(self):
-        return len(self.pairs)
+        return len(self.seqs_a)
 
     def __getitem__(self, idx):
         seq_a = self.seqs_a[idx]
         seq_b = self.seqs_b[idx]
         if random.random() < 0.5:
             seq_a, seq_b = seq_b, seq_a
-        return seq_a, seq_b
-    
-
-class PairDatasetTestHF(TorchDataset):
-    def __init__(self, data, a_col: str = 'seqs', b_col: str = 'labels', **kwargs):
-        self.seqs_a = data[a_col]
-        self.seqs_b = data[b_col]
-
-    def __len__(self):
-        return len(self.pairs)
-
-    def __getitem__(self, idx):
-        seq_a = self.seqs_a[idx]
-        seq_b = self.seqs_b[idx]
         return seq_a, seq_b
 
 
@@ -213,9 +199,9 @@ def main(args):
         test_dataset = test_dataset.select(range(10))
 
     # the labels are not actually used, we include them to play nice with existing collators
-    train_dataset = PairDatasetTrainHF(train_dataset)
-    valid_dataset = PairDatasetTestHF(valid_dataset)
-    test_dataset = PairDatasetTestHF(test_dataset)
+    train_dataset = PairDataset(train_dataset)
+    valid_dataset = PairDataset(valid_dataset)
+    test_dataset = PairDataset(test_dataset)
     data_collator = PairCollator_input_ids(tokenizer, args.max_length)
 
     ### Define Training Arguments
