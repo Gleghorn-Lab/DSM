@@ -81,7 +81,6 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
         return self.special_token_ids
 
-
     def _get_logits(
         self,
         input_ids: torch.Tensor,

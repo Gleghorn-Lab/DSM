@@ -148,6 +148,7 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
     hidden_size = model.config.hidden_size
     new_model.esm.embeddings.word_embeddings.weight = torch.nn.Parameter(torch.randn(64, hidden_size))
     new_model.lm_head.decoder.weight = torch.nn.Parameter(torch.randn(64, hidden_size))
+    new_model.lm_head.decoder.bias = torch.nn.Parameter(torch.randn(64))
     with torch.no_grad():
         for i in range(33):
             for j in range(64):
@@ -157,6 +158,7 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
                     print(f"Mapping {old_token} {i} to {new_token} {j}")
                     new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i]
                     new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i]
+                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i]
     return new_model
 
 
@@ -185,7 +187,8 @@ def main(args):
     tokenizer = EsmTokenizer.from_pretrained("lhallee/joint_tokenizer")
     model = map_token_embedding_matrix(old_tokenizer, tokenizer, model)
     model.tokenizer = tokenizer
-    summary(model)
+    model.get_special_token_ids()
+    print(model)
 
     ### Load Dataset
     dataset = load_dataset('lhallee/foldseek_dataset')
