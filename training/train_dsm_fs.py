@@ -288,7 +288,7 @@ def main(args):
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
         data_collator=data_collator,
-        compute_metrics=compute_dsm_metrics,
+        compute_metrics=ComputeMetrics(tokenizer),
     )
 
     ### Train
