@@ -67,10 +67,8 @@ class ComputeMetrics:
         # Build sets of amino acid and foldseek token ids
         # Amino acids: single uppercase letters (A-Z)
         # Foldseek: single lowercase letters (a-z)
-        self.amino_acid_tokens = [c for c in self.tokenizer.vocab if len(c) == 1 and c.isupper()]
-        self.foldseek_tokens = [c for c in self.tokenizer.vocab if len(c) == 1 and c.islower()]
-        print(f"Amino acid tokens: {self.amino_acid_tokens}")
-        print(f"Foldseek tokens: {self.foldseek_tokens}")
+        self.amino_acid_tokens = list('ALGVSREDTIPKFQNYMHWCXBOUZ')
+        self.foldseek_tokens = list('algvsredtipkfqnymhwc')
         self.amino_acid_token_ids = set(self.tokenizer.convert_tokens_to_ids(t) for t in self.amino_acid_tokens)
         self.foldseek_token_ids = set(self.tokenizer.convert_tokens_to_ids(t) for t in self.foldseek_tokens)
 
