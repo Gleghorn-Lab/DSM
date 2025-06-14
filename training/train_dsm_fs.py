@@ -60,43 +60,85 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 
-def compute_dsm_metrics(eval_preds: EvalPrediction):
-    ### NOTE the eval mask percentage is fixed at 15%
-    metrics = {}
-    lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
-    lm_logits, labels = lm_logits
+class ComputeMetrics:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
 
-    # labels are already -100 for non-masked tokens
-    lm_logits_torch = torch.tensor(lm_logits)
-    labels_torch = torch.tensor(labels)
-    # We need ot do this because the eval loss is scaled by the mask rate
-    cross_entropy_loss = F.cross_entropy(
-        lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
-        labels_torch.view(-1),
-        ignore_index=-100
-    )
+        # Build sets of amino acid and foldseek token ids
+        # Amino acids: single uppercase letters (A-Z)
+        # Foldseek: single lowercase letters (a-z)
+        self.amino_acid_tokens = [c for c in self.tokenizer.vocab if len(c) == 1 and c.isupper()]
+        self.foldseek_tokens = [c for c in self.tokenizer.vocab if len(c) == 1 and c.islower()]
+        print(f"Amino acid tokens: {self.amino_acid_tokens}")
+        print(f"Foldseek tokens: {self.foldseek_tokens}")
+        self.amino_acid_token_ids = set(self.tokenizer.convert_tokens_to_ids(t) for t in self.amino_acid_tokens)
+        self.foldseek_token_ids = set(self.tokenizer.convert_tokens_to_ids(t) for t in self.foldseek_tokens)
 
-    metrics['cross_entropy_loss'] = cross_entropy_loss
+    def __call__(self, eval_preds: EvalPrediction):
+        ### NOTE the eval mask percentage is fixed at 15%
+        metrics = {}
+        lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
+        lm_logits, labels = lm_logits
 
-    y_pred = lm_logits.argmax(axis=-1).flatten()
-    y_true = labels.flatten()
-    valid_indices = y_true != -100
-    y_pred = y_pred[valid_indices]
-    y_true = y_true[valid_indices]
-    f1 = f1_score(y_true, y_pred, average='weighted')
-    prec = precision_score(y_true, y_pred, average='weighted')
-    rec = recall_score(y_true, y_pred, average='weighted')
-    acc = accuracy_score(y_true, y_pred)
-    mcc = matthews_corrcoef(y_true, y_pred)
-    metrics["f1"] = f1
-    metrics["prec"] = prec
-    metrics["rec"] = rec
-    metrics["acc"] = acc
-    metrics["mcc"] = mcc
+        # labels are already -100 for non-masked tokens
+        lm_logits_torch = torch.tensor(lm_logits)
+        labels_torch = torch.tensor(labels)
+        # We need to do this because the eval loss is scaled by the mask rate
+        cross_entropy_loss = F.cross_entropy(
+            lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
+            labels_torch.view(-1),
+            ignore_index=-100
+        )
 
-    del lm_logits, labels, lm_logits_torch, labels_torch
-    torch.cuda.empty_cache()
-    return metrics
+        metrics['cross_entropy_loss'] = cross_entropy_loss.item() if hasattr(cross_entropy_loss, "item") else float(cross_entropy_loss)
+
+        y_pred = lm_logits.argmax(axis=-1).flatten()
+        y_true = labels.flatten()
+        valid_indices = y_true != -100
+        y_pred = y_pred[valid_indices]
+        y_true = y_true[valid_indices]
+
+        # Compute mask for amino acid and foldseek tokens
+        y_true_np = y_true.cpu().numpy() if hasattr(y_true, "cpu") else y_true
+        y_pred_np = y_pred.cpu().numpy() if hasattr(y_pred, "cpu") else y_pred
+
+        aa_mask = [t in self.amino_acid_token_ids for t in y_true_np]
+        fs_mask = [t in self.foldseek_token_ids for t in y_true_np]
+
+        # All tokens
+        metrics["f1"] = f1_score(y_true, y_pred, average='weighted')
+        metrics["prec"] = precision_score(y_true, y_pred, average='weighted')
+        metrics["rec"] = recall_score(y_true, y_pred, average='weighted')
+        metrics["acc"] = accuracy_score(y_true, y_pred)
+        metrics["mcc"] = matthews_corrcoef(y_true, y_pred)
+
+        # Amino acid tokens
+        if any(aa_mask):
+            y_true_aa = y_true_np[aa_mask]
+            y_pred_aa = y_pred_np[aa_mask]
+            metrics["f1_aa"] = f1_score(y_true_aa, y_pred_aa, average='weighted')
+            metrics["prec_aa"] = precision_score(y_true_aa, y_pred_aa, average='weighted')
+            metrics["rec_aa"] = recall_score(y_true_aa, y_pred_aa, average='weighted')
+            metrics["acc_aa"] = accuracy_score(y_true_aa, y_pred_aa)
+            metrics["mcc_aa"] = matthews_corrcoef(y_true_aa, y_pred_aa)
+        else:
+            metrics["f1_aa"] = metrics["prec_aa"] = metrics["rec_aa"] = metrics["acc_aa"] = metrics["mcc_aa"] = float('nan')
+
+        # Foldseek tokens
+        if any(fs_mask):
+            y_true_fs = y_true_np[fs_mask]
+            y_pred_fs = y_pred_np[fs_mask]
+            metrics["f1_fs"] = f1_score(y_true_fs, y_pred_fs, average='weighted')
+            metrics["prec_fs"] = precision_score(y_true_fs, y_pred_fs, average='weighted')
+            metrics["rec_fs"] = recall_score(y_true_fs, y_pred_fs, average='weighted')
+            metrics["acc_fs"] = accuracy_score(y_true_fs, y_pred_fs)
+            metrics["mcc_fs"] = matthews_corrcoef(y_true_fs, y_pred_fs)
+        else:
+            metrics["f1_fs"] = metrics["prec_fs"] = metrics["rec_fs"] = metrics["acc_fs"] = metrics["mcc_fs"] = float('nan')
+
+        del lm_logits, labels, lm_logits_torch, labels_torch
+        torch.cuda.empty_cache()
+        return metrics
 
 
 class PairDataset(TorchDataset):
