@@ -57,14 +57,11 @@ class GenerateMixin:
         final_seqs_a, final_seqs_b = [], []
         for id, mask in zip(ids, attention_mask):
             decoded = self.tokenizer.decode(id[mask.bool()]).replace(' ', '') # remove spaces
-            decoded = decoded.replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '').replace('<pad>', '') # remove specials
-            print(decoded)
+            decoded = decoded.replace('<mask>', '-').replace('<cls>', '').replace('<pad>', '') # remove specials except eos
             seq_a, seq_b = decoded[:-5].split('<eos>') # remove final eos and split by middle eos
             final_seqs_a.append(seq_a)
             final_seqs_b.append(seq_b)
-        return final_seqs_a, final_seqs_b
-
-    
+        return final_seqs_a, final_seqs_b    
 
     def _is_canonical_amino_acid(self, token_id: int) -> bool:
         '''
