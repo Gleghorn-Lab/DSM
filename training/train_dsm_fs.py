@@ -140,9 +140,19 @@ class ComputeMetrics:
 
 
 class PairDataset(TorchDataset):
-    def __init__(self, data, a_col: str = 'seqs', b_col: str = 'labels', **kwargs):
+    def __init__(
+            self,
+            data,
+            a_col: str = 'seqs',
+            b_col: str = 'labels',
+            aa_token: str = '<aa>',
+            fs_token: str = '<fs>',
+            **kwargs
+    ):
         self.seqs_a = data[a_col]
         self.seqs_b = data[b_col]
+        self.aa_token = aa_token
+        self.fs_token = fs_token
 
     def __len__(self):
         return len(self.seqs_a)
@@ -150,6 +160,8 @@ class PairDataset(TorchDataset):
     def __getitem__(self, idx):
         seq_a = self.seqs_a[idx]
         seq_b = self.seqs_b[idx]
+        seq_a = self.aa_token + seq_a
+        seq_b = self.fs_token + seq_b
         if random.random() < 0.5:
             seq_a, seq_b = seq_b, seq_a
         return seq_a, seq_b
@@ -191,13 +203,19 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
     new_model.lm_head.decoder.bias = torch.nn.Parameter(torch.randn(64))
     new_model.vocab_size = 64
     new_model.config.vocab_size = 64
+    map_from_cls = ['<bos>', '<sep>', '<aa>', '<fs>']
     with torch.no_grad():
         for i in range(33):
             for j in range(64):
-                old_token = old_tokenizer.decode(i)
-                new_token = new_tokenizer.decode(j)
-                if old_token.lower() == new_token.lower():
+                old_token = old_tokenizer.decode(i).lower()
+                new_token = new_tokenizer.decode(j).lower()
+                if old_token == new_token:
                     print(f"Mapping {old_token} {i} to {new_token} {j}")
+                    new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i]
+                    new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i]
+                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i]
+                elif old_token == '<cls>' and new_token in map_from_cls:
+                    print(f"Mapping <cls> to {new_token} {j}")
                     new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i]
                     new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i]
                     new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i]
@@ -207,14 +225,14 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_650", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/DSM_fs", help="Path to save the model and report to wandb")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_150", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="lhallee/DSM_150_fs", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
-    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
@@ -234,6 +252,7 @@ def main(args):
 
     ### Load Dataset
     dataset = load_dataset('lhallee/foldseek_dataset')
+    dataset = dataset.filter(lambda x: len(x['seqs']) <= args.max_length // 2)
     train_dataset = dataset['train']
     valid_dataset = dataset['valid']
     test_dataset = dataset['test']

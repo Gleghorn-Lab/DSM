@@ -16,9 +16,9 @@ class GenerateMixin:
     Models that inherit from this mixin should implement the _get_logits method to 
     compute logits from input tokens and any additional context.
     """
-    def __init__(self, tokenizer: PreTrainedTokenizer):
+    def __init__(self, tokenizer: PreTrainedTokenizer, vocab_size: Optional[int] = None):
         self.tokenizer = tokenizer
-        self.vocab_size = tokenizer.vocab_size
+        self.vocab_size = vocab_size if vocab_size is not None else tokenizer.vocab_size
         canonical_amino_acids = 'ACDEFGHIKLMNPQRSTVWY'
         self.mask_token_id = self.tokenizer.mask_token_id
         self.methionine_token_id = self.tokenizer.encode('M', add_special_tokens=False)[0]

@@ -71,6 +71,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         self.special_token_ids = self.get_special_token_ids()
 
     def get_special_token_ids(self, extra_tokens: Optional[List[str]] = None):
+        GenerateMixin.__init__(self, self.tokenizer, self.vocab_size)
         # Do not include the mask token
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         mask_token = self.tokenizer.mask_token
