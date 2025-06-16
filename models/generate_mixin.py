@@ -42,6 +42,11 @@ class GenerateMixin:
     def _decode_seq(self, ids: torch.Tensor) -> str:
         return self.tokenizer.decode(ids).replace(' ', '').replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '')
 
+    def _decode_ppi(self, ids: torch.Tensor) -> str:
+        decoded = self.tokenizer.decode(ids).replace(' ', '').replace('<mask>', '-').replace('<cls>', '').replace('<pad>', '')
+        seq_a, seq_b = decoded[:-5].split('<eos>') # remove final eos and split by middle eos
+        return seq_a, seq_b
+
     def _is_canonical_amino_acid(self, token_id: int) -> bool:
         '''
         Check if a token ID represents a canonical amino acid.
