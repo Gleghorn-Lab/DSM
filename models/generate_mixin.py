@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from typing import Optional, Any, Tuple
+from typing import Optional, Any, Tuple, List
 from transformers import PreTrainedTokenizer
 
 
@@ -40,12 +40,31 @@ class GenerateMixin:
         raise NotImplementedError("get_logits must be implemented")
 
     def _decode_seq(self, ids: torch.Tensor) -> str:
-        return self.tokenizer.decode(ids).replace(' ', '').replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '')
+        # (1, L)
+        return self.tokenizer.decode(ids).replace(' ', '').replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '').replace('<pad>', '')
 
-    def _decode_ppi(self, ids: torch.Tensor) -> str:
-        decoded = self.tokenizer.decode(ids).replace(' ', '').replace('<mask>', '-').replace('<cls>', '').replace('<pad>', '')
-        seq_a, seq_b = decoded[:-5].split('<eos>') # remove final eos and split by middle eos
-        return seq_a, seq_b
+    def decode_output(self, ids: torch.Tensor, attention_mask: torch.Tensor) -> List[str]:
+        # (B, L)
+        final_seqs = []
+        for id, mask in zip(ids, attention_mask):
+            decoded = self.tokenizer.decode(id[mask.bool()]).replace(' ', '') # remove spaces
+            decoded = decoded.replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '').replace('<pad>', '') # remove specials
+            final_seqs.append(decoded)
+        return final_seqs
+
+    def decode_ppi(self, ids: torch.Tensor, attention_mask: torch.Tensor) -> Tuple[str, str]:
+        # (B, L)
+        final_seqs_a, final_seqs_b = [], []
+        for id, mask in zip(ids, attention_mask):
+            decoded = self.tokenizer.decode(id[mask.bool()]).replace(' ', '') # remove spaces
+            decoded = decoded.replace('<mask>', '-').replace('<cls>', '').replace('<eos>', '').replace('<pad>', '') # remove specials
+            print(decoded)
+            seq_a, seq_b = decoded[:-5].split('<eos>') # remove final eos and split by middle eos
+            final_seqs_a.append(seq_a)
+            final_seqs_b.append(seq_b)
+        return final_seqs_a, final_seqs_b
+
+    
 
     def _is_canonical_amino_acid(self, token_id: int) -> bool:
         '''
