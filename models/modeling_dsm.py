@@ -61,7 +61,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
     config_class = DSMConfig
     def __init__(self, config: DSMConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
-        GenerateMixin.__init__(self, self.tokenizer)
+        GenerateMixin.__init__(self)
         self.config = config
         self.vocab_size = config.vocab_size
         self.lm_head = LMHead(config.hidden_size, config.vocab_size)
@@ -71,7 +71,6 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         self.special_token_ids = self.get_special_token_ids()
 
     def get_special_token_ids(self, extra_tokens: Optional[List[str]] = None):
-        GenerateMixin.__init__(self, self.tokenizer, self.vocab_size)
         # Do not include the mask token
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         mask_token = self.tokenizer.mask_token
@@ -79,6 +78,7 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         if extra_tokens is not None:
             self.special_token_ids.extend([self.tokenizer.convert_tokens_to_ids(v) for v in extra_tokens])
 
+        self.special_token_ids = list(set(self.special_token_ids))
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
         return self.special_token_ids
 
@@ -157,7 +157,7 @@ class DSM_Binders(FastEsmModel, GenerateMixin):
     config_class = DSMConfig
     def __init__(self, config: DSMConfig, **kwargs):
         FastEsmModel.__init__(self, config, **kwargs)
-        GenerateMixin.__init__(self, self.tokenizer)
+        GenerateMixin.__init__(self)
         self.config = config
         self.vocab_size = config.vocab_size
         self.lm_head = LMHead(config.hidden_size, config.vocab_size)

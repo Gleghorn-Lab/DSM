@@ -1,23 +1,180 @@
 # DSM: Diffusion Models for Protein Sequence Generation
+### Note: This readme is shared between our GitHub and Huggingface pages.
 
-DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) trained with masked diffusion to enable both high-quality representation learning and generative protein design. This repository contains the code for training and evaluating DSM and its variants. DSM builds upon the ESM2 architecture by incorporating a masked forward diffusion process inspired by the LLaDA framework.
+## Table of Contents
+- [Introduction](#introduction)
+- [Models](#models)
+- [Usage](#usage)
+- [Demos](#usage)
+- [Local installation](#installation)
+- [Training](#training)
+- [Evaluation](#evaluation)
+- [Results](#results)
+- [Cite](#Cite)
+
+## Introduction
+
+DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) developed in collaboration between the Gleghorn Lab and [Synthyra](https://synthyra.com/). It was trained with masked diffusion to enable both high-quality representation learning and generative protein design, detailed extensively in our [preprint](https://arxiv.org/abs/2506.08293). This repository contains the code for training and evaluating DSM and its variants.
 
 DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM-ppi, a variant fine-tuned to generate protein binders by attending to target sequences.
 
-The repository provides scripts for:
--   Training `DSM` models (e.g., [DSM-150](https://huggingface.co/GleghornLab/DSM_150), [DSM-650](https://huggingface.co/GleghornLab/DSM_650)) and its variants like [DSM-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi).
--   Comprehensive evaluation of unconditional generation, sequence reconstruction (mask filling), and representation quality.
--   Generating protein sequences using diffusion and autoregressive methods.
+## Models
 
-## Table of Contents
-- [Installation](#installation)
-- [Dependencies](#dependencies)
-- [Functionality](#functionality)
-- [Training](#training)
-- [Evaluation](#evaluation)
-- [Usage](#usage)
-- [Results](#results)
-- [Models](#models)
+The following models are available on Hugging Face:
+
+- **Base DSM Models**:
+  - [GleghornLab/DSM_150](https://huggingface.co/GleghornLab/DSM_150) - 150M parameter DSM model
+  - [GleghornLab/DSM_650](https://huggingface.co/GleghornLab/DSM_650) - 650M parameter DSM model
+
+- **DSM-ppi Models**:
+    (LoRA versions - results reported in paper but not recommended for real use)
+  - [GleghornLab/DSM_150_ppi_lora](https://huggingface.co/GleghornLab/DSM_150_ppi_lora) - 150M parameter LoRA DSM-ppi model
+  - [GleghornLab/DSM_650_ppi_lora](https://huggingface.co/GleghornLab/DSM_650_ppi_Lora) - 650M parameter LoRA DSM-ppi model
+  - [GleghornLab/DSM_150_ppi_control](https://huggingface.co/GleghornLab/DSM_150_ppi_control) - Control version of LoRA DSM-ppi
+    (Fully finetuned - recommended for real use)
+  - [Synthyra/DSM_ppi_full](https://huggingface.co/Synthyra/DSM_ppi_full) - 650M parameter DSM-ppi model
+
+- **Datasets**:
+  - [Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50) - Open MetaGenomic dataset clustered at 50% identity (207M sequences)
+  - [GleghornLab/stringv12_modelorgs_9090](https://huggingface.co/GleghornLab/stringv12_modelorgs_9090) - STRING database model organisms (653k sequences)
+
+- **Utility Models**:
+  - [GleghornLab/production_ss4_model](https://huggingface.co/GleghornLab/production_ss4_model) - Secondary structure prediction (4-class)
+  - [GleghornLab/production_ss9_model](https://huggingface.co/GleghornLab/production_ss9_model) - Secondary structure prediction (9-class)
+
+## Usage
+
+This section outlines how to use a trained `DSM` model for common generation tasks. The core generation logic is provided by the `GenerateMixin` class, used by `DSM` models.
+
+First, ensure you have a trained model (either one you trained or a pre-trained one from Hugging Face Hub) and the necessary environment set up.
+
+```python
+import torch
+from models.modeling_dsm import DSM # Or DSM_ppi for binder generation
+
+# Load a pre-trained model
+model_name_or_path = "GleghornLab/DSM_650" # Replace with your model of choice
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = DSM.from_pretrained(model_name_or_path).to(device).eval()
+tokenizer = model.tokenizer
+```
+
+```console
+You are using a model of type esm_diff to instantiate a model of type dsm. This is not supported for all configurations of models and can yield errors.
+```
+This warning is normal - all good!
+
+### 1. Unconditional Sequence Generation
+To generate a novel sequence of a specific length. DSM uses a progressive denoising approach.
+
+```python
+### Unconditional generation
+length = 100
+mask_token = tokenizer.mask_token
+# optionally, enforce starting with methionine
+input_template = tokenizer.encode('M' + ''.join([mask_token] * (length - 1)), add_special_tokens=True).to(device)
+output = model.mask_diffusion_generate(
+    input_tokens=input_template,
+    step_divisor=100,   # lower is slower but better
+    temperature=1.0,    # sampling temperature
+    remasking="random", # strategy for remasking tokens not kept
+    preview=False       #
+)
+
+generated_sequences = model.decode_output(output)
+print(f"Generated sequence: {generated_sequences[0]}")
+```
+
+```console
+Generated sequence: MFRVDALQVAQQETLAIGRSTAYDKQESPSMAQRQVLTQLAAYGGENDLRQICIPAERRNFLSIANGASYQFVEEDNEANGGYWSPHKAGLPESACKRFI
+```
+
+### 2. Mask Filling (Inpainting)
+To fill in masked regions of a template sequence:
+
+```python
+# Mask Filling / Inpainting
+template_sequence = "MA<mask><mask><mask>KEG<mask><mask>STL"
+template_tokens = model.tokenizer.encode(template_sequence, add_special_tokens=True).to(device)
+
+filled_ids = model.mask_diffusion_generate(
+    input_tokens=template_tokens,
+    step_divisor=100,   # lower is slower but better
+    temperature=1.0,    # sampling temperature
+    remasking="random", # strategy for remasking tokens not kept
+    preview=False
+)
+
+generated_sequences = model.decode_output(output)
+print(f"Generated sequence: {generated_sequences[0]}")
+```
+
+```console
+Generated sequence: MAVKFKEGGISTL
+```
+
+### 3. Conditional Generation (e.g., Binders - using DSM-ppi)
+If using DSM-ppi, the input format is specific for generating a binder (SeqB) for a target (SeqA).
+
+```python
+# from models.modeling_dsm import DSM_ppi
+# model_binder = DSM_ppi.from_pretrained("GleghornLab/DSM_650_ppi_lora").to(device).eval()
+# The lora version from the paper leads to unreliable outputs
+# Synthyra has generously trained a version through full fine tuning
+from models.modeling_dsm import DSM
+
+model_binder = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
+
+target_seq = "TARGETSEQUENCEAMINOACIDS"
+# For binder generation, the 'interactor' (SeqB) part is what gets generated/filled.
+# Start with a fully masked interactor of desired length.
+interactor_template_len = 20
+interactor_template = ''.join([mask_token] * interactor_template_len)
+
+combined_input_str = target_seq + '<eos>' + interactor_template
+
+binder_template_tokens = tokenizer.encode(combined_input_str, add_special_tokens=True).to(device)
+
+output = model_binder.mask_diffusion_generate(
+    input_tokens=binder_template_tokens,
+    step_divisor=100,   # lower is slower but better
+    temperature=1.0,    # sampling temperature
+    remasking="random", # strategy for remasking tokens not kept
+)
+
+target, binder = model.decode_dual_input(output, seperator='<eos>;)
+# Parse out the generated interactor part based on EOS tokens.
+# Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
+print(f"Generated binder {binder[0]}")
+```
+
+```console
+Generated binder HRHHHRRPTHARETEWLARMRLGIAEHQRIAVPRSDLEPDQMRERAADNQRLVKEYDQVIDHQTEGSTERLFEVLRVWEQVNTEQAHHEASAALEFGRVGYPDDEGGRAFYTQANAHKKDLVEYIGGIDEDAKWDPRIAWLMPEGGQPVKATVIGVSEERINGLKVLDDHWGRERRLWLINLFTALQAYDDPTRPTQVTLTPATDQLTNDVQYLLLSTRYTPPGVTTAVKIRKLDGRTLKVLTTEAPYVVRGATLS
+```
+
+## Demos
+There are various demos with many more to come. For example, in `demo_dsm_ppi_full.py` (run by `python -m demos.demo_dsm_ppi_full`) we perform a test on DSM-ppi.
+We take 1000 proteins pairs from BIOGRID (real protein-protein interactions) and 1000 from Negatome (non interacting protein pairs) and mask the second sequence (SeqB) by 50%.
+This acts as a sanity check, as we expect the accuracy on reconstructing real positive PPIs to be higher than the accuracy on non-interacting proteins.
+Indeed, this is the case:
+
+```console
+==================================================
+RESULTS COMPARISON
+==================================================
+Positive examples:
+  Mean accuracy: 0.495 ± 0.322
+  Processed:     1000 examples
+
+Negative examples:
+  Mean accuracy: 0.227 ± 0.231
+  Processed:     1000 examples
+
+Difference (Positive - Negative): 0.267
+T-test: t=21.331, p=0.000
+Difference is statistically significant (p < 0.05)
+``` 
+
 
 ## Installation
 
@@ -49,35 +206,6 @@ The repository provides scripts for:
     ```bash
     deactivate
     ```
-
-## Dependencies
-
-The project relies on the following major libraries. All dependencies are listed in `requirements.txt` and installed by the `setup_bioenv.sh` script.
-
-## Functionality
-
-The core models in this repository, `DSM` and its variants (defined in `models/modeling_dsm.py`), offer several functionalities related to protein sequence generation:
-
-1.  **Unconditional Protein Sequence Generation:**
-    *   Models can generate novel protein sequences from scratch using the `mask_diffusion_generate` method (from `models.generate_mixin.py`).
-    *   This involves an iterative denoising process, inspired by diffusion models, starting from a fully masked sequence. DSM is trained using a masked forward diffusion scheme based on the LLaDA framework.
-
-2.  **Mask Filling / Sequence Reconstruction:**
-    *   Given a protein sequence with masked regions (template), the models can fill in the missing residues with high fidelity, even at high corruption rates (e.g., 90% masking).
-    *   This also uses the `mask_diffusion_generate` method.
-
-3.  **Conditional Generation (Protein Binders):**
-    *   The DSM-ppi model variant ([DSM-150-ppi](https://huggingface.co/GleghornLab/DSM_150_ppi), [DSM-650-ppi](https://huggingface.co/GleghornLab/DSM_650_ppi)) is specifically fine-tuned for protein binder generation. It takes a target sequence as input and generates a potential interacting sequence (binder).
-    *   The input format for DSM-ppi during training and generation is typically `[CLS]--SeqA--[EOS]--[MASKED~SeqB]--[EOS]`.
-    *   The `mask_diffusion_generate` method in general also includes a `prompt_tokens` argument, suggesting broader capabilities for conditional generation.
-
-4.  **High-Quality Protein Representations:**
-    *   DSM learns rich, semantic representations of protein sequences. These embeddings match or outperform those from comparably sized pLMs (including ESM2 and DPLM) on a variety of downstream tasks, as evaluated by linear probing.
-
-5.  **Autoregressive Generation:**
-    *   Models inheriting `GenerateMixin` also support standard left-to-right autoregressive generation via the `auto_regressive_generate` method, useful for comparison or as an alternative generation strategy.
-
-DSM models feature a modified language modeling head with a soft-logit cap (scaled tanh activation) to stabilize training and improve sampling quality. The primary generation mechanism, `mask_diffusion_generate`, allows for flexible control over the generation process.
 
 ## Training
 
@@ -213,98 +341,6 @@ The `evaluation/` directory contains additional scripts for more specific analys
 Users should refer to individual scripts (e.g., using `python -m evaluation.<script_name> --help`) for their specific usage and arguments.
 The `evaluation/` directory also contains a `readme.md` which provides further details on the unconditional generation evaluation workflow.
 
-## Usage
-
-This section outlines how to use a trained `DSM` model for common generation tasks. The core generation logic is provided by the `GenerateMixin` class, used by `DSM` models.
-
-First, ensure you have a trained model (either one you trained or a pre-trained one from Hugging Face Hub) and the necessary environment set up.
-
-```python
-import torch
-from models.modeling_dsm import DSM # Or DSM_ppi for binder generation
-
-# Load a pre-trained model
-model_name_or_path = "GleghornLab/DSM_650" # Replace with your model of choice
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DSM.from_pretrained(model_name_or_path).to(device).eval()
-tokenizer = model.tokenizer
-```
-
-### 1. Unconditional Sequence Generation
-To generate a novel sequence of a specific length. DSM uses a progressive denoising approach.
-
-```python
-# Unconditional generation
-generated_ids = model.mask_diffusion_generate(
-    batch_size=1,
-    length=100,  # Desired length of the protein (excluding CLS/EOS)
-    steps=100,
-    temperature=1.0,    # Sampling temperature
-    remasking="random", # Strategy for remasking tokens not kept
-    start_with_methionine=True,
-    preview=False
-)
-
-generated_sequence = model.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-print(f"Generated sequence: {generated_sequence.replace(' ', '')}")
-```
-
-### 2. Mask Filling (Inpainting)
-To fill in masked regions of a template sequence:
-
-```python
-# Mask Filling / Inpainting
-template_sequence = "MA<mask><mask><mask>KEG<mask><mask>STL"
-input_str_for_tokenizer = f"{model.tokenizer.cls_token}{template_sequence}{model.tokenizer.eos_token}"
-
-template_tokens = model.tokenizer.encode(input_str_for_tokenizer, return_tensors="pt").to(device)
-mask_tokens = (template_tokens == '<mask>').sum()
-
-filled_ids = model.mask_diffusion_generate(
-    template_tokens=template_tokens,
-    steps=mask_tokens,
-    temperature=0.8,
-    remasking="low_confidence",
-    preview=False
-)
-
-filled_sequence = model.tokenizer.decode(filled_ids[0], skip_special_tokens=True)
-print(f"Filled sequence: {filled_sequence.replace(' ', '')}")
-```
-
-### 3. Conditional Generation (e.g., Binders - using DSM-ppi)
-If using DSM-ppi, the input format is specific for generating a binder (SeqB) for a target (SeqA).
-
-```python
-from models.modeling_dsm import DSM_ppi # Assuming DSM_ppi is a class or loaded correctly
-model_binder = DSM_ppi.from_pretrained("GleghornLab/DSM_650_ppi").to(device).eval()
-
-target_seq = "TARGETSEQUENCEAMINOACIDS"
-# For binder generation, the 'interactor' (SeqB) part is what gets generated/filled.
-# Start with a fully masked interactor of desired length.
-interactor_template_len = 20
-interactor_template = model_binder.tokenizer.mask_token * interactor_template_len
-
-combined_input_str = f"{model_binder.tokenizer.cls_token}{target_seq}{model_binder.tokenizer.eos_token}{interactor_template}{model_binder.tokenizer.eos_token}"
-# Ensure the total length is within model's max_length
-
-binder_template_tokens = model_binder.tokenizer.encode(combined_input_str, return_tensors="pt", truncation=True, max_length=model_binder.config.max_position_embeddings).to(device)
-
-generated_binder_ids = model_binder.mask_diffusion_generate(
-    template_tokens=binder_template_tokens,
-    steps=int(interactor_template_len / 1) + 10, # More steps for conditional/complex tasks, e.g., one token at a time + refinement
-    temperature=1.0,
-    remasking="random"
-)
-
-generated_full_seq_str = model_binder.tokenizer.decode(generated_binder_ids[0], skip_special_tokens=False)
-# Parse out the generated interactor part based on EOS tokens.
-# Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
-print(f"Generated (target+binder): {generated_full_seq_str.replace(' ', '')}")
-```
-
-**Note:** The exact tokenizer handling and model loading might vary. `model.tokenizer.decode` often adds spaces between tokens; `replace(' ', '')` can remove them for a contiguous sequence. Always check generation parameters like `steps` for optimal results.
-
 ## Results
 
 DSM demonstrates strong performance in both protein sequence generation and representation learning, establishing masked diffusion as a powerful paradigm.
@@ -325,23 +361,15 @@ DSM demonstrates strong performance in both protein sequence generation and repr
 
 These results highlight DSM's capability to unify high-quality protein representation learning and biologically coherent generative modeling within a single framework.
 
-## Models
-
-The following models are available on Hugging Face:
-
-- **Base DSM Models**:
-  - [GleghornLab/DSM_150](https://huggingface.co/GleghornLab/DSM_150) - 150M parameter DSM model
-  - [GleghornLab/DSM_650](https://huggingface.co/GleghornLab/DSM_650) - 650M parameter DSM model
-
-- **DSM-ppi Models** (for protein binder generation):
-  - [GleghornLab/DSM_150_ppi](https://huggingface.co/GleghornLab/DSM_150_ppi) - 150M parameter DSM-ppi model
-  - [GleghornLab/DSM_650_ppi](https://huggingface.co/GleghornLab/DSM_650_ppi) - 650M parameter DSM-ppi model
-  - [GleghornLab/DSM_150_ppi_control](https://huggingface.co/GleghornLab/DSM_150_ppi_control) - Control version of DSM-ppi
-
-- **Datasets**:
-  - [Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50) - Open MetaGenomic dataset clustered at 50% identity (207M sequences)
-  - [GleghornLab/stringv12_modelorgs_9090](https://huggingface.co/GleghornLab/stringv12_modelorgs_9090) - STRING database model organisms (653k sequences)
-
-- **Utility Models**:
-  - [GleghornLab/production_ss4_model](https://huggingface.co/GleghornLab/production_ss4_model) - Secondary structure prediction (4-class)
-  - [GleghornLab/production_ss9_model](https://huggingface.co/GleghornLab/production_ss9_model) - Secondary structure prediction (9-class)
+## Cite
+```
+@misc{hallee2025diffusionsequencemodelsenhanced,
+      title={Diffusion Sequence Models for Enhanced Protein Representation and Generation}, 
+      author={Logan Hallee and Nikolaos Rafailidis and David B. Bichara and Jason P. Gleghorn},
+      year={2025},
+      eprint={2506.08293},
+      archivePrefix={arXiv},
+      primaryClass={q-bio.BM},
+      url={https://arxiv.org/abs/2506.08293}, 
+}
+```

@@ -11,10 +11,10 @@ MODEL_PATH = 'Synthyra/DSM_ppi_full'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = True
-STEP_DIVISOR = 1
+PREVIEW = False
+STEP_DIVISOR = 10
 BATCH_SIZE = 1
-NUM_SEQS = 10
+NUM_SEQS = 1000
 MAX_COMBINED_LENGTH = 256
 
 
@@ -61,34 +61,25 @@ def process_ppi_examples(model, tokenizer, seqs_a, seqs_b, example_type):
         template = seq_a + eos_token + masked_seq_b
         template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(model.device)
 
-        #print(tokenizer.decode(template_tokens[0]).replace(' ', ''))
         # Generate reconstruction
         output_tokens = model.mask_diffusion_generate(
-            template_tokens=template_tokens,
-            block_wise=False,
-            batch_size=BATCH_SIZE,
-            steps=max(1, len(masked_seq_b) // STEP_DIVISOR),
+            tokenizer=tokenizer,
+            input_tokens=template_tokens,
+            step_divisor=STEP_DIVISOR,
             temperature=TEMPERATURE,
             remasking=REMASKING,
             preview=PREVIEW,
             slow=SLOW,
-            start_with_methionine=False
         )
         
-        # Decode the generated sequence
-        output_tokens = output_tokens[0]
-        reconstructed_full = model._decode_seq(output_tokens)
-        
-        # Extract the reconstructed SeqB part (after SeqA)
-        reconstructed_seq_b = reconstructed_full[len(seq_a):]
+        recon_a, recon_b = model.decode_dual_input(output_tokens, template_tokens, '<eos>')
         
         # Calculate accuracy for masked positions
-        accuracy = calculate_accuracy(original_tokens, reconstructed_seq_b)
+        accuracy = calculate_accuracy(original_tokens, recon_b[0])
         accuracies.append(accuracy)
         
         pbar.set_description(f"Accuracy: {accuracy:.3f}")
         pbar.update(1)
-    
     
     return accuracies
 
@@ -135,8 +126,6 @@ if __name__ == '__main__':
         pos_std = np.std(positive_accuracies)
         print(f"Positive examples:")
         print(f"  Mean accuracy: {pos_mean:.3f} ± {pos_std:.3f}")
-        print(f"  Min accuracy:  {min(positive_accuracies):.3f}")
-        print(f"  Max accuracy:  {max(positive_accuracies):.3f}")
         print(f"  Processed:     {len(positive_accuracies)} examples")
     
     if negative_accuracies:
@@ -144,8 +133,6 @@ if __name__ == '__main__':
         neg_std = np.std(negative_accuracies)
         print(f"\nNegative examples:")
         print(f"  Mean accuracy: {neg_mean:.3f} ± {neg_std:.3f}")
-        print(f"  Min accuracy:  {min(negative_accuracies):.3f}")
-        print(f"  Max accuracy:  {max(negative_accuracies):.3f}")
         print(f"  Processed:     {len(negative_accuracies)} examples")
     
     if positive_accuracies and negative_accuracies:

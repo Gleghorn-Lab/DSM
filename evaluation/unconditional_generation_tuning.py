@@ -6,7 +6,7 @@ from huggingface_hub import login
 from IPython.display import display
 
 from models.modeling_dsm import DSM
-from evaluation.compare_distributions import compare_corpora_kmers
+from evaluation.compare_distributions import CorpusComparator, AA20
 from .utils import get_eval_data
 
 
@@ -37,6 +37,8 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = DSM.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
+    mask_token = tokenizer.mask_token
+    comparator = CorpusComparator(vocabulary=AA20)
 
     natural_seqs = get_eval_data(args.num_samples)
     
@@ -77,22 +79,24 @@ if __name__ == '__main__':
         
         # Generate sequences with current parameters
         for seq in tqdm(natural_seqs):
+            template = ''.join([mask_token] * len(seq))
+            template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(device)
+            attention_mask = torch.ones_like(template_tokens)
+
             output_tokens = model.mask_diffusion_generate(
-                length=len(seq),
-                block_wise=False,
-                batch_size=args.batch_size,
-                steps=len(seq) // step_divisor,
+                tokenizer=tokenizer,
+                input_tokens=template_tokens,
+                step_divisor=step_divisor,
                 temperature=temperature,
                 remasking=REMASKING,
                 preview=PREVIEW,
                 slow=SLOW,
                 start_with_methionine=False
             )
-            for gen_seq in output_tokens:
-                generated_seqs.append(model._decode_seq(gen_seq))
+            generated_seqs.extend(model.decode_output(output_tokens, attention_mask))
         
         # Compare distributions and collect stats
-        stats = compare_corpora_kmers(natural_seqs, generated_seqs)
+        stats = comparator.compare_corpora_kmers(natural_seqs, generated_seqs)
         
         # Store results for each k-mer
         for k, res in stats.items():

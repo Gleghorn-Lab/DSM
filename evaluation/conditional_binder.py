@@ -8,16 +8,17 @@ import os
 from tqdm import tqdm
 from huggingface_hub import login
 
+from models.modeling_dsm import DSM
 from synthyra_api.affinity_pred import predict_against_target
 from .binder_info import BINDING_INFO
-from .utils import generate_random_aa_sequence, load_binder_model
+from .utils import generate_random_aa_sequence
 
 
-MODEL_PATH = 'lhallee/DSM_bind_650'
+MODEL_PATH = 'lhallee/DSM_ppi_full'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = False
+PREVIEW = True
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 NUM_NEGATIVE_CONTROLS = 20
 
@@ -68,8 +69,7 @@ if __name__ == '__main__':
     TARGET, TARGET_AMINOS, TARGET_IDX, TEMPLATE, TRUE_PKD, SOURCE, BINDER_SOURCE = BINDING_INFO[args.target]
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = load_binder_model(MODEL_PATH)
-    model = model.to(device).eval()
+    model = DSM.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
 
     designs, design_info, design_set = [], [], set()
@@ -145,33 +145,25 @@ if __name__ == '__main__':
 
         # cls, target, eos, template, eos
         template_tokens = torch.cat([target_tokens, template_tokens, end_eos], dim=1)
-        #decoded_template = tokenizer.decode(template_tokens[0])
-        #print(f'Decoded template: {decoded_template}')
 
         # number of masked tokens
-        steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // args.step_divisor
         output_tokens = model.mask_diffusion_generate(
-            template_tokens=template_tokens,
-            block_wise=False,
-            steps=steps,
+            tokenizer=tokenizer,
+            input_tokens=template_tokens,
+            step_divisor=args.step_divisor,
             temperature=TEMPERATURE,
             remasking=REMASKING,
             preview=PREVIEW,
             slow=SLOW,
-            start_with_methionine=False
         )
 
-        if args.batch_size > 1:
-            batch_designs = [model._decode_seq(output_tokens[i])[len(TARGET):] for i in range(args.batch_size)]
-            for design in batch_designs:
-                if design in design_set:
-                    continue
-                designs.append(design)
-                design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
-        else:
-            designs.append(model._decode_seq(output_tokens[0])[len(TARGET):])
+        target, output_designs = model.decode_dual_input(output_tokens, template_tokens, '<eos>')
+        for design in output_designs:
+            if design in design_set:
+                continue
+            designs.append(design)
             design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
-        
+
         # Submit batch for processing when we reach api_batch_size
         if len(designs) >= args.api_batch_size:
             design_queue.put((designs.copy(), design_info.copy()))
@@ -204,17 +196,6 @@ if __name__ == '__main__':
         # Drop the target column and rename SeqB to design
         df = df.drop(columns=['SeqA'])
         df = df.rename(columns={'SeqB': 'Design'})
-
-        # Calculate target-sites
-        #df['target-sites'] = df['predicted-binding-sites'].apply(
-        #    lambda x: sum(1 for target_amino in TARGET_AMINOS if f'{target_amino}a'.lower() in str(x).lower())
-        #)
-        #df['target-sites'] = df['target-sites'].astype(object)
-
-        # Where Design == TEMPLATE, make target-sites == 'TEMPLATE'
-        #df.loc[df['Design'] == TEMPLATE, 'target-sites'] = 'TEMPLATE'
-        # Where Design_info == NEGATIVE_CONTROL, make target-sites == 'NEGATIVE_CONTROL'
-        # df.loc[df['design_info'] == 'NEGATIVE_CONTROL', 'target-sites'] = 'NEGATIVE_CONTROL'
 
         print(df.head())
         df.to_csv(args.output_file, index=False)

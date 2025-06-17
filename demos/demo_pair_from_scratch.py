@@ -1,6 +1,5 @@
 import torch
 import random
-import numpy as np
 
 from models.modeling_dsm import DSM
 
@@ -39,15 +38,13 @@ def redesign_pair(model, tokenizer):
     masked_seq_b = ''.join([mask_token] * SEQB_LENGTH)
     template = masked_seq_a + eos_token + masked_seq_b
     template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(model.device)
-    num_mask_tokens = (template_tokens == tokenizer.mask_token_id).sum().item()
 
     print(tokenizer.decode(template_tokens[0]).replace(' ', ''))
     # Generate reconstruction
     output_tokens, trajectory = model.mask_diffusion_generate(
-        template_tokens=template_tokens,
-        block_wise=False,
-        batch_size=BATCH_SIZE,
-        steps=max(1, num_mask_tokens // STEP_DIVISOR),
+        tokenizer=tokenizer,
+        input_tokens=template_tokens,
+        step_divisor=STEP_DIVISOR,
         temperature=TEMPERATURE,
         remasking=REMASKING,
         preview=PREVIEW,
@@ -60,14 +57,9 @@ def redesign_pair(model, tokenizer):
         print('-' * 100)
 
     # Decode the generated sequence
-    output_tokens = output_tokens[0]
-    reconstructed_full = model._decode_seq(output_tokens)
-    
-    # Extract the reconstructed SeqB part (after SeqA)
-    new_a = reconstructed_full[:SEQA_LENGTH]
-    new_b = reconstructed_full[SEQA_LENGTH:SEQA_LENGTH + SEQB_LENGTH]
+    a, b = model.decode_dual_input(output_tokens, template_tokens, '<eos>')
 
-    return new_a, new_b
+    return a[0], b[0]
 
 
 if __name__ == '__main__':

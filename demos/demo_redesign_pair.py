@@ -33,28 +33,23 @@ def mask_sequence(seq, mask_ratio=0.5, mask_token='<mask>'):
 
 
 def redesign_pair(model, tokenizer, seq_a, seq_b):
-    """Process PPI examples and calculate reconstruction accuracy"""
     mask_token = '<mask>'
     eos_token = tokenizer.eos_token
     # Mask 50% of SeqB
-    masked_seq_a = seq_a
-    masked_seq_b = mask_sequence(seq_b, mask_ratio=0.9, mask_token=mask_token)[0]
+    masked_seq_a = mask_sequence(seq_a, mask_ratio=0.3, mask_token=mask_token)[0]
+    masked_seq_b = mask_sequence(seq_b, mask_ratio=0.3, mask_token=mask_token)[0]
     template = masked_seq_a + eos_token + masked_seq_b
     template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(model.device)
-    num_mask_tokens = (template_tokens == tokenizer.mask_token_id).sum().item()
 
-    #print(tokenizer.decode(template_tokens[0]).replace(' ', ''))
     # Generate reconstruction
     output_tokens, trajectory = model.mask_diffusion_generate(
-        template_tokens=template_tokens,
-        block_wise=False,
-        batch_size=BATCH_SIZE,
-        steps=max(1, num_mask_tokens // STEP_DIVISOR),
+        tokenizer=tokenizer,
+        input_tokens=template_tokens,
+        step_divisor=STEP_DIVISOR,
         temperature=TEMPERATURE,
         remasking=REMASKING,
         preview=PREVIEW,
         slow=SLOW,
-        start_with_methionine=False,
         return_trajectory=True
     )
     for seq in trajectory:
@@ -62,14 +57,8 @@ def redesign_pair(model, tokenizer, seq_a, seq_b):
         print('-' * 100)
 
     # Decode the generated sequence
-    output_tokens = output_tokens[0]
-    reconstructed_full = model._decode_seq(output_tokens)
-    
-    # Extract the reconstructed SeqB part (after SeqA)
-    new_a = reconstructed_full[:len(seq_a)]
-    new_b = reconstructed_full[len(seq_a):]
-
-    return new_a, new_b, trajectory
+    a, b = model.decode_dual_input(output_tokens, template_tokens, '<eos>')
+    return a[0], b[0], trajectory
 
 
 if __name__ == '__main__':

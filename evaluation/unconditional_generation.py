@@ -38,28 +38,28 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = DSM.from_pretrained(MODEL_PATH).to(device).eval()
     tokenizer = model.tokenizer
+    mask_token = tokenizer.mask_token
 
     natural_seqs = get_eval_data()
 
     generated_seqs = []
 
     for seq in tqdm(natural_seqs):
+        template = ''.join([mask_token] * len(seq))
+        template_tokens = tokenizer.encode(template, add_special_tokens=True, return_tensors='pt').to(device)
+        attention_mask = torch.ones_like(template_tokens)
+
         output_tokens = model.mask_diffusion_generate(
-            length=len(seq),
-            block_wise=False,
-            batch_size=args.batch_size,
-            steps=len(seq) // args.step_divisor,
+            tokenizer=tokenizer,
+            input_tokens=template_tokens,
+            step_divisor=args.step_divisor,
             temperature=TEMPERATURE,
             remasking=REMASKING,
             preview=PREVIEW,
             slow=SLOW,
             start_with_methionine=False
         )
-        for output_token in output_tokens:
-            gen_seq = model._decode_seq(output_token)
-            assert len(gen_seq) == len(seq), f'Differing lengths: {len(gen_seq)} != {len(seq)}'
-            assert gen_seq.count('-') == 0, f'Masks present: {gen_seq.count("-")} != 0'
-            generated_seqs.append(gen_seq)
+        generated_seqs.extend(model.decode_output(output_tokens, attention_mask))
 
     comparator = CorpusComparator(vocabulary=AA20)
     stats = comparator.compare_corpora_kmers(natural_seqs, generated_seqs)

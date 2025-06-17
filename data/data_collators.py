@@ -148,7 +148,7 @@ class PairCollator_ab:
             'attention_mask_b': tokenized_b['attention_mask'],
             'labels': labels
         }
-    
+
 
 class DiffATCollator:
     def __init__(self, tokenizer, at_vocab_size: int):

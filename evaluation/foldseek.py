@@ -7,13 +7,14 @@ from tqdm import tqdm
 from models.modeling_dsm import DSM
 
 
-model_path = 'lhallee/DSM_fs'
+model_path = 'lhallee/DSM_150_fs'
 tokenizer_path = 'lhallee/joint_tokenizer'
 
 model = DSM.from_pretrained(model_path)
 tokenizer = EsmTokenizer.from_pretrained(tokenizer_path)
 model.tokenizer = tokenizer
-model.get_special_token_ids()
+extra_tokens = ['<aa>', '<fs>', '<sep>', '<bos>', '<eos>', '<cls>']
+model.get_special_token_ids(extra_tokens)
 
 dataset = load_dataset('lhallee/foldseek_dataset')
 dataset = dataset.rename_columns({'seqs': 'aa_seqs', 'labels': 'fs_seqs'})
@@ -38,25 +39,10 @@ class ProteinFolder:
 
     @torch.no_grad()
     def fold(self, aa_seqs: List[str], fs_seqs: List[str]):
-        #seqs = [
-        #    a + '<sep>' + ''.join(['<mask>'] * len(a)) for a in aa_seqs
-        #]
-        # aa + <sep> + fs
-        # randomly mask 15% of the fs tokens
+        seqs = [
+            '<aa>' + aa + '<sep>' + '<fs>' + fs[:len(fs)//2] + ''.join(['<mask>'] * (len(fs) - len(fs)//2)) for aa, fs in zip(aa_seqs, fs_seqs)
+        ]
         tokenizer = self.model.tokenizer
-        mask_token = tokenizer.mask_token
-        sep_token = tokenizer.sep_token
-
-        seqs = []
-        for aa, fs in zip(aa_seqs, fs_seqs):
-            # Mask 15% of fs tokens at random
-            fs_chars = list(fs)
-            num_to_mask = max(1, int(0.15 * len(fs_chars)))
-            mask_indices = torch.randperm(len(fs_chars))[:num_to_mask].tolist()
-            for idx in mask_indices:
-                fs_chars[idx] = mask_token
-            masked_fs = ''.join(fs_chars)
-            seqs.append(aa + sep_token + masked_fs)
 
         final_preds, final_true = [], []
         for i in tqdm(range(0, len(seqs), self.batch_size)):
@@ -71,25 +57,26 @@ class ProteinFolder:
             )
             input_ids = tokenized['input_ids'].to(self.device)
             attention_mask = tokenized['attention_mask'].to(self.device)
-            logits = self.model._get_logits(input_ids, attention_mask)
-            preds = logits.argmax(dim=-1).cpu()
-            for pred, seq, aa, fs, mask in zip(preds, batch_seqs, batch_aa_seqs, batch_fs_seqs, attention_mask):
-                pred = pred[len(aa)+1:mask.sum().item() - 1]
-                pred = tokenizer.decode(pred, skip_special_tokens=True).replace(' ', '')
+            outputs = self.model.mask_diffusion_generate(
+                tokenizer=tokenizer,
+                extra_tokens=extra_tokens,
+                input_tokens=input_ids,
+                attention_mask=attention_mask,
+                steps=10,
+                temperature=1.0,
+                remasking='random',
+                preview=False,
+                slow=False,
+            )
+            aa_preds, fs_preds = self.model.decode_dual_input(outputs, attention_mask, '<sep>')
+            for aa, fs, fs_true in zip(aa_preds, fs_preds, batch_fs_seqs):
+                aa = aa.replace('<bos>', '').replace('<aa>', '')
+                fs = fs.replace('<fs>', '').replace('<eos>', '')
+                final_preds.append(fs)
+                final_true.append(fs_true)
 
-                #assert len(pred) == len(aa)
-                if len(pred) != len(fs):
-                    continue
-                final_preds.append(pred)
-                final_true.append(fs)
-        #for true, pred in zip(final_true, final_preds):
-        #    print(true)
-        #    print(pred)
-        #    print(len(true), len(pred))
-        #    print('-'*100)
         return self.string_accuracy(final_true, final_preds)
 
 
 protein_folder = ProteinFolder(model)
 print(protein_folder.fold(test_dataset['aa_seqs'], test_dataset['fs_seqs']))
-

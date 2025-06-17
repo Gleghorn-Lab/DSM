@@ -19,7 +19,7 @@ MODEL_PATH = 'GleghornLab/DSM_650'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = False
+PREVIEW = True
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 NUM_NEGATIVE_CONTROLS = 20
 
@@ -131,35 +131,31 @@ if __name__ == '__main__':
         if args.batch_size > 1:
             template_tokens = template_tokens.repeat(args.batch_size, 1)
 
+        attention_mask = torch.ones_like(template_tokens)
+
         # randomly mask template tokens
         mask_index = torch.rand_like(template_tokens.float()) < mask_percentage
         mask_index[:, 0], mask_index[:, -1] = False, False
         template_tokens[mask_index] = tokenizer.mask_token_id
 
-        # number of masked tokens
-        steps = (template_tokens[0] == tokenizer.mask_token_id).sum().item() // args.step_divisor
         output_tokens = model.mask_diffusion_generate(
-            template_tokens=template_tokens,
-            block_wise=False,
-            steps=steps,
+            tokenizer=tokenizer,
+            input_tokens=template_tokens,
+            attention_mask=attention_mask,
+            step_divisor=args.step_divisor,
             temperature=TEMPERATURE,
             remasking=REMASKING,
             preview=PREVIEW,
             slow=SLOW,
-            start_with_methionine=False
         )
 
-        if args.batch_size > 1:
-            batch_designs = [model._decode_seq(output_tokens[i]) for i in range(args.batch_size)]
-            for design in batch_designs:
-                if design in design_set:
-                    continue
-                designs.append(design)
-                design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
-        else:
-            designs.append(model._decode_seq(output_tokens[0]))
+        output_designs = model.decode_output(output_tokens, attention_mask)
+        for design in output_designs:
+            if design in design_set:
+                continue
+            designs.append(design)
             design_info.append(f'mask-rate: {round(mask_percentage, 2)}, positions: {start}-{end}')
-        
+
         # Submit batch for processing when we reach api_batch_size
         if len(designs) >= args.api_batch_size:
             design_queue.put((designs.copy(), design_info.copy()))
