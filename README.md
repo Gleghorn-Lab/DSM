@@ -10,7 +10,7 @@
 - [Training](#training)
 - [Evaluation](#evaluation)
 - [Results](#results)
-- [Cite](#Cite)
+- [Cite](#cite)
 
 ## Introduction
 
@@ -151,6 +151,10 @@ print(f"Generated binder {binder[0]}")
 ```console
 Generated binder HRHHHRRPTHARETEWLARMRLGIAEHQRIAVPRSDLEPDQMRERAADNQRLVKEYDQVIDHQTEGSTERLFEVLRVWEQVNTEQAHHEASAALEFGRVGYPDDEGGRAFYTQANAHKKDLVEYIGGIDEDAKWDPRIAWLMPEGGQPVKATVIGVSEERINGLKVLDDHWGRERRLWLINLFTALQAYDDPTRPTQVTLTPATDQLTNDVQYLLLSTRYTPPGVTTAVKIRKLDGRTLKVLTTEAPYVVRGATLS
 ```
+Folded with Chai1:
+
+![image](https://github.com/user-attachments/assets/782d7bba-6f25-4a27-b0c4-fef88565dd33)
+
 
 ## Demos
 There are various demos with many more to come. For example, in `demo_dsm_ppi_full.py` (run by `python -m demos.demo_dsm_ppi_full`) we perform a test on DSM-ppi.
