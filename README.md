@@ -197,8 +197,7 @@ SeqB: HYKNPMHSLLDSNVLHKDVVEVRLPIKIGMELDVMASAMREFLMPGTQQGDLRVIAEKRPVNKLHTYRRDLVKL
 
 Folded with Chai1:
 
-
-
+![image](https://github.com/user-attachments/assets/1bdfed76-3c01-49f1-a92e-55ada89c2895)
 
 ## Demos
 There are various demos with many more to come. For example, in `demo_dsm_ppi_full.py` (run by `python -m demos.demo_dsm_ppi_full`) we perform a test on DSM-ppi.
