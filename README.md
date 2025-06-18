@@ -31,8 +31,9 @@ Relevant Huggingface hosted models and datasets
   - [GleghornLab/DSM_150_ppi_lora](https://huggingface.co/GleghornLab/DSM_150_ppi_lora) - 150M parameter LoRA DSM-ppi model
   - [GleghornLab/DSM_650_ppi_lora](https://huggingface.co/GleghornLab/DSM_650_ppi_Lora) - 650M parameter LoRA DSM-ppi model
   - [GleghornLab/DSM_150_ppi_control](https://huggingface.co/GleghornLab/DSM_150_ppi_control) - Control version of LoRA DSM-ppi
-    (Fully finetuned - recommended for real use)
-  - [Synthyra/DSM_ppi_full](https://huggingface.co/Synthyra/DSM_ppi_full) - 650M parameter DSM-ppi model
+
+  (Fully finetuned - recommended for real use)
+  - [Synthyra/DSM_ppi_full](https://huggingface.co/Synthyra/DSM_ppi_full) - 650M parameter DSM-ppi model 
 
 - **Datasets**:
   - [Synthyra/omg_prot50](https://huggingface.co/Synthyra/omg_prot50) - Open MetaGenomic dataset clustered at 50% identity (207M sequences)
@@ -333,6 +334,7 @@ The repository includes a comprehensive suite for evaluating model performance, 
 3.  **Representation Quality (Model Probing):**
     *   Evaluate learned embeddings by training linear probes (or simple transformer blocks) on various downstream tasks (e.g., secondary structure prediction, localization prediction, etc.).
     *   Performance is compared against random vectors, randomized transformers, and other established pLMs.
+    *   The assessment was done with [Protify](https://github.com/Synthyra/Protify), an open-source framework that can be used for pLM training and evaluation.
 
 4.  **Conditional Generation (Binder Design for DSM-ppi):**
     *   Evaluate DSM-ppi on benchmarks like BenchBB.
