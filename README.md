@@ -1,7 +1,3 @@
----
-library_name: transformers
-tags: []
----
 # DSM: Diffusion Models for Protein Sequence Generation
 ### Note: This readme is shared between our GitHub and Huggingface pages.
 
@@ -164,6 +160,42 @@ Folded with Chai1:
 ![image](https://github.com/user-attachments/assets/782d7bba-6f25-4a27-b0c4-fef88565dd33)
 
 `Synthyra/DSM_ppi_full` was actually trained to fill masks from any part of SeqA and SeqB. That means you can fully hallucinate plausibly interacting protein pairs.
+
+```python
+seq_a_length = 128
+seq_b_length = 128
+
+seq_a_template = ''.join([mask_token] * seq_a_length)
+seq_b_template = ''.join([mask_token] * seq_b_length)
+
+combined_input_str = seq_a_template + '<eos>' + seq_b_template
+
+input_tokens = tokenizer.encode(combined_input_str, add_special_tokens=True, return_tensors='pt').to(device)
+
+output = model.mask_diffusion_generate(
+    tokenizer=tokenizer,
+    input_tokens=input_tokens,
+    step_divisor=10,          # lower is slower but better
+    temperature=1.0,           # sampling temperature
+    remasking="random",        # strategy for remasking tokens not kept
+    preview=False,             # set this to True to watch the mask tokens get rilled in real time
+    slow=False,                # adds a small delay to the real time filling (because it is usually very fast and watching carefully is hard!)
+    return_trajectory=False    # set this to True to return the trajectory of the generation (what you watch in the preview)
+) # Note: output will be a tuple if return_trajectory is True
+
+seqa, seqb = model.decode_dual_input(output, seperator='<eos>')
+# Parse out the generated interactor part based on EOS tokens.
+# Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
+print(f"SeqA: {seqa[0][4:]}") # remove cls token
+print(f"SeqB: {seqb[0]}")
+```
+
+```console
+SeqA: MVNLAKMRQRTEQNLREVSSFVKILFHTVLKFPMKINIGIHVHINMQAAQNAAADQNMQATNVIDLHNFKMGKDIGVDNKASATAHIYDEAHHTFLQLGAIKLLHAIPMIAGPVRCRLPIGFGHRFRG
+SeqB: HYKNPMHSLLDSNVLHKDVVEVRLPIKIGMELDVMASAMREFLMPGTQQGDLRVIAEKRPVNKLHTYRRDLVKLLLAGAKLGTEAKSVELDLYRTELGGLVVYIININIATWDIIFAKVKICRGNDKP
+```
+
+Folded with Chai1:
 
 
 
