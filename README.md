@@ -1,3 +1,7 @@
+---
+library_name: transformers
+tags: []
+---
 # DSM: Diffusion Models for Protein Sequence Generation
 ### Note: This readme is shared between our GitHub and Huggingface pages.
 
@@ -14,13 +18,13 @@
 
 ## Introduction
 
-DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) developed in collaboration between the Gleghorn Lab and [Synthyra](https://synthyra.com/). It was trained with masked diffusion to enable both high-quality representation learning and generative protein design, detailed extensively in our [preprint](https://arxiv.org/abs/2506.08293). This repository contains the code for training and evaluating DSM and its variants.
+DSM (Diffusion Sequence Model) is a novel Protein Language Model (pLM) developed in collaboration between the [Gleghorn Lab](https://www.gleghornlab.com/) and [Synthyra](https://synthyra.com/). It was trained with masked diffusion to enable both high-quality representation learning and generative protein design. This repository contains the code for training, evaluating, and applying DSM and its variants.
 
-DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions, even under high corruption rates. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. The repository also includes DSM-ppi, a variant fine-tuned to generate protein binders by attending to target sequences.
+DSM is capable of generating diverse, biomimetic sequences that align with expected amino acid compositions, secondary structures, and predicted functions. Furthermore, DSM's learned representations match or exceed those of comparably sized pLMs on various downstream tasks. DSM is detailed extensively in our [preprint](https://arxiv.org/abs/2506.08293) (which is currently in review). Beyond the base and PPI variants, we are currently training versions to jointly diffuse over sequence and foldseek tokens, as well as [Annotation Vocabulary](https://www.biorxiv.org/content/10.1101/2024.07.30.605924v1) tokens. Since the preprint release, Synthyra has trained [Synthyra/DSM_ppi_full](https://huggingface.co/Synthyra/DSM_ppi_full) which neglects the LoRA PPI training in favor for full finetuning. Additionally, the sequences SeqA and SeqB are jointly masked instead of just SeqB in the original version. We plan on adding the **many** new results to the second version of the preprint and eventual journal article.
 
 ## Models
 
-The following models are available on Hugging Face:
+Relevant Huggingface hosted models and datasets
 
 - **Base DSM Models**:
   - [GleghornLab/DSM_150](https://huggingface.co/GleghornLab/DSM_150) - 150M parameter DSM model
@@ -114,8 +118,6 @@ Generated sequence: MAVKFKEGGISTL
 ```
 
 ### 3. Conditional Generation (e.g., Binders - using DSM-ppi)
-If using DSM-ppi, the input format is specific for generating a binder (SeqB) for a target (SeqA).
-
 ```python
 # from models.modeling_dsm import DSM_ppi
 # model_binder = DSM_ppi.from_pretrained("GleghornLab/DSM_650_ppi_lora").to(device).eval()
@@ -125,24 +127,29 @@ from models.modeling_dsm import DSM
 
 model_binder = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
 
-target_seq = "TARGETSEQUENCEAMINOACIDS"
+# BBF-14
+target_seq = "MGTPLWALLGGPWRGTATYEDGTKVTLDYRYTRVSPDRLRADVTYTTPDGTTLEATVDLWKDANGVIRYHATYPDGTSADGTLTQLDADTLLATGTYDDGTKYTVTLTRVAPGSGWHHHHHH"
 # For binder generation, the 'interactor' (SeqB) part is what gets generated/filled.
 # Start with a fully masked interactor of desired length.
-interactor_template_len = 20
+interactor_template_len = 256
 interactor_template = ''.join([mask_token] * interactor_template_len)
 
 combined_input_str = target_seq + '<eos>' + interactor_template
 
-binder_template_tokens = tokenizer.encode(combined_input_str, add_special_tokens=True).to(device)
+input_tokens = tokenizer.encode(combined_input_str, add_special_tokens=True, return_tensors='pt').to(device)
 
 output = model_binder.mask_diffusion_generate(
-    input_tokens=binder_template_tokens,
-    step_divisor=100,   # lower is slower but better
-    temperature=1.0,    # sampling temperature
-    remasking="random", # strategy for remasking tokens not kept
-)
+    tokenizer=tokenizer,
+    input_tokens=input_tokens,
+    step_divisor=10,          # lower is slower but better
+    temperature=1.0,           # sampling temperature
+    remasking="random",        # strategy for remasking tokens not kept
+    preview=False,             # set this to True to watch the mask tokens get rilled in real time
+    slow=False,                # adds a small delay to the real time filling (because it is usually very fast and watching carefully is hard!)
+    return_trajectory=False    # set this to True to return the trajectory of the generation (what you watch in the preview)
+) # Note: output will be a tuple if return_trajectory is True
 
-target, binder = model.decode_dual_input(output, seperator='<eos>;)
+target, binder = model.decode_dual_input(output, seperator='<eos>')
 # Parse out the generated interactor part based on EOS tokens.
 # Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
 print(f"Generated binder {binder[0]}")
@@ -151,9 +158,14 @@ print(f"Generated binder {binder[0]}")
 ```console
 Generated binder HRHHHRRPTHARETEWLARMRLGIAEHQRIAVPRSDLEPDQMRERAADNQRLVKEYDQVIDHQTEGSTERLFEVLRVWEQVNTEQAHHEASAALEFGRVGYPDDEGGRAFYTQANAHKKDLVEYIGGIDEDAKWDPRIAWLMPEGGQPVKATVIGVSEERINGLKVLDDHWGRERRLWLINLFTALQAYDDPTRPTQVTLTPATDQLTNDVQYLLLSTRYTPPGVTTAVKIRKLDGRTLKVLTTEAPYVVRGATLS
 ```
+
 Folded with Chai1:
 
 ![image](https://github.com/user-attachments/assets/782d7bba-6f25-4a27-b0c4-fef88565dd33)
+
+`Synthyra/DSM_ppi_full` was actually trained to fill masks from any part of SeqA and SeqB. That means you can fully hallucinate plausibly interacting protein pairs.
+
+
 
 
 ## Demos

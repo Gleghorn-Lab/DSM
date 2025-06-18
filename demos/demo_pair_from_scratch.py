@@ -8,11 +8,11 @@ MODEL_PATH = 'Synthyra/DSM_ppi_full'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = False
-STEP_DIVISOR = 10
+PREVIEW = True
+STEP_DIVISOR = 1
 BATCH_SIZE = 1
-SEQA_LENGTH = 128
-SEQB_LENGTH = 128
+SEQA_LENGTH = 422
+SEQB_LENGTH = 155
 
 
 def mask_sequence(seq, mask_ratio=0.5, mask_token='<mask>'):

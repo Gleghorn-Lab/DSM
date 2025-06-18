@@ -8,6 +8,8 @@ DSM_MODELS = [
     'GleghornLab/DSM_650_ppi_lora',
     'GleghornLab/DSM_150_ppi_control',
     'Synthyra/DSM_ppi_full',
+    'GleghornLab/production_ss4_model',
+    'GleghornLab/production_ss9_model',
 ]
 
 
