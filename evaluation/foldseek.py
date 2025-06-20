@@ -40,8 +40,11 @@ class ProteinFolder:
     @torch.no_grad()
     def fold(self, aa_seqs: List[str], fs_seqs: List[str]):
         seqs = [
-            '<aa>' + aa + '<sep>' + '<fs>' + fs[:len(fs)//2] + ''.join(['<mask>'] * (len(fs) - len(fs)//2)) for aa, fs in zip(aa_seqs, fs_seqs)
+            '<aa>' + '<mask>' * len(aa) + '<sep>' + '<fs>' + '<mask>' * len(fs) for aa, fs in zip(aa_seqs, fs_seqs)
         ]
+        #seqs = [
+        #    '<aa>' + aa + '<sep>' + '<fs>' + '<mask>' * len(fs) for aa, fs in zip(aa_seqs, fs_seqs)
+        #]
         tokenizer = self.model.tokenizer
 
         final_preds, final_true = [], []
@@ -62,10 +65,10 @@ class ProteinFolder:
                 extra_tokens=extra_tokens,
                 input_tokens=input_ids,
                 attention_mask=attention_mask,
-                steps=10,
+                step_divisor=100,
                 temperature=1.0,
                 remasking='random',
-                preview=False,
+                preview=True,
                 slow=False,
             )
             aa_preds, fs_preds = self.model.decode_dual_input(outputs, attention_mask, '<sep>')

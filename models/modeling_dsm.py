@@ -82,18 +82,18 @@ class DSM(FastEsmModel, GenerateMixin): # FastEsmModel already inherits Embeddin
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
         return self.special_token_ids
 
+    @torch.no_grad()
     def _get_logits(
         self,
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         **kwargs: Any
     ) -> torch.Tensor:
-        with torch.no_grad():
-            x = self.esm.forward(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-            ).last_hidden_state # (b, L, d)
-            logits = self.lm_head(x) # (b, L, v)
+        x = self.esm.forward(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        ).last_hidden_state # (b, L, d)
+        logits = self.lm_head(x) # (b, L, v)
         return logits
 
     def forward(
