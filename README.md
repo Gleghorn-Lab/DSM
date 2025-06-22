@@ -232,7 +232,12 @@ Difference is statistically significant (p < 0.05)
     cd <repository-name>
     ```
 
-2.  **Set up the Python virtual environment:**
+2.  **Initialize the submodules:**
+    ```bash
+    git submodule update --init --remote --recursive
+    ```
+
+3.  **Set up the Python virtual environment:**
     The `setup_bioenv.sh` script creates a virtual environment named `bioenv` in your home directory (`~/bioenv`), installs PyTorch with CUDA 12.6 support, and then installs all other dependencies from `requirements.txt`.
 
     Make the script executable:
@@ -244,13 +249,18 @@ Difference is statistically significant (p < 0.05)
     ./setup_bioenv.sh
     ```
 
-3.  **Activate the environment:**
+    If you are not on a linux machine, you can install the requirements directly
+    ```console
+    python -m pip install -r requirements.txt
+    ```
+
+4.  **Activate the environment:**
     Each time you want to work on this project, activate the virtual environment:
     ```bash
     source ~/bioenv/bin/activate
     ```
 
-4.  **To deactivate the environment:**
+5.  **To deactivate the environment:**
     ```bash
     deactivate
     ```
