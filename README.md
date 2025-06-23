@@ -73,14 +73,17 @@ To generate a novel sequence of a specific length. DSM uses a progressive denois
 length = 100
 mask_token = tokenizer.mask_token
 # optionally, enforce starting with methionine
-input_template = tokenizer.encode('M' + ''.join([mask_token] * (length - 1)), add_special_tokens=True).to(device)
+input_tokens = tokenizer.encode('M' + ''.join([mask_token] * (length - 1)), add_special_tokens=True, return_tensors='pt').to(device)
 output = model.mask_diffusion_generate(
-    input_tokens=input_template,
-    step_divisor=100,   # lower is slower but better
-    temperature=1.0,    # sampling temperature
-    remasking="random", # strategy for remasking tokens not kept
-    preview=False       #
-)
+    tokenizer=tokenizer,
+    input_tokens=input_tokens,
+    step_divisor=100,          # lower is slower but better
+    temperature=1.0,           # sampling temperature
+    remasking="random",        # strategy for remasking tokens not kept
+    preview=False,             # set this to True to watch the mask tokens get rilled in real time
+    slow=False,                # adds a small delay to the real time filling (because it is usually very fast and watching carefully is hard!)
+    return_trajectory=False    # set this to True to return the trajectory of the generation (what you watch in the preview)
+) # Note: output will be a tuple if return_trajectory is True
 
 generated_sequences = model.decode_output(output)
 print(f"Generated sequence: {generated_sequences[0]}")
@@ -96,15 +99,18 @@ To fill in masked regions of a template sequence:
 ```python
 # Mask Filling / Inpainting
 template_sequence = "MA<mask><mask><mask>KEG<mask><mask>STL"
-template_tokens = model.tokenizer.encode(template_sequence, add_special_tokens=True).to(device)
+input_tokens = tokenizer.encode(template_sequence, add_special_tokens=True, return_tensors='pt').to(device)
 
-filled_ids = model.mask_diffusion_generate(
-    input_tokens=template_tokens,
-    step_divisor=100,   # lower is slower but better
-    temperature=1.0,    # sampling temperature
-    remasking="random", # strategy for remasking tokens not kept
-    preview=False
-)
+output = model.mask_diffusion_generate(
+    tokenizer=tokenizer,
+    input_tokens=input_tokens,
+    step_divisor=100,          # lower is slower but better
+    temperature=1.0,           # sampling temperature
+    remasking="random",        # strategy for remasking tokens not kept
+    preview=False,             # set this to True to watch the mask tokens get rilled in real time
+    slow=False,                # adds a small delay to the real time filling (because it is usually very fast and watching carefully is hard!)
+    return_trajectory=False    # set this to True to return the trajectory of the generation (what you watch in the preview)
+) # Note: output will be a tuple if return_trajectory is True
 
 generated_sequences = model.decode_output(output)
 print(f"Generated sequence: {generated_sequences[0]}")
@@ -120,9 +126,8 @@ Generated sequence: MAVKFKEGGISTL
 # model_binder = DSM_ppi.from_pretrained("GleghornLab/DSM_650_ppi_lora").to(device).eval()
 # The lora version from the paper leads to unreliable outputs
 # Synthyra has generously trained a version through full fine tuning
-from models.modeling_dsm import DSM
 
-model_binder = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
+model = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
 
 # BBF-14
 target_seq = "MGTPLWALLGGPWRGTATYEDGTKVTLDYRYTRVSPDRLRADVTYTTPDGTTLEATVDLWKDANGVIRYHATYPDGTSADGTLTQLDADTLLATGTYDDGTKYTVTLTRVAPGSGWHHHHHH"
@@ -135,10 +140,10 @@ combined_input_str = target_seq + '<eos>' + interactor_template
 
 input_tokens = tokenizer.encode(combined_input_str, add_special_tokens=True, return_tensors='pt').to(device)
 
-output = model_binder.mask_diffusion_generate(
+output = model.mask_diffusion_generate(
     tokenizer=tokenizer,
     input_tokens=input_tokens,
-    step_divisor=10,          # lower is slower but better
+    step_divisor=100,          # lower is slower but better
     temperature=1.0,           # sampling temperature
     remasking="random",        # strategy for remasking tokens not kept
     preview=False,             # set this to True to watch the mask tokens get rilled in real time
@@ -187,7 +192,7 @@ output = model.mask_diffusion_generate(
 seqa, seqb = model.decode_dual_input(output, seperator='<eos>')
 # Parse out the generated interactor part based on EOS tokens.
 # Example: generated_full_seq_str.split(model_binder.tokenizer.eos_token)[1]
-print(f"SeqA: {seqa[0][4:]}") # remove cls token
+print(f"SeqA: {seqa[0][5:]}") # remove cls token
 print(f"SeqB: {seqb[0]}")
 ```
 
