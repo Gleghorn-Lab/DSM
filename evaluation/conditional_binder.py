@@ -18,7 +18,7 @@ MODEL_PATH = 'lhallee/DSM_ppi_full'
 TEMPERATURE = 1.0
 REMASKING = 'random'
 SLOW = False
-PREVIEW = True
+PREVIEW = False
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 NUM_NEGATIVE_CONTROLS = 20
 
@@ -61,7 +61,7 @@ def prediction_worker(design_queue, result_queue, TARGET, args):
 
 
 if __name__ == '__main__':
-    # py -m design.conditional_binder
+    # py -m evaluation.conditional_binder
     args = arg_parser()
     if args.token is not None:
         login(args.token)
