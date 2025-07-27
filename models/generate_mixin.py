@@ -59,7 +59,7 @@ class GenerateMixin:
 
         for id, mask in zip(ids, attention_mask):
             decoded = self.tokenizer.decode(id[mask.bool()]).replace(' ', '') # remove spaces
-            decoded = decoded.replace('<mask>', '-').replace('<pad>', '')
+            decoded = decoded.replace('<mask>', '-').replace('<pad>', '').replace('<cls>', '')
             seq_a, seq_b = decoded.split(seperator)[:2] # remove final eos and split by seperator
             final_seqs_a.append(seq_a)
             final_seqs_b.append(seq_b)
