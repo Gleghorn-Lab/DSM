@@ -250,6 +250,8 @@ def main(args):
     model.get_special_token_ids()
     print(model)
 
+    model = torch.compile(model)
+
     ### Load Dataset
     dataset = load_dataset('lhallee/foldseek_dataset')
     dataset = dataset.filter(lambda x: len(x['seqs']) <= args.max_length // 2)
