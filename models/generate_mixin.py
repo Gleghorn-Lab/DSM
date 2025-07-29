@@ -9,6 +9,7 @@ class GenerateMixin:
     def __init__(self):
         self.special_token_ids = torch.empty(0)
         self.special_tokens = []
+        self.x_token_id = self.tokenizer.convert_tokens_to_ids('X')
     """
     A mixin class that provides text generation functionality for models.
     
@@ -79,23 +80,29 @@ class GenerateMixin:
         return logits.exp() / gumbel_noise
 
     def _mask_sampling(self, logits: torch.Tensor, temperature: float, remasking: str, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        logits_with_noise = self._add_gumbel_noise(logits, temperature=temperature)
+        logits_with_noise = self._add_gumbel_noise(logits, temperature=temperature) # b, l, v
         
+        ### We divide by 100.0 to make the logits less extreme
         x0 = torch.argmax(logits_with_noise, dim=-1)  # b, l
         if remasking == 'low_confidence':
-            p = F.softmax(logits.to(torch.float64), dim=-1)
+            p = F.softmax(logits_with_noise.to(torch.float64) / 100.0, dim=-1) # b, l, v
             x0_p = p.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
         elif remasking == 'random':
             x0_p = torch.rand((x0.shape[0], x0.shape[1]), device=device)
         elif remasking == 'low_logit':
             x0_p = logits.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
         elif remasking == 'dual':
-            p = F.softmax(logits.to(torch.float64), dim=-1)
+            p = F.softmax(logits_with_noise.to(torch.float64) / 100.0, dim=-1)
             x0_p_1 = p.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
             x0_p_2 = torch.rand((x0.shape[0], x0.shape[1]), device=device)
-            x0_p = (x0_p_1 * x0_p_2) / 2 
+            x0_p = (x0_p_1 + x0_p_2) / 2
         else:
             raise NotImplementedError(f"Remasking strategy '{remasking}' not implemented")
+        
+        # Force X tokens to always be remasked by setting their confidence to -inf
+        x_token_mask = (x0 == self.x_token_id)
+        x0_p[x_token_mask] = -np.inf
+        
         return x0, x0_p
 
     def _get_num_transfer_tokens(self, mask_index: torch.Tensor, steps: int) -> torch.Tensor:

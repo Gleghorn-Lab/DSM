@@ -233,8 +233,8 @@ Difference is statistically significant (p < 0.05)
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
-    cd <repository-name>
+    git clone https://github.com/Gleghorn-Lab/DSM.git
+    cd DSM
     ```
 
 2.  **Initialize the submodules:**
@@ -269,6 +269,16 @@ Difference is statistically significant (p < 0.05)
     ```bash
     deactivate
     ```
+
+All together
+```bash
+git clone https://github.com/Gleghorn-Lab/DSM.git
+cd DSM
+git submodule update --init --remote --recursive
+chmod +x setup_bioenv.sh
+./setup_bioenv.sh
+source ~/bioenv/bin/activate
+```
 
 ## Training
 

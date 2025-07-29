@@ -58,16 +58,16 @@ def load_binder_model(model_path):
 
 
 
-def get_eval_data(num_samples: int = None) -> List[str]:
+def get_eval_data(num_samples: int = None, max_length: int = 2048) -> List[str]:
     local_file = hf_hub_download(
         repo_id="Synthyra/omg_prot50",
         filename=f"data/valid-00000-of-00001.parquet",
         repo_type="dataset"
     )
     data = Dataset.from_parquet(local_file).shuffle(seed=888)
+    data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < max_length)
     if num_samples is not None:
         data = data.select(range(num_samples))
-    data = data.filter(lambda x: len(x['sequence']) > 20 and len(x['sequence']) < 2048)
     print(data)
     valid_seqs = sorted(data['sequence'], key=len, reverse=True)
     return valid_seqs
