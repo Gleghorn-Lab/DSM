@@ -83,17 +83,17 @@ class GenerateMixin:
     def _mask_sampling(self, logits: torch.Tensor, temperature: float, remasking: str, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         logits_with_noise = self._add_gumbel_noise(logits, temperature=temperature) # b, l, v
         
-        ### We divide by 100.0 to make the logits less extreme
+        ### We divide by 1000.0 to make the logit differences less extreme, and closer to random
         x0 = torch.argmax(logits_with_noise, dim=-1)  # b, l
         if remasking == 'low_confidence':
-            p = F.softmax(logits_with_noise.to(torch.float64) / 100.0, dim=-1) # b, l, v
+            p = F.softmax(logits_with_noise.to(torch.float64) / 1000.0, dim=-1) # b, l, v
             x0_p = p.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
         elif remasking == 'random':
             x0_p = torch.rand((x0.shape[0], x0.shape[1]), device=device)
         elif remasking == 'low_logit':
             x0_p = logits.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
         elif remasking == 'dual':
-            p = F.softmax(logits_with_noise.to(torch.float64) / 100.0, dim=-1)
+            p = F.softmax(logits_with_noise.to(torch.float64) / 1000.0, dim=-1)
             x0_p_1 = p.gather(dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)  # b, l
             x0_p_2 = torch.rand((x0.shape[0], x0.shape[1]), device=device)
             x0_p = (x0_p_1 + x0_p_2) / 2

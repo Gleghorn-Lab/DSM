@@ -37,7 +37,7 @@ if __name__ == '__main__':
     mask_token = tokenizer.mask_token
     comparator = CorpusComparator(vocabulary=AA20)
 
-    natural_seqs = get_eval_data(args.num_samples, max_length=2048)
+    natural_seqs = get_eval_data(args.num_samples, max_length=128)
     
     remaskings = ['dual', 'random', 'low_confidence']
     
