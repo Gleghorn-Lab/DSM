@@ -143,7 +143,7 @@ def compare_distributions(natural_scores, generated_scores, output_dir="results"
 def main():
     # py -m evaluation.compute_plddt_comparison
     parser = argparse.ArgumentParser(description="Compare ESMfold plDDT scores between natural and generated sequences")
-    parser.add_argument("--input_csv", type=str, default="comparisons/unconditional_generation_seqs.csv",
+    parser.add_argument("--input_csv", type=str, default="evaluation/comparisons/unconditional_generation_seqs.csv",
                        help="CSV file with natural and generated sequences")
     parser.add_argument("--max_sequences", type=int, default=100,
                        help="Maximum number of sequences to process from each type")
