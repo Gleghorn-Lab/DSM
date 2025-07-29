@@ -9,6 +9,7 @@ class GenerateMixin:
     def __init__(self):
         self.special_token_ids = torch.empty(0)
         self.special_tokens = []
+        self.mask_token_id = self.tokenizer.mask_token_id
         self.x_token_id = self.tokenizer.convert_tokens_to_ids('X')
     """
     A mixin class that provides text generation functionality for models.
