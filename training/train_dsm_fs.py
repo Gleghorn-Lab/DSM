@@ -176,7 +176,7 @@ class PairCollator_input_ids:
         seqs_a, seqs_b = zip(*batch)
         
         if random.random() < 0.9:
-            seqs = [a + '<sep>' + b for a, b in zip(seqs_a, seqs_b)]
+            seqs = [a + '<eos>' + b for a, b in zip(seqs_a, seqs_b)]
         else:
             seqs = seqs_a
         
@@ -225,14 +225,14 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
 def parse_args():
     parser = argparse.ArgumentParser(description="Synthyra Trainer")
     parser.add_argument("--token", type=str, default=None, help="Huggingface token")
-    parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_150", help="Path to the model to train")
-    parser.add_argument("--save_path", type=str, default="lhallee/DSM_150_fs", help="Path to save the model and report to wandb")
+    parser.add_argument("--model_path", type=str, default="GleghornLab/DSM_650", help="Path to the model to train")
+    parser.add_argument("--save_path", type=str, default="lhallee/DSM_650_fs", help="Path to save the model and report to wandb")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=4, help="Batch size")
     parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
@@ -286,6 +286,7 @@ def main(args):
         learning_rate=args.lr,
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
+        dataloader_prefectch_factor=2 if not args.bugfix else None,
         report_to="wandb" if WANDB_AVAILABLE else 'none',
         save_total_limit=5,
         max_grad_norm=10.0,
