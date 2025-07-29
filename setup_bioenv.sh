@@ -20,7 +20,7 @@ pip install --upgrade pip setuptools
 
 # Install torch and torchvision
 echo "Installing torch and torchvision..."
-pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128 -U
 
 # Install requirements with force reinstall
 echo "Installing requirements"
