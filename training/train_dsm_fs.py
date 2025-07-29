@@ -286,7 +286,7 @@ def main(args):
         learning_rate=args.lr,
         fp16=args.fp16,
         dataloader_num_workers=4 if not args.bugfix else 0,
-        dataloader_prefectch_factor=2 if not args.bugfix else None,
+        dataloader_prefetch_factor=2 if not args.bugfix else None,
         report_to="wandb" if WANDB_AVAILABLE else 'none',
         save_total_limit=5,
         max_grad_norm=10.0,
