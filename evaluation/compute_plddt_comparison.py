@@ -45,7 +45,7 @@ def compute_esmfold_plddt(sequences, batch_size=1, max_length=400):
     plddt_scores = []
     
     # Filter sequences by length
-    valid_sequences = [seq for seq in sequences if len(seq) <= max_length and len(seq) > 0]
+    valid_sequences = [seq.replace('X', 'A').upper() for seq in sequences if len(seq) <= max_length and len(seq) > 0]
     print(f"Processing {len(valid_sequences)} sequences (filtered from {len(sequences)} by max_length={max_length})")
     
     with torch.inference_mode():
