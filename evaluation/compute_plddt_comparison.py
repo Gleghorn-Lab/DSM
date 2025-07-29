@@ -13,9 +13,29 @@ from tqdm import tqdm
 from scipy import stats
 from pathlib import Path
 from transformers import EsmForProteinFolding, AutoTokenizer
+import re
 
 
 torch.backends.cuda.matmul.allow_tf32 = True
+
+
+def clean_protein_sequence(sequence):
+    """
+    Clean protein sequence by replacing invalid characters with 'A'.
+    
+    Args:
+        sequence: Input protein sequence string
+        
+    Returns:
+        Cleaned sequence with only standard amino acids (invalids replaced by 'A')
+    """
+    # Standard amino acid alphabet
+    valid_aa = set('ACDEFGHIKLMNPQRSTVWY')
+    
+    # Replace any non-amino acid character with 'A' and convert to uppercase
+    cleaned = ''.join(c.upper() if c.upper() in valid_aa else 'A' for c in sequence)
+    
+    return cleaned
 
 
 def compute_esmfold_plddt(sequences, batch_size=1, max_length=400):
@@ -33,6 +53,18 @@ def compute_esmfold_plddt(sequences, batch_size=1, max_length=400):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
+    # Clean sequences to remove invalid characters
+    print("Cleaning protein sequences...")
+    cleaned_sequences = []
+    for seq in sequences:
+        cleaned = clean_protein_sequence(seq)
+        if len(cleaned) > 0:  # Only keep non-empty cleaned sequences
+            cleaned_sequences.append(cleaned)
+        else:
+            print(f"Warning: Sequence '{seq[:50]}...' became empty after cleaning")
+    
+    print(f"Cleaned {len(sequences)} sequences to {len(cleaned_sequences)} valid sequences")
+    
     # Load ESMFold model
     print("Loading ESMFold model...")
     model = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1")
@@ -45,8 +77,8 @@ def compute_esmfold_plddt(sequences, batch_size=1, max_length=400):
     plddt_scores = []
     
     # Filter sequences by length
-    valid_sequences = [seq.replace('X', 'A').upper() for seq in sequences if len(seq) <= max_length and len(seq) > 0]
-    print(f"Processing {len(valid_sequences)} sequences (filtered from {len(sequences)} by max_length={max_length})")
+    valid_sequences = [seq for seq in cleaned_sequences if len(seq) <= max_length and len(seq) > 0]
+    print(f"Processing {len(valid_sequences)} sequences (filtered from {len(cleaned_sequences)} by max_length={max_length})")
     
     with torch.inference_mode():
         for i in tqdm(range(0, len(valid_sequences), batch_size), desc="Computing plDDT"):
