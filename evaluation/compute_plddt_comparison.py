@@ -89,9 +89,9 @@ def compute_esmfold_plddt(sequences, batch_size=1, max_length=400):
                 tokenized = tokenizer(
                     batch_seqs, 
                     return_tensors="pt", 
-                    padding=True, 
-                    truncation=True,
-                    max_length=max_length
+                    padding=False, 
+                    truncation=False,
+                    add_special_tokens=False
                 )
                 tokenized = {k: v.to(device) for k, v in tokenized.items()}
                 
