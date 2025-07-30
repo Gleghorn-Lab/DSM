@@ -8,7 +8,6 @@ import random
 import pathlib
 import os
 from torch.utils.data import Dataset as TorchDataset
-from torchinfo import summary
 from typing import List, Tuple, Dict
 
 
@@ -211,14 +210,16 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
                 new_token = new_tokenizer.decode(j).lower()
                 if old_token == new_token:
                     print(f"Mapping {old_token} {i} to {new_token} {j}")
-                    new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i]
-                    new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i]
-                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i]
+                    rand = random.random()
+                    new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i] * rand
+                    new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i] * rand
+                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i] * rand
                 elif old_token == '<cls>' and new_token in map_from_cls:
                     print(f"Mapping <cls> to {new_token} {j}")
-                    new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i]
-                    new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i]
-                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i]
+                    rand = random.random()
+                    new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i] * rand
+                    new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i] * rand
+                    new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i] * rand
     return new_model
 
 
