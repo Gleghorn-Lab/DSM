@@ -208,15 +208,14 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
             for j in range(64):
                 old_token = old_tokenizer.decode(i).lower()
                 new_token = new_tokenizer.decode(j).lower()
+                rand = random.random()
                 if old_token == new_token:
-                    print(f"Mapping {old_token} {i} to {new_token} {j}")
-                    rand = random.random()
+                    print(f"Mapping {old_token} {i} to {new_token} {j} with rand {rand}")
                     new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i] * rand
                     new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i] * rand
                     new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i] * rand
                 elif old_token == '<cls>' and new_token in map_from_cls:
-                    print(f"Mapping <cls> to {new_token} {j}")
-                    rand = random.random()
+                    print(f"Mapping <cls> to {new_token} {j} with rand {rand}")
                     new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i] * rand
                     new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i] * rand
                     new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i] * rand
