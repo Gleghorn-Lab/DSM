@@ -10,6 +10,7 @@
 - [Training](#training)
 - [Evaluation](#evaluation)
 - [Results](#results)
+- [Experimental validation](#experimental-validation)
 - [Cite](#cite)
 
 ## Introduction
@@ -434,6 +435,55 @@ DSM demonstrates strong performance in both protein sequence generation and repr
 -   **Efficiency**: DSM can generate realistic protein sequences from a single forward pass during reconstruction tasks at high mask rates, offering potential efficiency advantages over iterative AR or some discrete diffusion models.
 
 These results highlight DSM's capability to unify high-quality protein representation learning and biologically coherent generative modeling within a single framework.
+
+## Experimental validation
+
+We validated various DSM generated binders using biolayer interferometry through [Adaptyv Bio](https://www.adaptyvbio.com/) - sending in 20 designs for EGFR and PD-L1. Sequences generated via unconditional generation were sorted hierarchically by predicted binding affinity (Synteract2), then ESMfold pLDDT, ESM2 PLL, and finally Chai1 iPTM. 
+
+### EGFR
+
+Of the 13 expressed, 12 designs bound to EGFR with 11 of them binding strongly. Noteably, the top design, `dsm_egfr_10`, presented a mean KD in the picomolar range (861 pM), which is a ~30% increase in binding affinity vs. the winner (and our starting template) of the Adaptyv EGFR competition at 1.21 nM, and ~90% over the original starting scFV Cetuximab at 664 nM.
+
+<img width="1593" height="527" alt="image" src="https://github.com/user-attachments/assets/f6f6a614-d5f4-4e9e-b7c9-fc0fdf9dc1e2" />
+
+
+**dsm_egfr_10**
+```
+QVQLQQSGPGLVQPSQSLSITCTVSGFSLTNYGVHWVRQSPGKGLEWLGVIWSGGNTDYNTPFTSRLSISRDTSKSQVFFKMNSLQTDDTAVYYCARALTYYDYEFAYWGQGTLVTVSAGGGGSGGGGSGGGGSDILLTQSPVILSVSPGERVSFSCRASQSIGSNIHWYQQRTNGSPKLLIRYASESISGIPSRFSGSGSGTDFTLSINSVDPEDIADYYCQQNNNWPTTFGAGTKLEIK
+```
+* KD - 861 pM
+* pKD - 9.06
+* PPI probability (Synteract2) - 0.9991
+* predicted pKD (Synteract2) - 8.94
+* mask rate for DSM - 2%
+* mutations from template - 3
+* mutations - I92V, T165S, L240I
+* average esm2 pll - 1.23
+* esmfold plddt - 0.75
+* pTM (AlphaFold3) - 0.81
+* ipTM (AlphaFold3) - 0.91
+
+<table>
+  <tr>
+    <td>
+      <img width="596" height="355" alt="image" src="https://github.com/user-attachments/assets/0c6f690d-3134-44d2-9540-12c277e187b3" />
+    </td>
+    <td>
+      <img src="https://github.com/Gleghorn-Lab/DSM/blob/main/wetlab_result_analysis/egfr/kinetics/dsm_egfr_10_2.png" width="400">
+    </td>
+  </tr>
+</table>
+
+<img width="1865" height="548" alt="image" src="https://github.com/user-attachments/assets/ce486326-f4ba-4604-af47-259f7bbe496f" />
+
+
+### PD-L1
+
+All 20 PD-L1 designs had high expression rates, with 15/20 binding. 1 weak, 10 medium, and 3 strong. The strongest presented with an average KD of 8.06 nM (pKD) , which is markedly less than the original template at 0.8 pM. We attribute the consistent binding but worse performance overall to the higher error between Synteract2 ppKD and true pKD of the template, implying it is not modeled well by our affinity system. 
+
+<img width="1592" height="516" alt="image" src="https://github.com/user-attachments/assets/6d2cde0e-75a4-4f29-999f-a8c601286845" />
+
+<img src="https://github.com/Gleghorn-Lab/DSM/blob/main/wetlab_result_analysis/pdl1/kinetics/dsm_pdl1_7_1.png" width="400">
 
 ## Cite
 ```
