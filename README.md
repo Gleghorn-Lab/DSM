@@ -474,6 +474,8 @@ QVQLQQSGPGLVQPSQSLSITCTVSGFSLTNYGVHWVRQSPGKGLEWLGVIWSGGNTDYNTPFTSRLSISRDTSKSQVFF
   </tr>
 </table>
 
+This sequence would have won the EGFR competition by a wide margin! Of course, we piggybacked on the winning entry as our template. We have been using DSM-PPI-full to attempt to replicate competition winning binders from the Cetuximab starting point instead. Stay tuned! 
+
 <img width="1865" height="548" alt="image" src="https://github.com/user-attachments/assets/ce486326-f4ba-4604-af47-259f7bbe496f" />
 
 
