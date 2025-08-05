@@ -202,6 +202,8 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
     new_model.lm_head.decoder.bias = torch.nn.Parameter(torch.randn(64))
     new_model.vocab_size = 64
     new_model.config.vocab_size = 64
+
+    """
     map_from_cls = ['<bos>', '<sep>', '<aa>', '<fs>']
     with torch.no_grad():
         for i in range(33):
@@ -219,6 +221,7 @@ def map_token_embedding_matrix(old_tokenizer, new_tokenizer, model):
                     new_model.esm.embeddings.word_embeddings.weight[j] = model.esm.embeddings.word_embeddings.weight[i] * rand
                     new_model.lm_head.decoder.weight[j] = model.lm_head.decoder.weight[i] * rand
                     new_model.lm_head.decoder.bias[j] = model.lm_head.decoder.bias[i] * rand
+    """
     return new_model
 
 
@@ -247,7 +250,8 @@ def main(args):
     tokenizer = EsmTokenizer.from_pretrained("lhallee/joint_tokenizer")
     model = map_token_embedding_matrix(old_tokenizer, tokenizer, model)
     model.tokenizer = tokenizer
-    model.get_special_token_ids()
+    extra_tokens = ['<aa>', '<fs>', '<sep>', '<bos>', '<eos>', '<cls>']
+    model.get_special_token_ids(extra_tokens)
     print(model)
 
     model = torch.compile(model)
@@ -317,13 +321,13 @@ def main(args):
     trainer.train()
     metrics = trainer.evaluate(test_dataset)
     print('Final Metrics: \n', metrics)
-    trainer.model.push_to_hub(args.save_path, private=True)
+    trainer.model._orig_mod.push_to_hub(args.save_path, private=True)
     if WANDB_AVAILABLE:
         wandb.finish()
 
 
 if __name__ == "__main__":
-    # py -m train_dsm_ppi_both
+    # py -m training.train_dsm_fs
     args = parse_args()
 
     if WANDB_AVAILABLE:
