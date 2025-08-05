@@ -11,7 +11,7 @@ from torch.utils.data import Dataset as TorchDataset
 from typing import List, Tuple, Dict
 
 
-base_path = "/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee-ppi/code"
+base_path = "/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee4/code"
 cache_root = f"{base_path}/hf_cache"
 tmp_root   = f"{base_path}/tmp"
 
@@ -235,7 +235,7 @@ def parse_args():
     parser.add_argument("--grad_accum", type=int, default=1, help="Gradient accumulation steps")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train for")
     parser.add_argument("--wandb_project", type=str, default="DSM", help="Wandb project name")
-    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences fed to the model")
+    parser.add_argument("--max_length", type=int, default=512, help="Maximum length of sequences fed to the model")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision for training")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size and max length for debugging")
