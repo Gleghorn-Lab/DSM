@@ -6,8 +6,28 @@ from transformers import EsmTokenizer
 from datasets import load_dataset
 from typing import List
 from tqdm import tqdm
+import random
 
 from models.modeling_dsm import DSM, DSMConfig
+
+
+def randomly_mask_sequence(sequence: str, mask_ratio: float = 0.15) -> str:
+    """Randomly mask tokens in a sequence with the given ratio."""
+    sequence_list = list(sequence)
+    num_to_mask = int(len(sequence_list) * mask_ratio)
+    
+    if num_to_mask == 0:
+        return sequence
+    
+    # Get random indices to mask
+    indices_to_mask = random.sample(range(len(sequence_list)), num_to_mask)
+    
+    # Replace selected indices with mask tokens
+    for idx in indices_to_mask:
+        sequence_list[idx] = '<mask>'
+    
+    return ''.join(sequence_list)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -67,18 +87,25 @@ elif len(missing_keys) == 0:
 else:
     print(f"Loaded with {len(missing_keys)} missing keys")
 
-
-print(model)
-
 tokenizer = EsmTokenizer.from_pretrained(tokenizer_path)
 model.tokenizer = tokenizer
 extra_tokens = ['<aa>', '<fs>', '<sep>', '<bos>', '<eos>', '<cls>']
 model.get_special_token_ids(extra_tokens)
 
-dataset = load_dataset('lhallee/foldseek_dataset')
-dataset = dataset.rename_columns({'seqs': 'aa_seqs', 'labels': 'fs_seqs'})
-test_dataset = dataset['test'].filter(lambda x: len(x['aa_seqs']) <= 128).select(range(100))
-print(test_dataset)
+dataset = load_dataset('lhallee/foldseek_dataset', split='test', streaming=True)
+
+aa_seqs, fs_seqs = [], []
+for i, batch in enumerate(dataset):
+    aa_seq = batch['seqs']
+    if len(aa_seq) > 128:
+        continue
+    aa_seqs.append(aa_seq)
+    fs_seqs.append(batch['labels'])
+    
+    if len(aa_seqs) >= 100:
+        break
+
+print(len(aa_seqs), len(fs_seqs))
 
 
 class ProteinFolder:
@@ -102,7 +129,7 @@ class ProteinFolder:
         #    '<aa>' + '<mask>' * len(aa) + '<eos>' + '<fs>' + '<mask>' * len(fs) for aa, fs in zip(aa_seqs, fs_seqs)
         #]
         seqs = [
-            '<aa>' + aa + '<eos>' + '<fs>' + fs[0] + '<mask>' * (len(fs) - 1) for aa, fs in zip(aa_seqs, fs_seqs)
+            '<aa>' + aa + '<eos>' + '<fs>' + randomly_mask_sequence(fs, mask_ratio=0.15) for aa, fs in zip(aa_seqs, fs_seqs)
         ]
         tokenizer = self.model.tokenizer
 
@@ -119,26 +146,19 @@ class ProteinFolder:
             )
             input_ids = tokenized['input_ids'].to(self.device)
             attention_mask = tokenized['attention_mask'].to(self.device)
-            outputs = self.model.mask_diffusion_generate(
-                tokenizer=tokenizer,
-                extra_tokens=extra_tokens,
-                input_tokens=input_ids,
-                attention_mask=attention_mask,
-                step_divisor=1,
-                temperature=1.0,
-                remasking='random',
-                preview=True,
-                slow=False,
-            )
-            aa_preds, fs_preds = self.model.decode_dual_input(outputs, attention_mask, '<eos>')
-            for aa, fs, fs_true in zip(aa_preds, fs_preds, batch_fs_seqs):
-                aa = aa.replace('<bos>', '').replace('<aa>', '')
-                fs = fs.replace('<fs>', '').replace('<eos>', '')
-                final_preds.append(fs)
-                final_true.append(fs_true)
+            outputs = self.model(input_ids, attention_mask=attention_mask)
+            logits = outputs.logits[0].cpu()
+            preds = logits.argmax(dim=-1)
+            for pred, ids in zip(preds, input_ids):
+                pred = tokenizer.decode(pred).replace(' ', '')
+                true = tokenizer.decode(ids).replace(' ', '')
+                print(true)
+                print(pred)
+                print('-' * 100)
+            
 
         return self.string_accuracy(final_true, final_preds)
 
 
 protein_folder = ProteinFolder(model, args.batch_size)
-print(protein_folder.fold(test_dataset['aa_seqs'], test_dataset['fs_seqs']))
+print(protein_folder.fold(aa_seqs, fs_seqs))

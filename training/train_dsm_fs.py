@@ -35,7 +35,6 @@ else:
 from transformers import TrainingArguments, EvalPrediction, Trainer, EsmTokenizer
 from huggingface_hub import login
 from datasets import load_dataset
-
 from sklearn.metrics import (
     f1_score,
     accuracy_score,
@@ -62,7 +61,6 @@ except ImportError:
 class ComputeMetrics:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
-
         # Build sets of amino acid and foldseek token ids
         # Amino acids: single uppercase letters (A-Z)
         # Foldseek: single lowercase letters (a-z)
