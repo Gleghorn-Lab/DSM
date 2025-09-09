@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from models.modeling_dsm import DSM, DSMConfig
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--token', type=str, default=None)
