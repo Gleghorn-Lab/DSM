@@ -156,7 +156,10 @@ class GenerateMixin:
         self.special_token_ids = self._get_special_token_ids(extra_tokens)
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
 
-        num_mask_tokens = (input_tokens == mask_token_id).sum().item()
+        batch_size = input_tokens.shape[0]
+
+        # calculate number of mask tokens based on average mask tokens per batch
+        num_mask_tokens = (input_tokens == mask_token_id).sum().item() // batch_size
         steps = max(1, num_mask_tokens // step_divisor)
 
         trajectory = []
