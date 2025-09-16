@@ -11,6 +11,7 @@ class GenerateMixin:
         self.special_tokens = []
         self.mask_token_id = self.tokenizer.mask_token_id
         self.x_token_id = self.tokenizer.convert_tokens_to_ids('X')
+        
     """
     A mixin class that provides text generation functionality for models.
     
@@ -128,6 +129,7 @@ class GenerateMixin:
         preview: Optional[bool] = False,
         slow: Optional[bool] = False,
         return_trajectory: Optional[bool] = False,
+        safe_mode: Optional[bool] = False,
         **kwargs: Any
     ) -> torch.LongTensor:
         """
@@ -143,6 +145,7 @@ class GenerateMixin:
             remasking: Remasking strategy ('low_confidence', 'random', 'low_logit', or 'dual')
             preview: Whether to show generation progress
             slow: Whether to slow down generation for visualization
+            safe_mode: If True, restrict logits to canonical amino acids only
             
         Returns:
             Generated token IDs
@@ -155,6 +158,14 @@ class GenerateMixin:
         mask_token_id = tokenizer.mask_token_id
         self.special_token_ids = self._get_special_token_ids(extra_tokens)
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
+
+        # Precompute allowed vocabulary mask for canonical amino acids if safe_mode is enabled
+        allowed_vocab_mask = None
+        if safe_mode:
+            canonical_tokens = ['L','A','G','V','S','E','R','T','I','D','P','K','Q','N','F','Y','M','H','W','C']
+            canonical_token_ids = torch.tensor([tokenizer.convert_tokens_to_ids(t) for t in canonical_tokens], device=device)
+            allowed_vocab_mask = torch.zeros(vocab_size, dtype=torch.bool, device=device)
+            allowed_vocab_mask[canonical_token_ids] = True
 
         batch_size = input_tokens.shape[0]
 
@@ -181,6 +192,9 @@ class GenerateMixin:
             mask_index = (x == mask_token_id)
             
             logits = self._get_logits(input_ids=x, attention_mask=attention_mask)
+            # Cut off non-canonical tokens from logits before any sampling logic
+            if safe_mode and allowed_vocab_mask is not None:
+                logits = logits.masked_fill(~allowed_vocab_mask.view(1, 1, -1), float('-inf'))
             x0, x0_p = self._mask_sampling(logits, temperature, remasking, device)
             
             # Don't consider special tokens
@@ -226,6 +240,8 @@ class GenerateMixin:
         if mask_index.any():
             # Final step to fill all remaining masks
             logits = self._get_logits(input_ids=x, attention_mask=attention_mask)
+            if safe_mode and allowed_vocab_mask is not None:
+                logits = logits.masked_fill(~allowed_vocab_mask.view(1, 1, -1), float('-inf'))
             x0, _ = self._mask_sampling(logits, temperature, remasking, device)
             x = torch.where(mask_index, x0, x)
 
