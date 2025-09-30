@@ -76,7 +76,6 @@ def compute_dsm_metrics(eval_preds: EvalPrediction):
     )
 
     metrics['cross_entropy_loss'] = cross_entropy_loss
-
     y_pred = lm_logits.argmax(axis=-1).flatten()
     y_true = labels.flatten()
     valid_indices = y_true != -100
