@@ -5,8 +5,8 @@ from models.modeling_dsm import DSM
 
 
 # Load a pre-trained model
-model = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
 tokenizer = model.tokenizer
 mask_token = tokenizer.mask_token
 
