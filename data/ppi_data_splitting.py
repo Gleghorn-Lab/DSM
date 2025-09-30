@@ -333,7 +333,7 @@ def get_single_species_data(
 
 if __name__ == "__main__":
     # py -m data.ppi_data_splitting
-    link_file = 'protein.links.v12.0.min900.onlyAB.csv'
+    link_file = 'protein.links.v12.0.min900.onlyAB.csv.gz'
     similarity_threshold = 0.4
     min_rows = 10000
     n = 2
