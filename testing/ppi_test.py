@@ -1,13 +1,12 @@
 import torch
 import random
 from tqdm.auto import tqdm
-from models.modeling_dsm import DSM # Or DSM_ppi for binder generation
+from models.modeling_dsm import DSM
 
 
 # Load a pre-trained model
-model_name_or_path = "GleghornLab/DSM_650" # Replace with your model of choice
+model = DSM.from_pretrained("Synthyra/DSM_ppi_full").to(device).eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = DSM.from_pretrained(model_name_or_path).to(device).eval()
 tokenizer = model.tokenizer
 mask_token = tokenizer.mask_token
 
