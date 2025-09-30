@@ -10,19 +10,20 @@ import pathlib
 from collections import defaultdict
 from tqdm.auto import tqdm
 
-base_path = args.hf_home
-cache_root = f"{base_path}/hf_cache"
-tmp_root   = f"{base_path}/tmp"
-pathlib.Path(cache_root).mkdir(parents=True, exist_ok=True)
-pathlib.Path(tmp_root).mkdir(parents=True, exist_ok=True)
-os.environ["HF_HOME"]            = cache_root
-os.environ["HF_DATASETS_CACHE"]  = f"{cache_root}/datasets"
-os.environ["TRANSFORMERS_CACHE"] = f"{cache_root}/transformers" # this is deprecated, but does not hurt anything
-os.environ["HF_HUB_CACHE"]       = f"{cache_root}/hub"
-print(f"HF_HOME: {os.environ['HF_HOME']}")
-print(f"HF_DATASETS_CACHE: {os.environ['HF_DATASETS_CACHE']}")
-print(f"TRANSFORMERS_CACHE: {os.environ['TRANSFORMERS_CACHE']}")
-print(f"HF_HUB_CACHE: {os.environ['HF_HUB_CACHE']}")
+base_path = '/mnt/batch/tasks/shared/LS_root/mounts/clusters/lhallee-cpu/code/'
+if os.path.exists(base_path):
+    cache_root = f"{base_path}/hf_cache"
+    tmp_root   = f"{base_path}/tmp"
+    pathlib.Path(cache_root).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(tmp_root).mkdir(parents=True, exist_ok=True)
+    os.environ["HF_HOME"]            = cache_root
+    os.environ["HF_DATASETS_CACHE"]  = f"{cache_root}/datasets"
+    os.environ["TRANSFORMERS_CACHE"] = f"{cache_root}/transformers" # this is deprecated, but does not hurt anything
+    os.environ["HF_HUB_CACHE"]       = f"{cache_root}/hub"
+    print(f"HF_HOME: {os.environ['HF_HOME']}")
+    print(f"HF_DATASETS_CACHE: {os.environ['HF_DATASETS_CACHE']}")
+    print(f"TRANSFORMERS_CACHE: {os.environ['TRANSFORMERS_CACHE']}")
+    print(f"HF_HUB_CACHE: {os.environ['HF_HUB_CACHE']}")
 
 
 from datasets import load_dataset
