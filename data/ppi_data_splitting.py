@@ -26,7 +26,7 @@ if os.path.exists(base_path):
     print(f"HF_HUB_CACHE: {os.environ['HF_HUB_CACHE']}")
 
 
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, DatasetDict
 
 
 def set_seed(seed: int):
@@ -334,6 +334,16 @@ def get_single_species_data(
 
 if __name__ == "__main__":
     # py -m data.ppi_data_splitting
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--token', type=str, default=None)
+    args = parser.parse_args()
+    token = args.token
+
+    if token is not None:
+        from huggingface_hub import login
+        login(token=token)
+    
     link_file = 'protein.links.v12.0.min900.onlyAB.csv.gz'
     similarity_threshold = 0.8
     min_rows = 10000
@@ -350,3 +360,12 @@ if __name__ == "__main__":
         minimum_confidence_train,
         minimum_confidence_eval,
     )
+    train_ds = Dataset.from_pandas(train_df)
+    valid_ds = Dataset.from_pandas(valid_df)
+    test_ds = Dataset.from_pandas(test_df)
+    full_dataset = DatasetDict({
+        'train': train_ds,
+        'valid': valid_ds,
+        'test': test_ds,
+    })
+    full_dataset.push_to_hub('GleghornLab/string_900_c3_cd_hit_80', private=True)
