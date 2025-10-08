@@ -71,6 +71,7 @@ def split_with_sim(
             f.write(f">{id}\n{seq}\n")
 
     # Run cd-hit in Docker
+    os.makedirs(base_path, exist_ok=True)
     output_path = f"{base_path}/output_{similarity_threshold}"
 
     if os.path.exists(output_path):
@@ -334,9 +335,9 @@ def get_single_species_data(
 if __name__ == "__main__":
     # py -m data.ppi_data_splitting
     link_file = 'protein.links.v12.0.min900.onlyAB.csv.gz'
-    similarity_threshold = 0.4
+    similarity_threshold = 0.8
     min_rows = 10000
-    n = 2
+    n = 5
     minimum_confidence_train = 150
     minimum_confidence_eval = 150
     print('Testing single species data...')
