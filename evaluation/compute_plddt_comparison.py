@@ -9,14 +9,11 @@ import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
+import re
 from tqdm import tqdm
 from scipy import stats
 from pathlib import Path
 from transformers import EsmForProteinFolding, AutoTokenizer
-import re
-
-
-torch.backends.cuda.matmul.allow_tf32 = True
 
 
 def clean_protein_sequence(sequence):
