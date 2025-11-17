@@ -3,7 +3,7 @@ import torch.nn as nn
 from typing import Optional, Tuple, Any, Union, List
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
-from .FastPLMs.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
+from .FastPLMs.esm2.modeling_fastesm import FastEsmModel, FastEsmForMaskedLM, FastEsmConfig
 from .generate_mixin import GenerateMixin
 from .modeling_transformer import Transformer
 from .utils import wrap_lora
