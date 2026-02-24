@@ -6,3 +6,4 @@
 *.pth
 *.bin
 not_published/
+/wandb

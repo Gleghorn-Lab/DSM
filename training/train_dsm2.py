@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
 # py -m training.train_dsm2
+import entrypoint_setup
+
+import os
 import argparse
 import torch
 import torch.nn.functional as F
@@ -29,14 +32,6 @@ from models.FastPLMs.dplm2_fastplms.modeling_dplm2 import DPLM2ForMaskedLM
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
-
-### Check for wandb
-try:
-    import wandb
-    WANDB_AVAILABLE = True
-except ImportError:
-    wandb = None
-    WANDB_AVAILABLE = False
 
 
 def load_teacher(teacher_path: str, device: str = "cuda"):
@@ -130,13 +125,17 @@ class DynamicLengthCallback(TrainerCallback):
             # print(f"Step {state.global_step}: Updated dynamic max token length to {current_len}")
 
 
-def get_eval_data(data_path: str):
+def get_eval_data(data_path: str, bugfix: bool = False):
     local_file = hf_hub_download(
         repo_id=data_path,
         filename=f"data/valid-00000-of-00001.parquet",
         repo_type="dataset"
     )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
+    data = Dataset.from_parquet(local_file).shuffle(seed=42)
+    if bugfix:
+        data = data.select(range(10))
+    else:
+        data = data.select(range(1000))
     print(data)
     valid_seqs = data['sequence']
     local_file = hf_hub_download(
@@ -144,7 +143,11 @@ def get_eval_data(data_path: str):
         filename=f"data/test-00000-of-00001.parquet",
         repo_type="dataset"
     )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42).select(range(1000))
+    data = Dataset.from_parquet(local_file).shuffle(seed=42)
+    if bugfix:
+        data = data.select(range(10))
+    else:
+        data = data.select(range(1000))
     print(data)
     test_seqs = data['sequence']
     return valid_seqs, test_seqs
@@ -153,6 +156,8 @@ def get_eval_data(data_path: str):
 def parse_args():
     parser = argparse.ArgumentParser(description="DSM2 Trainer")
     parser.add_argument("--hf_token", type=str, default=None, help="Huggingface token")
+    parser.add_argument("--wandb_token", type=str, default=None, help="Wandb token")
+    parser.add_argument("--wandb_project", type=str, default="DSM2", help="Wandb project name")
     parser.add_argument("--teacher_model_path", type=str, default="Synthyra/DPLM-3B", help="Path to initialize the teacher model from")
     
     # Student Architecture Arguments
@@ -175,7 +180,6 @@ def parse_args():
     parser.add_argument("--end_max_length", type=int, default=2048, help="Ending Maximum length of sequences")
     parser.add_argument("--len_interval", type=int, default=128, help="Interval by which max length jumps")
     
-    parser.add_argument("--wandb_project", type=str, default="DSM2", help="Wandb project name")
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size, max length, and fast exit for debugging")
     args = parser.parse_args()
@@ -244,7 +248,6 @@ def main(args):
     ### Define Training Arguments
     training_args = TrainingArguments(
         output_dir=args.save_path.split('/')[-1],
-        overwrite_output_dir=True,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         max_steps=args.max_steps,
@@ -260,8 +263,8 @@ def main(args):
         bf16=True,
         bf16_full_eval=True,
         dataloader_num_workers=4 if not args.bugfix else 0,
-        dataloader_prefetch_factor=2 if not args.bugfix else 2,
-        report_to="wandb" if WANDB_AVAILABLE else 'none',
+        dataloader_prefetch_factor=2 if not args.bugfix else None,
+        report_to="wandb" if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None else 'none',
         save_total_limit=3,
         max_grad_norm=10.0,
         label_names=['input_ids'],
@@ -326,7 +329,7 @@ def main(args):
                 "train/jepa_loss": dsm2_output.jepa_loss.item() if dsm2_output.jepa_loss is not None else 0.0,
                 "train/contrastive_loss": dsm2_output.contrastive_loss.item() if dsm2_output.contrastive_loss is not None else 0.0,
             }
-            if wandb is not None and WANDB_AVAILABLE:
+            if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None:
                 wandb.log(logs, step=trainer.state.global_step)
             
         return (loss, dsm2_output) if return_outputs else loss
@@ -349,7 +352,7 @@ def main(args):
         pass
         
     trainer.model.push_to_hub(args.save_path, private=True)
-    if WANDB_AVAILABLE:
+    if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None:
         wandb.finish()
 
 
@@ -357,7 +360,9 @@ if __name__ == "__main__":
     # py -m training.train_dsm2
     args = parse_args()
 
-    if WANDB_AVAILABLE:
+    if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None:
+        import wandb
+        wandb.login(args.wandb_token)
         run_name = args.save_path.split('/')[-1]
         wandb.init(project=args.wandb_project, name=run_name, config=vars(args))
 

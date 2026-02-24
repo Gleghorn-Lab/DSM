@@ -2,7 +2,7 @@ torchmetrics
 torchinfo
 tf-keras
 tensorflow
-transformers
+transformers>=5.0.0
 accelerate
 datasets
 einops

@@ -18,13 +18,13 @@ source ~/bioenv/bin/activate
 echo "Upgrading pip and setuptools..."
 pip install --upgrade pip setuptools
 
-# Install torch and torchvision
-echo "Installing torch and torchvision..."
-pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128 -U
-
 # Install requirements with force reinstall
 echo "Installing requirements"
 pip install -r requirements.txt -U
+
+# Install torch and torchvision
+echo "Installing torch and torchvision..."
+pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128 -U
 
 # List installed packages for verification
 echo -e "\nInstalled packages:"
