@@ -22,3 +22,5 @@ pauc
 sentencepiece
 IPython
 wordcloud
+hf-transfer
+hf-xet
