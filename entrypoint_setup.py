@@ -32,8 +32,8 @@ torch.backends.cudnn.deterministic = False
 
 import torch._inductor.config as inductor_config
 inductor_config.max_autotune_gemm_backends = "ATEN,CUTLASS,FBGEMM"
-inductor_config.combo_kernel_foreach_dynamic_shapes = False
-inductor_config.aggressive_fusion = False
+#inductor_config.combo_kernel_foreach_dynamic_shapes = False
+#inductor_config.aggressive_fusion = False
 
 import torch._dynamo as dynamo
 dynamo.config.capture_scalar_outputs = True

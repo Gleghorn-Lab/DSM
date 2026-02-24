@@ -216,9 +216,9 @@ def parse_args():
     parser.add_argument("--alpha_contrastive", type=float, default=1.0, help="Weight for Contrastive Loss")
     
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size")
     parser.add_argument("--patch_size", type=int, default=8, help="Max batch size to put through a single forward pass")
-    parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
+    parser.add_argument("--grad_accum", type=int, default=4, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for (typically 1 epoch)")
     
     parser.add_argument("--start_max_length", type=int, default=128, help="Starting Maximum length of sequences")
