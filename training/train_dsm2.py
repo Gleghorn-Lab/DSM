@@ -313,6 +313,8 @@ def main(args):
     # Initialize collator with starting length
     data_collator = SequenceCollator(tokenizer, max_length=args.max_length)
 
+    print('Initializing trainer')
+
     ### Define Training Arguments
     training_args = TrainingArguments(
         output_dir=args.save_path.split('/')[-1],
@@ -378,6 +380,7 @@ def main(args):
                 self.optimizer = MuonAdamWWrapper(muonclip, adamw)
             return self.optimizer
 
+
     trainer = DSM2Trainer(
         model=student_model,
         train_dataset=train_dataset,
@@ -393,6 +396,8 @@ def main(args):
         ],
         eval_dataset=valid_dataset,
     )
+
+    print('Trainer initialized')
 
     # We patch compute_loss to handle the custom teacher forward logic
     def compute_loss(model, inputs, return_outputs=False, num_items_in_batch=None):
