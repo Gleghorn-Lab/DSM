@@ -46,9 +46,9 @@ class AlignmentScorer:
     
 
 class GetAlignmentScoreFromLogits:
-    def __init__(self, gap_score=-10):
+    def __init__(self, tokenizer, gap_score=-10):
         self.scorer = AlignmentScorer(gap_score)
-        self.tokenizer = EsmTokenizer.from_pretrained("facebook/esm2_t6_8M_UR50D")
+        self.tokenizer = tokenizer
         self.canonical_aa = set("ACDEFGHIKLMNPQRSTVWY")
         self.canonical_tokens = set([self.tokenizer.encode(aa, add_special_tokens=False)[0] for aa in list(self.canonical_aa)])
         self.alanine_token = self.tokenizer.encode('A', add_special_tokens=False)[0]

@@ -72,74 +72,80 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
     return teacher
 
 
-def compute_dsm2_metrics(eval_preds: EvalPrediction):
-    ### NOTE the eval mask percentage is fixed at 15%
-    metrics = {}
+
+class ComputeDSM2Metrics:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer)
     
-    # The Trainer might return a tuple of all fields from DSM2Output, or just the logits.
-    # We search for the 3D tensor with the expected vocab size.
-    preds = eval_preds.predictions
-    lm_logits = None
-    mask_labels = None
-    
-    if isinstance(preds, (tuple, list)):
-        for p in preds:
-            if hasattr(p, "shape"):
-                if len(p.shape) == 3 and p.shape[-1] < 100: # Heuristic for vocab size
-                    lm_logits = p
-                elif len(p.shape) == 2 and mask_labels is None:
-                    mask_labels = p
-    else:
-        lm_logits = preds
+    def __call__(self, eval_preds: EvalPrediction):
+        ### NOTE the eval mask percentage is fixed at 15%
+        metrics = {}
+        
+        # The Trainer might return a tuple of all fields from DSM2Output, or just the logits.
+        # We search for the 3D tensor with the expected vocab size.
+        preds = eval_preds.predictions
+        lm_logits = None
+        mask_labels = None
+        
+        if isinstance(preds, (tuple, list)):
+            for p in preds:
+                if hasattr(p, "shape"):
+                    if len(p.shape) == 3 and p.shape[-1] < 100: # Heuristic for vocab size
+                        lm_logits = p
+                    elif len(p.shape) == 2 and mask_labels is None:
+                        mask_labels = p
+        else:
+            lm_logits = preds
 
-    if lm_logits is None:
-        return {}
+        if lm_logits is None:
+            return {}
 
-    # input_ids is the original sequence (used as label_ids in Trainer)
-    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+        # input_ids is the original sequence (used as label_ids in Trainer)
+        input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
 
-    # For cross entropy, we prefer using the mask_labels if provided by the model
-    # mask_labels has -100 for non-masked tokens.
-    if mask_labels is None:
-        # Fallback: if we don't have mask_labels, we use the original input_ids
-        # but cross_entropy will calculate loss over ALL tokens, which is not ideal for MLM.
-        labels_to_use = input_ids
-    else:
-        labels_to_use = mask_labels
+        # For cross entropy, we prefer using the mask_labels if provided by the model
+        # mask_labels has -100 for non-masked tokens.
+        if mask_labels is None:
+            # Fallback: if we don't have mask_labels, we use the original input_ids
+            # but cross_entropy will calculate loss over ALL tokens, which is not ideal for MLM.
+            labels_to_use = input_ids
+        else:
+            labels_to_use = mask_labels
 
-    scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
+        scores = self.alignment_scorer.batched_call(lm_logits, input_ids)
 
-    lm_logits_torch = torch.as_tensor(lm_logits)
-    labels_torch = torch.as_tensor(labels_to_use).long()
-    
-    # We need to do this because the eval loss is scaled by the mask rate
-    cross_entropy_loss = F.cross_entropy(
-        lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
-        labels_torch.view(-1),
-        ignore_index=-100
-    )
+        lm_logits_torch = torch.as_tensor(lm_logits)
+        labels_torch = torch.as_tensor(labels_to_use).long()
+        
+        # We need to do this because the eval loss is scaled by the mask rate
+        cross_entropy_loss = F.cross_entropy(
+            lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
+            labels_torch.view(-1),
+            ignore_index=-100
+        )
 
-    metrics['cross_entropy_loss'] = cross_entropy_loss.item()
-    metrics['alignment_score'] = scores.mean()
+        metrics['cross_entropy_loss'] = cross_entropy_loss.item()
+        metrics['alignment_score'] = scores.mean()
 
-    # Calculate other metrics only on valid (non -100) tokens
-    y_pred = lm_logits.argmax(axis=-1).flatten()
-    y_true = labels_to_use.flatten()
-    valid_indices = y_true != -100
-    
-    if valid_indices.any():
-        y_pred = y_pred[valid_indices]
-        y_true = y_true[valid_indices]
-        metrics["f1"] = f1_score(y_true, y_pred, average='weighted')
-        metrics["prec"] = precision_score(y_true, y_pred, average='weighted')
-        metrics["rec"] = recall_score(y_true, y_pred, average='weighted')
-        metrics["acc"] = accuracy_score(y_true, y_pred)
-        metrics["mcc"] = matthews_corrcoef(y_true, y_pred)
-    else:
-        # Fallback if no tokens are masked (shouldn't happen with 15% rate)
-        metrics["acc"] = 0.0
+        # Calculate other metrics only on valid (non -100) tokens
+        y_pred = lm_logits.argmax(axis=-1).flatten()
+        y_true = labels_to_use.flatten()
+        valid_indices = y_true != -100
+        
+        if valid_indices.any():
+            y_pred = y_pred[valid_indices]
+            y_true = y_true[valid_indices]
+            metrics["f1"] = f1_score(y_true, y_pred, average='weighted')
+            metrics["prec"] = precision_score(y_true, y_pred, average='weighted')
+            metrics["rec"] = recall_score(y_true, y_pred, average='weighted')
+            metrics["acc"] = accuracy_score(y_true, y_pred)
+            metrics["mcc"] = matthews_corrcoef(y_true, y_pred)
+        else:
+            # Fallback if no tokens are masked (shouldn't happen with 15% rate)
+            metrics["acc"] = 0.0
 
-    return metrics
+        return metrics
 
 
 class DynamicLengthCallback(TrainerCallback):
@@ -319,7 +325,7 @@ def main(args):
         col_name="sequence",
         num_workers=4 if not args.bugfix else 0, # usually 0 is safer on windows
         prefetch_factor=10 if not args.bugfix else None,
-        compute_metrics=compute_dsm2_metrics,
+        compute_metrics=ComputeDSM2Metrics(tokenizer),
         callbacks=[DynamicLengthCallback(
             data_collator=data_collator,
             total_steps=args.max_steps,

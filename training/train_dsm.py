@@ -34,45 +34,50 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 
-def compute_dsm_metrics(eval_preds: EvalPrediction):
-    ### NOTE the eval mask percentage is fixed at 15%
-    metrics = {}
-    lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
-    input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
-    lm_logits, labels = lm_logits
+class ComputeDSMMetrics:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer)
+    
+    def __call__(self, eval_preds: EvalPrediction):
+        ### NOTE the eval mask percentage is fixed at 15%
+        metrics = {}
+        lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
+        input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+        lm_logits, labels = lm_logits
 
-    scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
+        scores = self.alignment_scorer.batched_call(lm_logits, input_ids)
 
-    # labels are already -100 for non-masked tokens
-    lm_logits_torch = torch.tensor(lm_logits)
-    labels_torch = torch.tensor(labels)
-    # We need ot do this because the eval loss is scaled by the mask rate
-    cross_entropy_loss = F.cross_entropy(
-        lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
-        labels_torch.view(-1),
-        ignore_index=-100
-    )
+        # labels are already -100 for non-masked tokens
+        lm_logits_torch = torch.tensor(lm_logits)
+        labels_torch = torch.tensor(labels)
+        # We need ot do this because the eval loss is scaled by the mask rate
+        cross_entropy_loss = F.cross_entropy(
+            lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
+            labels_torch.view(-1),
+            ignore_index=-100
+        )
 
-    metrics['cross_entropy_loss'] = cross_entropy_loss
-    metrics['alignment_score'] = scores.mean()
+        metrics['cross_entropy_loss'] = cross_entropy_loss
+        metrics['alignment_score'] = scores.mean()
 
-    y_pred = lm_logits.argmax(axis=-1).flatten()
-    y_true = labels.flatten()
-    valid_indices = y_true != -100
-    y_pred = y_pred[valid_indices]
-    y_true = y_true[valid_indices]
-    f1 = f1_score(y_true, y_pred, average='weighted')
-    prec = precision_score(y_true, y_pred, average='weighted')
-    rec = recall_score(y_true, y_pred, average='weighted')
-    acc = accuracy_score(y_true, y_pred)
-    mcc = matthews_corrcoef(y_true, y_pred)
-    metrics["f1"] = f1
-    metrics["prec"] = prec
-    metrics["rec"] = rec
-    metrics["acc"] = acc
-    metrics["mcc"] = mcc
+        y_pred = lm_logits.argmax(axis=-1).flatten()
+        y_true = labels.flatten()
+        valid_indices = y_true != -100
+        y_pred = y_pred[valid_indices]
+        y_true = y_true[valid_indices]
+        f1 = f1_score(y_true, y_pred, average='weighted')
+        prec = precision_score(y_true, y_pred, average='weighted')
+        rec = recall_score(y_true, y_pred, average='weighted')
+        acc = accuracy_score(y_true, y_pred)
+        mcc = matthews_corrcoef(y_true, y_pred)
+        metrics["f1"] = f1
+        metrics["prec"] = prec
+        metrics["rec"] = rec
+        metrics["acc"] = acc
+        metrics["mcc"] = mcc
 
-    return metrics
+        return metrics
 
 
 def get_eval_data():
@@ -164,7 +169,7 @@ def main(args):
         col_name="sequence",
         num_workers=4,
         prefetch_factor=10,
-        compute_metrics=compute_dsm_metrics,
+        compute_metrics=ComputeDSMMetrics(tokenizer),
         callbacks=None,
         eval_dataset=valid_dataset,
     )
