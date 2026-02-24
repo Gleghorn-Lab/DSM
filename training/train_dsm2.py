@@ -299,7 +299,9 @@ def main(args):
         hf_test_dataset = hf_test_dataset.select(range(10))
     else:
         hf_train_dataset = hf_train_dataset.select(range(int(1e5)))
-
+        hf_valid_dataset = hf_valid_dataset.select(range(int(1000)))
+        hf_test_dataset = hf_test_dataset.select(range(int(1000)))
+        
     print('Converting datasets to lists')
     train_seqs = list(hf_train_dataset['sequence'])
     valid_seqs = list(hf_valid_dataset['sequence'])
@@ -522,21 +524,17 @@ def main(args):
 
     trainer.compute_loss = compute_loss
 
-    ### Train
-    try:
-        metrics = trainer.evaluate(test_dataset)
-        print('Initial Metrics: \n', metrics)
-    except Exception as e:
-        print(f"Initial evaluation failed, moving to training (often caused by strict dtype issues): {e}")
+    print('Initial Evaluation')
+    metrics = trainer.evaluate(test_dataset)
+    print('Initial Metrics: \n', metrics)
 
+    print('Training')
     trainer.train()
     
-    try:
-        metrics = trainer.evaluate(test_dataset)
-        print('Final Metrics: \n', metrics)
-    except:
-        pass
-        
+    print('Final Evaluation')
+    metrics = trainer.evaluate(test_dataset)
+    print('Final Metrics: \n', metrics)
+    
     trainer.model.push_to_hub(args.save_path, private=True)
     if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None:
         wandb.finish()
