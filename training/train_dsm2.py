@@ -7,7 +7,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 from torchinfo import summary
-from transformers import TrainingArguments, EvalPrediction, TrainerCallback
+from transformers import TrainingArguments, EvalPrediction, TrainerCallback, Trainer
 from sklearn.metrics import (
     f1_score,
     accuracy_score,
@@ -15,15 +15,14 @@ from sklearn.metrics import (
     recall_score,
     matthews_corrcoef,
 )
-from huggingface_hub import login, hf_hub_download
+from huggingface_hub import login
 from datasets import load_dataset, Dataset
 import math
 
 from models.modeling_dsm2 import DSM2, DSM2Config
 from models.alignment_helpers import GetAlignmentScoreFromLogits
-from data.dataset_classes import SequenceDatasetFromList
+from data.dataset_classes import SequenceDatasetFromList, SequenceDatasetFromHF
 from data.data_collators import SequenceCollator
-from training.iterable_trainer import get_iterable_trainer
 
 from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel
 from models.FastPLMs.esm2.modeling_fastesm import FastEsmModel
@@ -175,34 +174,6 @@ class DynamicLengthCallback(TrainerCallback):
             # print(f"Step {state.global_step}: Updated dynamic max token length to {current_len}")
 
 
-def get_eval_data(data_path: str, bugfix: bool = False):
-    local_file = hf_hub_download(
-        repo_id=data_path,
-        filename=f"data/valid-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42)
-    if bugfix:
-        data = data.select(range(10))
-    else:
-        data = data.select(range(1000))
-    print(data)
-    valid_seqs = data['sequence']
-    local_file = hf_hub_download(
-        repo_id=data_path,
-        filename=f"data/test-00000-of-00001.parquet",
-        repo_type="dataset"
-    )
-    data = Dataset.from_parquet(local_file).shuffle(seed=42)
-    if bugfix:
-        data = data.select(range(10))
-    else:
-        data = data.select(range(1000))
-    print(data)
-    test_seqs = data['sequence']
-    return valid_seqs, test_seqs
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="DSM2 Trainer")
     parser.add_argument("--hf_token", type=str, default=None, help="Huggingface token")
@@ -281,11 +252,17 @@ def main(args):
         print(f"Warning: Student torch.compile() failed: {e}")
 
     ### Load Dataset
-    train_dataset = load_dataset(args.data_path, split="train", streaming=True).shuffle(seed=42)
-    valid_seqs, test_seqs = get_eval_data(args.data_path, bugfix=args.bugfix)
-    
-    valid_dataset = SequenceDatasetFromList(valid_seqs)
-    test_dataset = SequenceDatasetFromList(test_seqs)
+    hf_dataset = load_dataset(args.data_path)
+    hf_train_dataset = hf_dataset['train'].shuffle(seed=42)
+    hf_valid_dataset = hf_dataset['valid'].shuffle(seed=42)
+    hf_test_dataset = hf_dataset['test'].shuffle(seed=42)
+    if args.bugfix:
+        hf_train_dataset = hf_train_dataset.select(range(100))
+        hf_valid_dataset = hf_valid_dataset.select(range(10))
+        hf_test_dataset = hf_test_dataset.select(range(10))
+    train_dataset = SequenceDatasetFromHF(hf_train_dataset, col_name="sequence")
+    valid_dataset = SequenceDatasetFromHF(hf_valid_dataset, col_name="sequence")
+    test_dataset = SequenceDatasetFromHF(hf_test_dataset, col_name="sequence")
     
     # Initialize collator with starting length
     data_collator = SequenceCollator(tokenizer, max_length=args.start_max_length)
@@ -315,16 +292,12 @@ def main(args):
         remove_unused_columns=False,
     )
 
-    ### Create an Iterable Trainer base
-    trainer = get_iterable_trainer(
+    ### Create a Trainer base
+    trainer = Trainer(
         model=student_model,
-        hf_dataset=train_dataset,
+        train_dataset=train_dataset,
         data_collator=data_collator,
-        training_args=training_args,
-        batch_size=args.batch_size,
-        col_name="sequence",
-        num_workers=4 if not args.bugfix else 0, # usually 0 is safer on windows
-        prefetch_factor=10 if not args.bugfix else None,
+        args=training_args,
         compute_metrics=ComputeDSM2Metrics(tokenizer),
         callbacks=[DynamicLengthCallback(
             data_collator=data_collator,
