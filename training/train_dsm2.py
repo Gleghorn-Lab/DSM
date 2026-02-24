@@ -19,7 +19,7 @@ from huggingface_hub import login, hf_hub_download
 from datasets import load_dataset, Dataset
 import math
 
-from models.modeling_dsm2 import DSM2
+from models.modeling_dsm2 import DSM2, DSM2Config
 from models.alignment_helpers import GetAlignmentScoreFromLogits
 from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
@@ -224,7 +224,7 @@ def main(args):
     
     ### Load Student Model and Set Settings
     print(f"Initializing Student DSM2 from scratch")
-    from models.modeling_dsm2 import DSM2Config
+    
     
     student_config = DSM2Config(
         vocab_size=temp_teacher_config.vocab_size,
@@ -234,7 +234,6 @@ def main(args):
         teacher_hidden_size=temp_teacher_config.hidden_size,
         expansion_ratio=args.student_expansion_ratio,
         attn_backend="flex",
-        tie_token_embeddings=False
     )
     
     student_model = DSM2(student_config)

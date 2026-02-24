@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 from typing import Optional, Tuple, Any, Union, List
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
 
 from .FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel, ESMplusplusConfig, UnifiedTransformerBlock
-import math
 from .generate_mixin import GenerateMixin
 from .modeling_dsm import LMHead
 from .FastPLMs.embedding_mixin import Pooler
@@ -141,8 +141,6 @@ class DSM2(ESMplusplusModel, GenerateMixin):
         self.vocab_size = config.vocab_size
         
         self.lm_head = LMHead(config.hidden_size, config.vocab_size)
-        # Tie embeddings
-        self.lm_head.decoder.weight = self.embed.weight
         
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
         self.mask_token_id = self.tokenizer.mask_token_id
