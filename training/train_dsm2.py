@@ -237,7 +237,9 @@ def main(args):
     ### Load Teacher Model
     teacher_model = load_teacher(args.teacher_model_path, device=device)
     temp_teacher_config = teacher_model.config
-    
+    tokenizer = teacher_model.tokenizer
+    summary(teacher_model)
+
     ### Load Student Model and Set Settings
     print(f"Initializing Student DSM2 from scratch")
     
@@ -254,15 +256,7 @@ def main(args):
     
     student_model = DSM2(student_config)
     student_model.attn_backend = "flex"
-    
-    tokenizer = student_model.tokenizer
-    
-    if args.bugfix:
-        # Avoid massive text spam on debugging but show something
-        try:
-            summary(student_model)
-        except:
-            pass
+    summary(student_model)
 
     # Compile the models. All batches are padded to a fixed max_length per step
     # dynamic=False: all batches are padded to a fixed max_length per step (DynamicLengthCallback),
