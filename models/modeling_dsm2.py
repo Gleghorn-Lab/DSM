@@ -38,37 +38,34 @@ class DSM2Output(ModelOutput):
     t: Optional[torch.Tensor] = None
 
 
-def contrastive_loss(
-    student_hidden_states: Tuple[torch.Tensor, ...],
-    teacher_hidden_states: Tuple[torch.Tensor, ...],
+def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
+    """
+    Pools a tuple of hidden states natively using mean and var pooling.
+    Returns stacked pooled states of shape (num_layers, b, 2d).
+    """
+    pooler = Pooler(pooling_types=["mean", "var"])
+    stacked = torch.stack(hidden_states)
+    pooled = []
+    for layer in stacked:
+        pooled.append(pooler(layer)) # (b, 2d)
+    return torch.stack(pooled) # (num_layers, b, 2d)
+
+
+def contrastive_loss_from_pooled(
+    s_pooled: torch.Tensor,
+    t_pooled: torch.Tensor,
     p_masks: torch.Tensor,
 ) -> torch.Tensor:
     """
-    Computes a depth-weighted contrastive loss mapping student representations
-    to teacher representations, scaled by the inverse of the mask rate.
+    Computes depth-weighted contrastive loss from pre-pooled student and teacher representations.
+    s_pooled, t_pooled: (num_layers, b, 2d)
+    p_masks: (b, seq_len) or (b,) depending on aggregation, but here it's expected as (b, seq_len)
     """
-    assert len(student_hidden_states) == len(teacher_hidden_states), "Student and teacher hidden states must have the same number of layers"
-    num_layers = len(student_hidden_states)
-
-    pooler = Pooler(pooling_types=["mean", "var"])
-
-    # Stack to (num_layers, b, seq_len, d)
-    s_stacked = torch.stack(student_hidden_states)
-    t_stacked = torch.stack(teacher_hidden_states)
-
-    pooled_s = []
-    pooled_t = []
-    for s_layer, t_layer in zip(s_stacked, t_stacked):
-        pooled_s.append(pooler(s_layer)) # (b, 2d)
-        pooled_t.append(pooler(t_layer)) # (b, 2d)
-    
-    # (num_layers, b, 2d)
-    s_pooled = torch.stack(pooled_s)
-    t_pooled = torch.stack(pooled_t)
+    num_layers = s_pooled.shape[0]
 
     # (num_layers, b, b)
-    intra_student_reps = torch.bmm(s_pooled, s_pooled.transpose(1, 2))
-    intra_teacher_reps = torch.bmm(t_pooled, t_pooled.transpose(1, 2))
+    intra_student_reps = torch.bmm(s_pooled, s_pooled.transpose(1, 2)).softmax(dim=-1)
+    intra_teacher_reps = torch.bmm(t_pooled, t_pooled.transpose(1, 2)).softmax(dim=-1)
 
     # (num_layers, b, b)
     squared_diff = (intra_student_reps - intra_teacher_reps) ** 2
@@ -83,10 +80,24 @@ def contrastive_loss(
     # Average over layers and batch pairs
     layer_batch_loss = weighted_squared_diff.mean(dim=0).mean() # scalar
 
-    # Finally scale by the inverse mask probability (average across the batch, as the batch might have differently sampled t values)
-    # 1.0 / p_masks is shape (b, seq_len)
+    # Finally scale by the inverse mask probability
     inv_prob = (1.0 / p_masks).mean()
     return layer_batch_loss * inv_prob
+
+
+def contrastive_loss(
+    student_hidden_states: Tuple[torch.Tensor, ...],
+    teacher_hidden_states: Tuple[torch.Tensor, ...],
+    p_masks: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Computes a depth-weighted contrastive loss mapping student representations
+    to teacher representations, scaled by the inverse of the mask rate.
+    """
+    assert len(student_hidden_states) == len(teacher_hidden_states), "Student and teacher hidden states must have the same number of layers"
+    s_pooled = pool_states(student_hidden_states)
+    t_pooled = pool_states(teacher_hidden_states)
+    return contrastive_loss_from_pooled(s_pooled, t_pooled, p_masks)
 
 
 def jepa_loss(
