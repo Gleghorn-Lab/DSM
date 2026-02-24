@@ -68,12 +68,12 @@ class PLMConfig(PretrainedConfig):
 
 
 class LMHead(nn.Module):
-    def __init__(self, hidden_size: int, vocab_size: int, soft_logit_cap: float = 30.0):
+    def __init__(self, config: PLMConfig):
         super().__init__()
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.layer_norm = nn.LayerNorm(hidden_size)
-        self.decoder = nn.Linear(hidden_size, vocab_size)
-        self.soft_logit_cap = soft_logit_cap
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.layer_norm = nn.LayerNorm(config.hidden_size)
+        self.decoder = nn.Linear(config.hidden_size, config.vocab_size)
+        self.soft_logit_cap = config.soft_logit_cap
         self.act = nn.GELU()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -276,14 +276,14 @@ def correction_fn(expansion_ratio: float, d_model: int) -> int:
 
 
 class MLP(nn.Module):
-    def __init__(self, hidden_size, expansion_ratio: float = 4.0, bias: bool = False):
+    def __init__(self, config: PLMConfig, bias: bool = False):
         super().__init__()
-        self.hidden_size = hidden_size
-        self.expansion_ratio = expansion_ratio
+        self.hidden_size = config.hidden_size
+        self.expansion_ratio = config.expansion_ratio
         self.bias = bias
-        self.layernorm = nn.LayerNorm(hidden_size, bias=bias)
-        self.up_proj = nn.Linear(hidden_size, correction_fn(expansion_ratio, hidden_size), bias=bias)
-        self.down_proj = nn.Linear(correction_fn(expansion_ratio, hidden_size), hidden_size, bias=bias)
+        self.layernorm = nn.LayerNorm(config.hidden_size, bias=bias)
+        self.up_proj = nn.Linear(config.hidden_size, correction_fn(config.expansion_ratio, config.hidden_size), bias=bias)
+        self.down_proj = nn.Linear(correction_fn(config.expansion_ratio, config.hidden_size), config.hidden_size, bias=bias)
         self.act = nn.GELU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -294,28 +294,25 @@ class MultiHeadAttention(nn.Module):
     """Multi-head attention with rotary embeddings.
     
     Args:
-        d_model: Model dimension
-        n_heads: Number of attention heads
+        config: PLMConfig
     """
     def __init__(
         self,
-        d_model: int,
-        n_heads: int,
-        attn_backend: str = "sdpa",
+        config: PLMConfig,
     ):
         super().__init__()
-        self.d_model = d_model
-        self.n_heads = n_heads
+        self.d_model = config.hidden_size
+        self.n_heads = config.num_attention_heads
         self.d_head = self.d_model // self.n_heads
-        self.attn_backend = attn_backend
-        self.W_q = nn.Linear(d_model, d_model, bias=False)
-        self.W_k = nn.Linear(d_model, d_model, bias=False)
-        self.W_v = nn.Linear(d_model, d_model, bias=False)
-        self.W_o = nn.Linear(d_model, d_model, bias=False)
-        self.q_ln = nn.LayerNorm(d_model, bias=False)
-        self.k_ln = nn.LayerNorm(d_model, bias=False)
-        self.reshaper = partial(rearrange, pattern="b s (h d) -> b h s d", h=n_heads)
-        self.rotary = RotaryEmbedding(d_model // n_heads)
+        self.attn_backend = config.attn_backend
+        self.W_q = nn.Linear(self.d_model, self.d_model, bias=False)
+        self.W_k = nn.Linear(self.d_model, self.d_model, bias=False)
+        self.W_v = nn.Linear(self.d_model, self.d_model, bias=False)
+        self.W_o = nn.Linear(self.d_model, self.d_model, bias=False)
+        self.q_ln = nn.LayerNorm(self.d_model, bias=False)
+        self.k_ln = nn.LayerNorm(self.d_model, bias=False)
+        self.reshaper = partial(rearrange, pattern="b s (h d) -> b h s d", h=self.n_heads)
+        self.rotary = RotaryEmbedding(self.d_model // self.n_heads)
         self.scale = 1.0 / math.sqrt(self.d_head)
 
     def _apply_rotary(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -414,26 +411,16 @@ class TransformerBlock(nn.Module):
     """Transformer block with attention and feedforward layers.
     
     Args:
-        d_model: Model dimension
-        n_heads: Number of attention heads
-        expansion_ratio: Expansion ratio for feedforward network
+        config: PLMConfig
     """
     def __init__(
         self,
-        d_model: int,
-        n_heads: int,
-        expansion_ratio: float = 8 / 3,
-        dropout: float = 0.0,
-        attn_backend: str = "sdpa",
+        config: PLMConfig,
     ):
         super().__init__()
-        self.attn = MultiHeadAttention(
-            d_model=d_model,
-            n_heads=n_heads,
-            attn_backend=attn_backend,
-        )
-        self.mlp = MLP(d_model, expansion_ratio)
-        self.dropout = nn.Dropout(dropout)
+        self.attn = MultiHeadAttention(config)
+        self.mlp = MLP(config)
+        self.dropout = nn.Dropout(config.dropout)
 
     def forward(
         self,
@@ -491,35 +478,27 @@ class TransformerStack(nn.Module):
     """Stack of transformer blocks.
     
     Args:
-        d_model: Model dimension
-        n_heads: Number of attention heads
-        n_layers: Number of transformer layers
-        dropout: Dropout rate
+        config: PLMConfig
     """
     def __init__(
         self,
-        d_model: int,
-        n_heads: int,
-        n_layers: int,
-        dropout: float = 0.0,
-        attn_backend: str = "sdpa",
+        config: PLMConfig,
     ):
         super().__init__()
-        self._attn_backend = attn_backend
+        self._attn_backend = config.attn_backend
+        self.sliding_window_size = config.sliding_window_size
+        self.dilation = config.dilation
         self.blocks = nn.ModuleList(
             [
-                TransformerBlock(
-                    d_model,
-                    n_heads,
-                    dropout=dropout,
-                    attn_backend=attn_backend,
-                )
-                for i in range(n_layers)
+                TransformerBlock(config)
+                for i in range(config.num_hidden_layers)
             ]
         )
-        self.norm = nn.LayerNorm(d_model, bias=False)
+        self.norm = nn.LayerNorm(config.hidden_size, bias=False)
         self.gradient_checkpointing = False
-        self.attn_backend = attn_backend
+        self.attn_backend = config.attn_backend
+        self.sliding_window_size = config.sliding_window_size
+        self.dilation = config.dilation
 
     @property
     def attn_backend(self) -> str:
@@ -550,8 +529,8 @@ class TransformerStack(nn.Module):
             else:
                 def mask_mod(batch_idx, head_idx, q_idx, kv_idx):
                     diff = torch.abs(q_idx - kv_idx)
-                    in_window = diff <= SLIDING_WINDOW_SIZE
-                    is_dilated = (diff % DILATION) == 0
+                    in_window = diff <= self.sliding_window_size
+                    is_dilated = (diff % self.dilation) == 0
                     document_mask = token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx] & token_attention_mask[batch_idx, q_idx] != 0
                     return (in_window | is_dilated) & document_mask
         
@@ -707,13 +686,7 @@ class PLM(PreTrainedPLM, EmbeddingMixin):
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
-        self.transformer = TransformerStack(
-            d_model=config.hidden_size,
-            n_heads=config.num_attention_heads,
-            n_layers=config.num_hidden_layers,
-            dropout=config.dropout,
-            attn_backend=config.attn_backend,
-        )
+        self.transformer = TransformerStack(config)
         self.tokenizer = EsmSequenceTokenizer()
         self.init_weights()
 
@@ -784,14 +757,8 @@ class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
-        self.transformer = TransformerStack(
-            d_model=config.hidden_size,
-            n_heads=config.num_attention_heads,
-            n_layers=config.num_hidden_layers,
-            dropout=config.dropout,
-            attn_backend=config.attn_backend,
-        )
-        self.lm_head = LMHead(config.hidden_size, self.vocab_size, config.soft_logit_cap)
+        self.transformer = TransformerStack(config)
+        self.lm_head = LMHead(config)
         self.ce_loss = nn.CrossEntropyLoss()
         self.tokenizer = EsmSequenceTokenizer()
         self.init_weights()
