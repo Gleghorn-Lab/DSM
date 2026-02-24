@@ -272,10 +272,6 @@ def main(args):
     student_model.attn_backend = "flex"
     summary(student_model)
 
-    # Compile the models. All batches are padded to a fixed max_length per step
-    # dynamic=False: all batches are padded to a fixed max_length per step (DynamicLengthCallback),
-    # so shapes ARE static within each batch. dynamic=True would cause Inductor to generate
-    # flexible-shape kernels unnecessarily, triggering a sporadic fusion assertion in simd.py.
     print("Compiling teacher model...")
     try:
         teacher_model = torch.compile(teacher_model)
@@ -298,7 +294,8 @@ def main(args):
         hf_valid_dataset = hf_valid_dataset.select(range(10))
         hf_test_dataset = hf_test_dataset.select(range(10))
     else:
-        hf_train_dataset = hf_train_dataset.select(range(int(1e6)))
+        hf_train_dataset = hf_train_dataset.select(range(int(1e5)))
+
     train_dataset = SequenceDatasetFromHF(hf_train_dataset, col_name="sequence")
     valid_dataset = SequenceDatasetFromHF(hf_valid_dataset, col_name="sequence")
     test_dataset = SequenceDatasetFromHF(hf_test_dataset, col_name="sequence")
