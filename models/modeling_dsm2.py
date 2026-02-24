@@ -54,12 +54,10 @@ def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
 def contrastive_loss_from_pooled(
     s_pooled: torch.Tensor,
     t_pooled: torch.Tensor,
-    p_masks: torch.Tensor,
 ) -> torch.Tensor:
     """
     Computes depth-weighted contrastive loss from pre-pooled student and teacher representations.
     s_pooled, t_pooled: (num_layers, b, 2d)
-    p_masks: (b, seq_len) or (b,) depending on aggregation, but here it's expected as (b, seq_len)
     """
     num_layers = s_pooled.shape[0]
 
@@ -80,9 +78,7 @@ def contrastive_loss_from_pooled(
     # Average over layers and batch pairs
     layer_batch_loss = weighted_squared_diff.mean(dim=0).mean() # scalar
 
-    # Finally scale by the inverse mask probability
-    inv_prob = (1.0 / p_masks).mean()
-    return layer_batch_loss * inv_prob
+    return layer_batch_loss
 
 
 def contrastive_loss(
