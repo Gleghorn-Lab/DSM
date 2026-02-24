@@ -443,7 +443,8 @@ if __name__ == "__main__":
         login(args.hf_token)    
 
     if args.bugfix:
-        args.batch_size = 2
+        args.batch_size = 4
+        args.patch_size = 2
         args.start_max_length = 16
         args.end_max_length = 64
         args.len_interval = 16
