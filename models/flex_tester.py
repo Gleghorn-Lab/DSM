@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     query, key = make_tensor(), make_tensor()
 
-    dilated_sliding_window_mask = generate_dilated_sliding_window(window_size=256, dilation=32)
+    dilated_sliding_window_mask = generate_dilated_sliding_window(window_size=256, dilation=16)
     visualize_attention_scores(
         query,
         key,
