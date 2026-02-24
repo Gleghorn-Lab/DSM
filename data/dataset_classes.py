@@ -40,18 +40,17 @@ class SequenceDatasetFromList(TorchDataset):
 
 class SequenceDatasetFromHF(TorchDataset):    
     def __init__(self, dataset, col_name='seqs', **kwargs):
-        self.seqs = dataset[col_name]
-        self.lengths = [len(seq) for seq in self.seqs]
+        self.dataset = dataset
+        self.col_name = col_name
 
     def avg(self):
-        return sum(self.lengths) / len(self.lengths)
+        raise NotImplementedError("avg() is not efficiently implemented for HF datasets.")
 
     def __len__(self):
-        return len(self.seqs)
+        return len(self.dataset)
     
     def __getitem__(self, idx):
-        seq = self.seqs[idx]
-        return seq
+        return self.dataset[idx][self.col_name]
 
 
 class SequenceLabelDatasetFromLists(TorchDataset):
@@ -74,20 +73,19 @@ class SequenceLabelDatasetFromLists(TorchDataset):
 
 class SequenceLabelDatasetFromHF(TorchDataset):    
     def __init__(self, dataset, col_name='seqs', label_col='labels', **kwargs):
-        self.seqs = dataset[col_name]
-        self.labels = dataset[label_col]
-        self.lengths = [len(seq) for seq in self.seqs]
+        self.dataset = dataset
+        self.col_name = col_name
+        self.label_col = label_col
 
     def avg(self):
-        return sum(self.lengths) / len(self.lengths)
+        raise NotImplementedError("avg() is not efficiently implemented for HF datasets.")
 
     def __len__(self):
-        return len(self.seqs)
+        return len(self.dataset)
     
     def __getitem__(self, idx):
-        seq = self.seqs[idx]
-        label = self.labels[idx]
-        return seq, label
+        item = self.dataset[idx]
+        return item[self.col_name], item[self.label_col]
 
 
 class PairDatasetTrainFromLists(TorchDataset):
@@ -127,37 +125,41 @@ class PairDatasetTestFromLists(TorchDataset):
 
 class PairDatasetTrainHF(TorchDataset):
     def __init__(self, data, col_a, col_b, label_col, **kwargs):
-        self.seqs_a = data[col_a]
-        self.seqs_b = data[col_b]
-        self.labels = data[label_col]
+        self.dataset = data
+        self.col_a = col_a
+        self.col_b = col_b
+        self.label_col = label_col
 
     def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
+        raise NotImplementedError("avg() is not efficiently implemented for HF datasets.")
 
     def __len__(self):
-        return len(self.seqs_a)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        seq_a, seq_b = self.seqs_a[idx], self.seqs_b[idx]
+        item = self.dataset[idx]
+        seq_a, seq_b = item[self.col_a], item[self.col_b]
         if random.random() < 0.5:
             seq_a, seq_b = seq_b, seq_a
-        return seq_a, seq_b, self.labels[idx]
+        return seq_a, seq_b, item[self.label_col]
     
 
 class PairDatasetTestHF(TorchDataset):
     def __init__(self, data, col_a, col_b, label_col, **kwargs):
-        self.seqs_a = data[col_a]
-        self.seqs_b = data[col_b]
-        self.labels = data[label_col]
+        self.dataset = data
+        self.col_a = col_a
+        self.col_b = col_b
+        self.label_col = label_col
 
     def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
+        raise NotImplementedError("avg() is not efficiently implemented for HF datasets.")
 
     def __len__(self):
-        return len(self.seqs_a)
+        return len(self.dataset)
 
     def __getitem__(self, idx):
-        return self.seqs_a[idx], self.seqs_b[idx], self.labels[idx]
+        item = self.dataset[idx]
+        return item[self.col_a], item[self.col_b], item[self.label_col]
     
 
 class NWDataset(TorchDataset):

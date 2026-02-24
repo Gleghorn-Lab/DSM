@@ -1,3 +1,6 @@
 [submodule "models/FastPLMs"]
 	path = models/FastPLMs
 	url = https://github.com/Synthyra/FastPLMs.git
+[submodule "Efficient-MuonClip"]
+	path = Efficient-MuonClip
+	url = https://github.com/axion66/Efficient-MuonClip.git/
