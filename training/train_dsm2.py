@@ -30,9 +30,6 @@ from models.FastPLMs.esm2.modeling_fastesm import FastEsmForMaskedLM
 from models.FastPLMs.dplm_fastplms.modeling_dplm import DPLMForMaskedLM
 from models.FastPLMs.dplm2_fastplms.modeling_dplm2 import DPLM2ForMaskedLM
 
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
-
 
 def load_teacher(teacher_path: str, device: str = "cuda"):
     model_lower = teacher_path.lower()

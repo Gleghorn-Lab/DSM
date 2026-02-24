@@ -6,6 +6,7 @@ os.environ['DISABLE_PANDERA_IMPORT_WARNING'] = 'true'
 os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '1'
 os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
+os.environ['TORCHDYNAMO_VERBOSE'] = '1'
 
 
 # if on a linux machine, set HF_HOME to the directory of the script
@@ -35,7 +36,7 @@ inductor_config.max_autotune_gemm_backends = "ATEN,CUTLASS,FBGEMM"
 import torch._dynamo as dynamo
 dynamo.config.capture_scalar_outputs = True
 
-torch._dynamo.config.recompile_limit = 64
+dynamo.config.recompile_limit = 64
 
 
 try:
