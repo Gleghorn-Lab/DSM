@@ -47,7 +47,6 @@ class LMHead(nn.Module):
         self.soft_logit_cap = soft_logit_cap
         self.act = nn.GELU()
     
-    @torch.compiler.disable
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.dense(x)
         x = self.act(x)
