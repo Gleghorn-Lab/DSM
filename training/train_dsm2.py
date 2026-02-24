@@ -264,18 +264,21 @@ def main(args):
         except:
             pass
 
-    # Compile the models dynamically to handle length changes gracefully
-    print("Compiling teacher model (dynamic=True)...")
+    # Compile the models. All batches are padded to a fixed max_length per step
+    # dynamic=False: all batches are padded to a fixed max_length per step (DynamicLengthCallback),
+    # so shapes ARE static within each batch. dynamic=True would cause Inductor to generate
+    # flexible-shape kernels unnecessarily, triggering a sporadic fusion assertion in simd.py.
+    print("Compiling teacher model...")
     try:
-        teacher_model = torch.compile(teacher_model, dynamic=True)
+        teacher_model = torch.compile(teacher_model)
     except Exception as e:
-        print(f"Warning: Teacher torch.compile(dynamic=True) failed: {e}")
+        print(f"Warning: Teacher torch.compile() failed: {e}")
         
-    print("Compiling student model (dynamic=True)...")
+    print("Compiling student model...")
     try:
-        student_model = torch.compile(student_model, dynamic=True)
+        student_model = torch.compile(student_model)
     except Exception as e:
-        print(f"Warning: Student torch.compile(dynamic=True) failed: {e}")
+        print(f"Warning: Student torch.compile() failed: {e}")
 
     ### Load Dataset
     train_dataset = load_dataset(args.data_path, split="train", streaming=True).shuffle(seed=42)
