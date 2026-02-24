@@ -60,20 +60,42 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
 def compute_dsm2_metrics(eval_preds: EvalPrediction):
     ### NOTE the eval mask percentage is fixed at 15%
     metrics = {}
-    if isinstance(eval_preds.predictions, tuple):
-        lm_logits = eval_preds.predictions[0]
-        labels = eval_preds.predictions[1]
+    
+    # The Trainer might return a tuple of all fields from DSM2Output, or just the logits.
+    # We search for the 3D tensor with the expected vocab size.
+    preds = eval_preds.predictions
+    lm_logits = None
+    mask_labels = None
+    
+    if isinstance(preds, (tuple, list)):
+        for p in preds:
+            if hasattr(p, "shape"):
+                if len(p.shape) == 3 and p.shape[-1] < 100: # Heuristic for vocab size
+                    lm_logits = p
+                elif len(p.shape) == 2 and mask_labels is None:
+                    mask_labels = p
     else:
-        lm_logits = eval_preds.predictions
-        labels = eval_preds.label_ids
+        lm_logits = preds
 
+    if lm_logits is None:
+        return {}
+
+    # input_ids is the original sequence (used as label_ids in Trainer)
     input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
+
+    # For cross entropy, we prefer using the mask_labels if provided by the model
+    # mask_labels has -100 for non-masked tokens.
+    if mask_labels is None:
+        # Fallback: if we don't have mask_labels, we use the original input_ids
+        # but cross_entropy will calculate loss over ALL tokens, which is not ideal for MLM.
+        labels_to_use = input_ids
+    else:
+        labels_to_use = mask_labels
 
     scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
 
-    # labels are already -100 for non-masked tokens
     lm_logits_torch = torch.as_tensor(lm_logits)
-    labels_torch = torch.as_tensor(labels).long()
+    labels_torch = torch.as_tensor(labels_to_use).long()
     
     # We need to do this because the eval loss is scaled by the mask rate
     cross_entropy_loss = F.cross_entropy(
@@ -85,21 +107,22 @@ def compute_dsm2_metrics(eval_preds: EvalPrediction):
     metrics['cross_entropy_loss'] = cross_entropy_loss.item()
     metrics['alignment_score'] = scores.mean()
 
+    # Calculate other metrics only on valid (non -100) tokens
     y_pred = lm_logits.argmax(axis=-1).flatten()
-    y_true = labels.flatten()
+    y_true = labels_to_use.flatten()
     valid_indices = y_true != -100
-    y_pred = y_pred[valid_indices]
-    y_true = y_true[valid_indices]
-    f1 = f1_score(y_true, y_pred, average='weighted')
-    prec = precision_score(y_true, y_pred, average='weighted')
-    rec = recall_score(y_true, y_pred, average='weighted')
-    acc = accuracy_score(y_true, y_pred)
-    mcc = matthews_corrcoef(y_true, y_pred)
-    metrics["f1"] = f1
-    metrics["prec"] = prec
-    metrics["rec"] = rec
-    metrics["acc"] = acc
-    metrics["mcc"] = mcc
+    
+    if valid_indices.any():
+        y_pred = y_pred[valid_indices]
+        y_true = y_true[valid_indices]
+        metrics["f1"] = f1_score(y_true, y_pred, average='weighted')
+        metrics["prec"] = precision_score(y_true, y_pred, average='weighted')
+        metrics["rec"] = recall_score(y_true, y_pred, average='weighted')
+        metrics["acc"] = accuracy_score(y_true, y_pred)
+        metrics["mcc"] = matthews_corrcoef(y_true, y_pred)
+    else:
+        # Fallback if no tokens are masked (shouldn't happen with 15% rate)
+        metrics["acc"] = 0.0
 
     return metrics
 

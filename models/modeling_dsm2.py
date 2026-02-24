@@ -27,11 +27,12 @@ class DSM2Config(ESMplusplusConfig):
 
 @dataclass
 class DSM2Output(ModelOutput):
+    logits: Optional[torch.Tensor] = None
+    mask_labels: Optional[torch.Tensor] = None
     loss: Optional[torch.Tensor] = None
     ce_loss: Optional[torch.Tensor] = None
     contrastive_loss: Optional[torch.Tensor] = None
     jepa_loss: Optional[torch.Tensor] = None
-    logits: Optional[Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]] = None
     last_hidden_state: Optional[torch.Tensor] = None
     student_hidden_states: Optional[Tuple[torch.Tensor]] = None
     t: Optional[torch.Tensor] = None
@@ -292,7 +293,8 @@ class DSM2(ESMplusplusModel, GenerateMixin):
             ce_loss=ce_loss_val,
             contrastive_loss=contrastive_loss_val,
             jepa_loss=jepa_loss_val,
-            logits=(lm_logits, labels),
+            logits=lm_logits,
+            mask_labels=labels,
             last_hidden_state=x,
             student_hidden_states=projected_student_states,
             t=t,
