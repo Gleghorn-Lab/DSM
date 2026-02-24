@@ -304,7 +304,7 @@ def main(args):
     test_dataset = SequenceDatasetFromHF(hf_test_dataset, col_name="sequence")
     
     # Initialize collator with starting length
-    data_collator = SequenceCollator(tokenizer, max_length=args.start_max_length)
+    data_collator = SequenceCollator(tokenizer, max_length=args.max_length)
 
     ### Define Training Arguments
     training_args = TrainingArguments(

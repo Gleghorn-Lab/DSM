@@ -42,10 +42,6 @@ class SequenceDatasetFromList(TorchDataset):
 class SequenceDatasetFromHF(TorchDataset):    
     def __init__(self, dataset, col_name='seqs', **kwargs):
         self.seqs = dataset.data.column(col_name).to_pylist()
-        self.lengths = [len(seq) for seq in tqdm(self.seqs, desc="Calculating sequence lengths")]
-
-    def avg(self):
-        return sum(self.lengths) / len(self.lengths)
 
     def __len__(self):
         return len(self.seqs)
@@ -59,10 +55,6 @@ class SequenceLabelDatasetFromLists(TorchDataset):
     def __init__(self, seqs, labels, **kwargs):
         self.seqs = seqs
         self.labels = labels
-        self.lengths = [len(seq) for seq in tqdm(self.seqs, desc="Calculating sequence lengths")]
-
-    def avg(self):
-        return sum(self.lengths) / len(self.lengths)
 
     def __len__(self):
         return len(self.seqs)
@@ -77,10 +69,6 @@ class SequenceLabelDatasetFromHF(TorchDataset):
     def __init__(self, dataset, col_name='seqs', label_col='labels', **kwargs):
         self.seqs = dataset.data.column(col_name).to_pylist()
         self.labels = dataset.data.column(label_col).to_pylist()
-        self.lengths = [len(seq) for seq in tqdm(self.seqs, desc="Calculating sequence lengths")]
-
-    def avg(self):
-        return sum(self.lengths) / len(self.lengths)
 
     def __len__(self):
         return len(self.seqs)
@@ -96,9 +84,6 @@ class PairDatasetTrainFromLists(TorchDataset):
         self.seqs_a = seqs_a
         self.seqs_b = seqs_b
         self.labels = labels
-
-    def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
 
     def __len__(self):
         return len(self.seqs_a)
@@ -116,9 +101,6 @@ class PairDatasetTestFromLists(TorchDataset):
         self.seqs_b = seqs_b
         self.labels = labels
 
-    def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
-
     def __len__(self):
         return len(self.seqs_a)
     
@@ -131,9 +113,6 @@ class PairDatasetTrainHF(TorchDataset):
         self.seqs_a = data.data.column(col_a).to_pylist()
         self.seqs_b = data.data.column(col_b).to_pylist()
         self.labels = data.data.column(label_col).to_pylist()
-
-    def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
 
     def __len__(self):
         return len(self.seqs_a)
@@ -150,9 +129,6 @@ class PairDatasetTestHF(TorchDataset):
         self.seqs_a = data.data.column(col_a).to_pylist()
         self.seqs_b = data.data.column(col_b).to_pylist()
         self.labels = data.data.column(label_col).to_pylist()
-
-    def avg(self):
-        return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
 
     def __len__(self):
         return len(self.seqs_a)
