@@ -17,7 +17,7 @@ from transformers.modeling_outputs import ModelOutput
 from torch.nn.attention.flex_attention import create_block_mask
 from torch.nn.attention.flex_attention import flex_attention
 
-from FastPLMs.embedding_mixin import EmbeddingMixin, Pooler
+from .FastPLMs.embedding_mixin import EmbeddingMixin, Pooler
 
 
 class PLMConfig(PretrainedConfig):
