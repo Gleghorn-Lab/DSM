@@ -432,7 +432,7 @@ class TransformerBlock(nn.Module):
             n_heads=n_heads,
             attn_backend=attn_backend,
         )
-        self.mlp = mlp(d_model, expansion_ratio)
+        self.mlp = MLP(d_model, expansion_ratio)
         self.dropout = nn.Dropout(dropout)
 
     def forward(
