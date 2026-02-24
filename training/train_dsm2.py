@@ -60,23 +60,29 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
 def compute_dsm2_metrics(eval_preds: EvalPrediction):
     ### NOTE the eval mask percentage is fixed at 15%
     metrics = {}
-    lm_logits = eval_preds.predictions[0] if isinstance(eval_preds.predictions, tuple) else eval_preds.predictions
+    if isinstance(eval_preds.predictions, tuple):
+        lm_logits = eval_preds.predictions[0]
+        labels = eval_preds.predictions[1]
+    else:
+        lm_logits = eval_preds.predictions
+        labels = eval_preds.label_ids
+
     input_ids = eval_preds.label_ids[0] if isinstance(eval_preds.label_ids, tuple) else eval_preds.label_ids
-    lm_logits, labels = lm_logits
 
     scores = GetAlignmentScoreFromLogits().batched_call(lm_logits, input_ids)
 
     # labels are already -100 for non-masked tokens
-    lm_logits_torch = torch.tensor(lm_logits)
-    labels_torch = torch.tensor(labels)
-    # We need ot do this because the eval loss is scaled by the mask rate
+    lm_logits_torch = torch.as_tensor(lm_logits)
+    labels_torch = torch.as_tensor(labels).long()
+    
+    # We need to do this because the eval loss is scaled by the mask rate
     cross_entropy_loss = F.cross_entropy(
         lm_logits_torch.view(-1, lm_logits_torch.shape[-1]), 
         labels_torch.view(-1),
         ignore_index=-100
     )
 
-    metrics['cross_entropy_loss'] = cross_entropy_loss
+    metrics['cross_entropy_loss'] = cross_entropy_loss.item()
     metrics['alignment_score'] = scores.mean()
 
     y_pred = lm_logits.argmax(axis=-1).flatten()
@@ -234,10 +240,7 @@ def main(args):
 
     ### Load Dataset
     train_dataset = load_dataset(args.data_path, split="train", streaming=True).shuffle(seed=42)
-    valid_seqs, test_seqs = get_eval_data(args.data_path)
-    if args.bugfix:
-        valid_seqs = valid_seqs[:10]
-        test_seqs = test_seqs[:10]
+    valid_seqs, test_seqs = get_eval_data(args.data_path, bugfix=args.bugfix)
     
     valid_dataset = SequenceDatasetFromList(valid_seqs)
     test_dataset = SequenceDatasetFromList(test_seqs)
@@ -258,7 +261,6 @@ def main(args):
         save_steps=args.save_every,
         eval_steps=args.save_every,
         warmup_steps=args.save_every,
-        logging_dir="./logs",
         learning_rate=args.lr,
         bf16=True,
         bf16_full_eval=True,
