@@ -18,6 +18,10 @@ from torch.nn.attention.flex_attention import create_block_mask
 from torch.nn.attention.flex_attention import flex_attention
 
 
+SLIDING_WINDOW_SIZE = 512
+DILATION = 16
+
+
 def get_attention_mask(
     attn_backend: str, 
     batch_size: int, 
@@ -37,7 +41,11 @@ def get_attention_mask(
             flex_block_mask = None
         else:
             def mask_mod(batch_idx, head_idx, q_idx, kv_idx):
-                return (token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx]) & (token_attention_mask[batch_idx, q_idx] != 0)
+                diff = torch.abs(q_idx - kv_idx)
+                in_window = diff <= SLIDING_WINDOW_SIZE
+                is_dilated = (diff % DILATION) == 0
+                document_mask = token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx] & token_attention_mask[batch_idx, q_idx] != 0
+                return (in_window | is_dilated) & document_mask
     
             flex_block_mask = create_block_mask(
                 mask_mod,
@@ -55,7 +63,7 @@ def get_attention_mask(
     return extended_attention_mask, flex_block_mask
 
 
-class ESMplusplusConfig(PretrainedConfig):
+class PLMConfig(PretrainedConfig):
     """Configuration class for ESM++ model.
     
     Args:
@@ -66,7 +74,7 @@ class ESMplusplusConfig(PretrainedConfig):
         num_labels: Number of output labels for classification
         problem_type: Type of problem - regression, single/multi label classification
     """
-    model_type = "ESMplusplus"
+    model_type = "PLM"
     def __init__(
         self,
         vocab_size: int = 64,

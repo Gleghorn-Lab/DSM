@@ -41,7 +41,7 @@ class SequenceDatasetFromList(TorchDataset):
 
 class SequenceDatasetFromHF(TorchDataset):    
     def __init__(self, dataset, col_name='seqs', **kwargs):
-        self.seqs = dataset[col_name]
+        self.seqs = dataset.data.column(col_name).to_pylist()
         self.lengths = [len(seq) for seq in tqdm(self.seqs, desc="Calculating sequence lengths")]
 
     def avg(self):
@@ -75,8 +75,8 @@ class SequenceLabelDatasetFromLists(TorchDataset):
 
 class SequenceLabelDatasetFromHF(TorchDataset):    
     def __init__(self, dataset, col_name='seqs', label_col='labels', **kwargs):
-        self.seqs = dataset[col_name]
-        self.labels = dataset[label_col]
+        self.seqs = dataset.data.column(col_name).to_pylist()
+        self.labels = dataset.data.column(label_col).to_pylist()
         self.lengths = [len(seq) for seq in tqdm(self.seqs, desc="Calculating sequence lengths")]
 
     def avg(self):
@@ -128,9 +128,9 @@ class PairDatasetTestFromLists(TorchDataset):
 
 class PairDatasetTrainHF(TorchDataset):
     def __init__(self, data, col_a, col_b, label_col, **kwargs):
-        self.seqs_a = data[col_a]
-        self.seqs_b = data[col_b]
-        self.labels = data[label_col]
+        self.seqs_a = data.data.column(col_a).to_pylist()
+        self.seqs_b = data.data.column(col_b).to_pylist()
+        self.labels = data.data.column(label_col).to_pylist()
 
     def avg(self):
         return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
@@ -147,9 +147,9 @@ class PairDatasetTrainHF(TorchDataset):
 
 class PairDatasetTestHF(TorchDataset):
     def __init__(self, data, col_a, col_b, label_col, **kwargs):
-        self.seqs_a = data[col_a]
-        self.seqs_b = data[col_b]
-        self.labels = data[label_col]
+        self.seqs_a = data.data.column(col_a).to_pylist()
+        self.seqs_b = data.data.column(col_b).to_pylist()
+        self.labels = data.data.column(label_col).to_pylist()
 
     def avg(self):
         return sum(len(seqa) + len(seqb) for seqa, seqb in zip(self.seqs_a, self.seqs_b)) / len(self.seqs_a)
