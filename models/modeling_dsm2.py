@@ -8,7 +8,6 @@ from dataclasses import dataclass
 
 from .FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel, ESMplusplusConfig, UnifiedTransformerBlock
 from .generate_mixin import GenerateMixin
-from .modeling_dsm import LMHead
 from .FastPLMs.embedding_mixin import Pooler
 
 
@@ -36,6 +35,25 @@ class DSM2Output(ModelOutput):
     last_hidden_state: Optional[torch.Tensor] = None
     student_hidden_states: Optional[Tuple[torch.Tensor]] = None
     t: Optional[torch.Tensor] = None
+
+
+
+class LMHead(nn.Module):
+    def __init__(self, hidden_size: int, vocab_size: int, soft_logit_cap: float = 30.0):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size)
+        self.layer_norm = nn.LayerNorm(hidden_size)
+        self.decoder = nn.Linear(hidden_size, vocab_size)
+        self.soft_logit_cap = soft_logit_cap
+        self.act = nn.GELU()
+    
+    @torch.compiler.disable
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.dense(x)
+        x = self.act(x)
+        x = self.layer_norm(x)
+        x = self.decoder(x)
+        return self.soft_logit_cap * torch.tanh(x / self.soft_logit_cap)
 
 
 def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:

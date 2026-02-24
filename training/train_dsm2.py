@@ -25,10 +25,10 @@ from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
 from training.iterable_trainer import get_iterable_trainer
 
-from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusForMaskedLM
-from models.FastPLMs.esm2.modeling_fastesm import FastEsmForMaskedLM
-from models.FastPLMs.dplm_fastplms.modeling_dplm import DPLMForMaskedLM
-from models.FastPLMs.dplm2_fastplms.modeling_dplm2 import DPLM2ForMaskedLM
+from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel
+from models.FastPLMs.esm2.modeling_fastesm import FastEsmModel
+from models.FastPLMs.dplm_fastplms.modeling_dplm import DPLMModel
+from models.FastPLMs.dplm2_fastplms.modeling_dplm2 import DPLM2Model
 
 
 def load_teacher(teacher_path: str, device: str = "cuda"):
@@ -36,21 +36,21 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
     print(f"Loading Teacher Model from {teacher_path}...")
     
     if "dplm2" in model_lower:
-        teacher = DPLM2ForMaskedLM.from_pretrained(
+        teacher = DPLM2Model.from_pretrained(
             teacher_path,
             trust_remote_code=True,
             dtype=torch.bfloat16,
             device_map=device
         ).eval()
     elif "dplm" in model_lower:
-        teacher = DPLMForMaskedLM.from_pretrained(
+        teacher = DPLMModel.from_pretrained(
             teacher_path,
             trust_remote_code=True,
             dtype=torch.bfloat16,
             device_map=device
         ).eval()
     elif "esm2" in model_lower or "fastesm" in model_lower:
-        teacher = FastEsmForMaskedLM.from_pretrained(
+        teacher = FastEsmModel.from_pretrained(
             teacher_path,
             trust_remote_code=True,
             dtype=torch.bfloat16,
@@ -58,7 +58,7 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
         ).eval()
     else:
         # Default fallback is ESM++
-        teacher = ESMplusplusForMaskedLM.from_pretrained(
+        teacher = ESMplusplusModel.from_pretrained(
             teacher_path,
             trust_remote_code=True,
             dtype=torch.bfloat16,
