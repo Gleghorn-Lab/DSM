@@ -28,6 +28,7 @@ from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel
 from models.FastPLMs.esm2.modeling_fastesm import FastEsmModel
 from models.FastPLMs.dplm_fastplms.modeling_dplm import DPLMModel
 from models.FastPLMs.dplm2_fastplms.modeling_dplm2 import DPLM2Model
+from models.muonclip.muonclip import MuonClip
 
 
 def load_teacher(teacher_path: str, device: str = "cuda"):
@@ -69,7 +70,6 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
         param.requires_grad = False
         
     return teacher
-
 
 
 class ComputeDSM2Metrics:
@@ -147,6 +147,66 @@ class ComputeDSM2Metrics:
         return metrics
 
 
+class MuonAdamWWrapper(torch.optim.Optimizer):
+    def __init__(self, muonclip, adamw):
+        self.muonclip = muonclip
+        self.adamw = adamw
+        self.defaults = adamw.defaults
+        self.param_groups = muonclip.param_groups + adamw.param_groups
+        self.state = {}
+        for opt in [muonclip, adamw]:
+            self.state.update(opt.state)
+        self.last_s_max = None
+        
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            loss = closure()
+            
+        if self.last_s_max is not None:
+            self.muonclip.step(self.last_s_max)
+        else:
+            print("Warning: last_s_max is None")
+            
+        self.adamw.step()
+        return loss
+
+    def zero_grad(self, set_to_none=True):
+        self.muonclip.zero_grad(set_to_none=set_to_none)
+        self.adamw.zero_grad(set_to_none=set_to_none)
+        self.last_s_max = None
+
+
+class EMATeacherCallback(TrainerCallback):
+    def __init__(self, total_steps: int, ema_start_percent: float, ema_decay: float):
+        self.total_steps = total_steps
+        self.ema_start_percent = ema_start_percent
+        self.ema_decay = ema_decay
+        self.ema_active = False
+
+    def on_step_begin(self, args, state, control, **kwargs):
+        if state.global_step >= int(self.total_steps * self.ema_start_percent) and not self.ema_active:
+            self.ema_active = True
+            print(f"Initializing EMA Teacher at step {state.global_step}")
+            import copy
+            model = kwargs['model']
+            unwrapped = model.module if hasattr(model, 'module') else model
+            ema_teacher = copy.deepcopy(unwrapped)
+            for param in ema_teacher.parameters():
+                param.requires_grad = False
+            ema_teacher.eval()
+            unwrapped.ema_teacher = ema_teacher
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if self.ema_active:
+            unwrapped = kwargs['model'].module if hasattr(kwargs['model'], 'module') else kwargs['model']
+            ema_teacher = getattr(unwrapped, 'ema_teacher', None)
+            if ema_teacher is not None:
+                with torch.no_grad():
+                    for s_param, t_param in zip(unwrapped.parameters(), ema_teacher.parameters()):
+                        t_param.data.mul_(self.ema_decay).add_(s_param.data, alpha=1.0 - self.ema_decay)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="DSM2 Trainer")
     parser.add_argument("--hf_token", type=str, default=None, help="Huggingface token")
@@ -176,6 +236,8 @@ def parse_args():
     parser.add_argument("--dilation", type=int, default=16, help="Dilation factor for attention")
     
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
+    parser.add_argument("--ema_start_percent", type=float, default=0.25, help="Percentage of steps before EMA teacher is initialized.")
+    parser.add_argument("--ema_decay", type=float, default=0.999, help="Exponential moving average decay factor for teacher.")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size, max length, and fast exit for debugging")
     args = parser.parse_args()
     return args
@@ -270,19 +332,58 @@ def main(args):
     )
 
     ### Create a Trainer base
-    trainer = Trainer(
+    class DSM2Trainer(Trainer):
+        def create_optimizer(self):
+            if self.optimizer is None:
+                unwrapped = self.model.module if hasattr(self.model, 'module') else self.model
+                
+                muon_params = []
+                adamw_params = []
+                attn_params = []
+                
+                for n, p in unwrapped.named_parameters():
+                    if p.ndim >= 2 and 'embed' not in n and 'lm_head' not in n:
+                        muon_params.append(p)
+                    else:
+                        adamw_params.append(p)
+                
+                for block in unwrapped.transformer.blocks:
+                    attn_params.append(block.attn)
+                
+                import torch.distributed as dist
+                is_ddp = dist.is_initialized()
+                rank = dist.get_rank() if is_ddp else 0
+                world_size = dist.get_world_size() if is_ddp else 1
+                
+                muonclip = MuonClip(
+                    params=muon_params,
+                    attention_params=attn_params,
+                    mode='mha',
+                    metadata={'w_q': 'W_q', 'w_k': 'W_k'},
+                    n_head=unwrapped.config.num_attention_heads,
+                    tau=100.0,
+                    lr=0.02, # Default muon LR
+                    rank=rank,
+                    world_size=world_size
+                )
+                
+                adamw = torch.optim.AdamW(adamw_params, lr=self.args.learning_rate, weight_decay=self.args.weight_decay)
+                self.optimizer = MuonAdamWWrapper(muonclip, adamw)
+            return self.optimizer
+
+    trainer = DSM2Trainer(
         model=student_model,
         train_dataset=train_dataset,
         data_collator=data_collator,
         args=training_args,
         compute_metrics=ComputeDSM2Metrics(tokenizer),
-        callbacks=[DynamicLengthCallback(
-            data_collator=data_collator,
-            total_steps=args.max_steps,
-            start_len=args.start_max_length,
-            end_len=args.end_max_length,
-            interval=args.len_interval,
-        )],
+        callbacks=[
+            EMATeacherCallback(
+                total_steps=args.max_steps,
+                ema_start_percent=args.ema_start_percent,
+                ema_decay=args.ema_decay
+            )
+        ],
         eval_dataset=valid_dataset,
     )
 
@@ -302,6 +403,10 @@ def main(args):
 
         all_teacher_pooled = []
         all_student_pooled = []
+        all_s_max_patches = []
+        
+        unwrapped_model = model.module if hasattr(model, 'module') else model
+        active_teacher = getattr(unwrapped_model, 'ema_teacher', teacher_model)
 
         # Iterate over patches
         for start_idx in range(0, batch_size, patch_size):
@@ -312,17 +417,27 @@ def main(args):
             
             # 1. Forward pass through frozen Teacher
             with torch.no_grad():
-                teacher_outputs = teacher_model(
-                    input_ids=patch_input_ids,
-                    attention_mask=patch_attention_mask,
-                    output_hidden_states=True,
-                    output_attentions=False,
-                )
-                # DPLM outputs the embeddings at index 0, hidden states at following indices. Same as ESM/ESM++
-                teacher_hidden_states = teacher_outputs.hidden_states
-                # Filter first element to match num_hidden_layers logic
-                if len(teacher_hidden_states) > teacher_model.config.num_hidden_layers:
-                    teacher_hidden_states = teacher_hidden_states[1:] 
+                if active_teacher is teacher_model:
+                    teacher_outputs = teacher_model(
+                        input_ids=patch_input_ids,
+                        attention_mask=patch_attention_mask,
+                        output_hidden_states=True,
+                        output_attentions=False,
+                    )
+                    # DPLM outputs the embeddings at index 0, hidden states at following indices. Same as ESM/ESM++
+                    teacher_hidden_states = teacher_outputs.hidden_states
+                    # Filter first element to match num_hidden_layers logic
+                    if len(teacher_hidden_states) > teacher_model.config.num_hidden_layers:
+                        teacher_hidden_states = teacher_hidden_states[1:] 
+                else:
+                    teacher_outputs = active_teacher(
+                        input_ids=patch_input_ids,
+                        attention_mask=patch_attention_mask,
+                        alpha_ce=0.0,
+                        alpha_jepa=0.0,
+                        alpha_contrastive=0.0,
+                    )
+                    teacher_hidden_states = teacher_outputs.student_hidden_states
 
             # 2. Forward pass through Student DSM2
             # We enforce alpha_contrastive=0.0 during patch forward to avoid redundant calculation
@@ -349,6 +464,9 @@ def main(args):
                 
                 all_teacher_pooled.append(teacher_pooled)
                 all_student_pooled.append(student_pooled)
+                
+            if getattr(dsm2_patch_output, 's_max', None) is not None:
+                all_s_max_patches.append(dsm2_patch_output.s_max)
 
         # 3. Compute contrastive loss over the entire aggregated batch
         if args.alpha_contrastive > 0.0 and len(all_teacher_pooled) > 0:
@@ -361,6 +479,21 @@ def main(args):
                 t_pooled=stacked_teacher_pooled,
             )
             total_contrastive_loss = contrastive_val
+
+        # Reduce s_max
+        if len(all_s_max_patches) > 0:
+            num_layers = len(all_s_max_patches[0])
+            num_heads = len(all_s_max_patches[0][0])
+            reduced_s_max = []
+            for l in range(num_layers):
+                layer_maxes = []
+                for h in range(num_heads):
+                    max_val = max(patch[l][h] for patch in all_s_max_patches)
+                    layer_maxes.append(max_val)
+                reduced_s_max.append(layer_maxes)
+            
+            if hasattr(trainer, 'optimizer') and hasattr(trainer.optimizer, 'last_s_max'):
+                trainer.optimizer.last_s_max = reduced_s_max
 
         loss = (args.alpha_ce * total_ce_loss) + (args.alpha_jepa * total_jepa_loss) + (args.alpha_contrastive * total_contrastive_loss)
         
@@ -417,9 +550,10 @@ if __name__ == "__main__":
         args.end_max_length = 64
         args.len_interval = 16
         args.save_every = 10
-        args.max_steps = 1000
+        args.max_steps = 20
         args.student_hidden_size = 256
         args.student_expansion_ratio = 2.0
         args.teacher_model_path = "Synthyra/ESM2-8M"
+        args.ema_start_percent = 0.5
 
     main(args)

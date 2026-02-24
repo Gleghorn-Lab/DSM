@@ -17,6 +17,8 @@ from transformers.modeling_outputs import ModelOutput
 from torch.nn.attention.flex_attention import create_block_mask
 from torch.nn.attention.flex_attention import flex_attention
 
+from FastPLMs.embedding_mixin import EmbeddingMixin, Pooler
+
 
 class PLMConfig(PretrainedConfig):
     """Configuration class for PLM model.
@@ -331,7 +333,8 @@ class MultiHeadAttention(nn.Module):
         attention_mask: torch.Tensor,
         flex_block_mask: object,
         output_attentions: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        output_s_max: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[List[torch.Tensor]]]:
         """
         Args:
             x: Input tensor
@@ -377,7 +380,16 @@ class MultiHeadAttention(nn.Module):
             
         context_BLD = rearrange(context_BHLD, "b h s d -> b s (h d)")
         output = self.W_o(context_BLD)
-        return output, attn_weights
+        
+        s_max = None
+        if output_s_max:
+            with torch.no_grad():
+                q_norm = torch.linalg.vector_norm(query_BHLD, dim=-1)
+                k_norm = torch.linalg.vector_norm(key_BHLD, dim=-1)
+                s_max_bound = (q_norm.max(dim=-1).values * k_norm.max(dim=-1).values).max(dim=0).values * self.scale
+                s_max = [s_max_bound[h] for h in range(self.n_heads)]
+                
+        return output, attn_weights, s_max
 
 
 ### Regression Head
@@ -430,7 +442,8 @@ class TransformerBlock(nn.Module):
         attention_mask: torch.Tensor,
         flex_block_mask: object,
         output_attentions: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        output_s_max: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[List[torch.Tensor]]]:
         """
         Args:
             x: Input tensor
@@ -441,15 +454,16 @@ class TransformerBlock(nn.Module):
         Returns:
             Output tensor after transformer block, and optionally attention weights
         """
-        attn_output, attn_weights = self.attn(
+        attn_output, attn_weights, s_max = self.attn(
             x,
             attention_mask,
             flex_block_mask,
             output_attentions,
+            output_s_max,
         )
         x = x + self.dropout(attn_output)
         x = x + self.dropout(self.mlp(x))
-        return x, attn_weights
+        return x, attn_weights, s_max
 
 
 ### Model Outputs
@@ -459,6 +473,7 @@ class TransformerOutput(ModelOutput):
     last_hidden_state: Optional[torch.Tensor] = None
     hidden_states: Optional[Tuple[torch.Tensor]] = None
     attentions: Optional[Tuple[torch.Tensor]] = None
+    s_max: Optional[Tuple[List[torch.Tensor]]] = None
 
 
 @dataclass
@@ -469,6 +484,7 @@ class PLMOutput(ModelOutput):
     last_hidden_state: Optional[torch.Tensor] = None
     hidden_states: Optional[Tuple[torch.Tensor]] = None
     attentions: Optional[Tuple[torch.Tensor]] = None
+    s_max: Optional[Tuple[List[torch.Tensor]]] = None
 
 
 ### Transformer Stack
@@ -562,6 +578,7 @@ class TransformerStack(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         output_hidden_states: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
+        output_s_max: Optional[bool] = False,
     ) -> TransformerOutput:
         """
         Args:
@@ -575,6 +592,7 @@ class TransformerStack(nn.Module):
         """
         hidden_states = () if output_hidden_states else None
         attentions = () if output_attentions else None
+        s_max_list = () if output_s_max else None
         
         # move to 4D attention mask or flex block mask
         attention_mask, flex_block_mask = self.get_attention_mask(
@@ -594,15 +612,18 @@ class TransformerStack(nn.Module):
                     output_attentions=output_attentions,
                 )
             else:
-                x, attn_weights = block(
+                x, attn_weights, s_max = block(
                     x=x,
                     attention_mask=attention_mask,
                     flex_block_mask=flex_block_mask,
                     output_attentions=output_attentions,
+                    output_s_max=output_s_max,
                 )
 
             if attentions is not None:
                 attentions += (attn_weights,)
+            if s_max_list is not None:
+                s_max_list += (s_max,)
                 
             if output_hidden_states:
                 assert hidden_states is not None
@@ -615,7 +636,8 @@ class TransformerStack(nn.Module):
         return TransformerOutput(
             last_hidden_state=last_hidden_state, 
             hidden_states=hidden_states,
-            attentions=attentions
+            attentions=attentions,
+            s_max=s_max_list,
         )
 
 
@@ -719,6 +741,7 @@ class PLM(PreTrainedPLM, EmbeddingMixin):
         inputs_embeds: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
+        output_s_max: Optional[bool] = None,
         return_dict: Optional[bool] = None, # to play nice with HF adjacent packages
         **kwargs,
     ) -> TransformerOutput:
@@ -747,11 +770,13 @@ class PLM(PreTrainedPLM, EmbeddingMixin):
             attention_mask=attention_mask,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
+            output_s_max=output_s_max,
         )
         return PLMOutput(
             last_hidden_state=transformer_output.last_hidden_state,
             hidden_states=transformer_output.hidden_states,
             attentions=transformer_output.attentions,
+            s_max=transformer_output.s_max,
         )
 
 class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):

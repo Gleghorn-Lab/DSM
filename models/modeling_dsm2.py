@@ -33,6 +33,7 @@ class DSM2Output(ModelOutput):
     last_hidden_state: Optional[torch.Tensor] = None
     student_hidden_states: Optional[Tuple[torch.Tensor]] = None
     t: Optional[torch.Tensor] = None
+    s_max: Optional[Tuple[List[torch.Tensor]]] = None
 
 
 def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
@@ -225,6 +226,7 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
             attention_mask=attention_mask,
             output_hidden_states=True,
             output_attentions=False,
+            output_s_max=self.training,
         )
 
         all_hidden_states = outputs.hidden_states
@@ -277,9 +279,10 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
             jepa_loss=jepa_loss_val,
             logits=lm_logits,
             mask_labels=labels,
-            last_hidden_state=x,
+            last_hidden_state=last_hidden_state,
             student_hidden_states=projected_student_states,
             t=t,
+            s_max=outputs.s_max,
         )
 
 if __name__ == "__main__":
