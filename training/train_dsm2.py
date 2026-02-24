@@ -21,7 +21,7 @@ import math
 
 from models.modeling_dsm2 import DSM2, DSM2Config
 from models.alignment_helpers import GetAlignmentScoreFromLogits
-from data.dataset_classes import SequenceDatasetFromList, SequenceDatasetFromHF
+from data.dataset_classes import SequenceDatasetFromList
 from data.data_collators import SequenceCollator
 
 from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel
@@ -286,9 +286,13 @@ def main(args):
 
     ### Load Dataset
     hf_dataset = load_dataset(args.data_path)
+    print('Loading and shuffling training dataset')
     hf_train_dataset = hf_dataset['train'].shuffle(seed=42)
+    print('Loading and shuffling validation dataset')
     hf_valid_dataset = hf_dataset['valid'].shuffle(seed=42)
+    print('Loading and shuffling test dataset')
     hf_test_dataset = hf_dataset['test'].shuffle(seed=42)
+    print('Trimming datasets')
     if args.bugfix:
         hf_train_dataset = hf_train_dataset.select(range(100))
         hf_valid_dataset = hf_valid_dataset.select(range(10))
@@ -296,9 +300,15 @@ def main(args):
     else:
         hf_train_dataset = hf_train_dataset.select(range(int(1e5)))
 
-    train_dataset = SequenceDatasetFromHF(hf_train_dataset, col_name="sequence")
-    valid_dataset = SequenceDatasetFromHF(hf_valid_dataset, col_name="sequence")
-    test_dataset = SequenceDatasetFromHF(hf_test_dataset, col_name="sequence")
+    print('Converting datasets to lists')
+    train_seqs = hf_train_dataset.data.column("sequence").to_pylist()
+    valid_seqs = hf_valid_dataset.data.column("sequence").to_pylist()
+    test_seqs = hf_test_dataset.data.column("sequence").to_pylist()
+
+    print('Creating torch datasets')
+    train_dataset = SequenceDatasetFromList(train_seqs)
+    valid_dataset = SequenceDatasetFromList(valid_seqs)
+    test_dataset = SequenceDatasetFromList(test_seqs)
     
     # Initialize collator with starting length
     data_collator = SequenceCollator(tokenizer, max_length=args.max_length)
