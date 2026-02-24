@@ -233,7 +233,8 @@ def main(args):
         num_hidden_layers=temp_teacher_config.num_hidden_layers,
         teacher_hidden_size=temp_teacher_config.hidden_size,
         expansion_ratio=args.student_expansion_ratio,
-        attn_backend="flex"
+        attn_backend="flex",
+        tie_token_embeddings=False
     )
     
     student_model = DSM2(student_config)
