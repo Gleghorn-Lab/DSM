@@ -36,18 +36,36 @@ def load_teacher(teacher_path: str, device: str = "cuda"):
     print(f"Loading Teacher Model from {teacher_path}...")
     
     if "dplm2" in model_lower:
-        teacher = DPLM2ForMaskedLM.from_pretrained(teacher_path)
+        teacher = DPLM2ForMaskedLM.from_pretrained(
+            teacher_path,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+            device_map=device
+        ).eval()
     elif "dplm" in model_lower:
-        teacher = DPLMForMaskedLM.from_pretrained(teacher_path)
+        teacher = DPLMForMaskedLM.from_pretrained(
+            teacher_path,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+            device_map=device
+        ).eval()
     elif "esm2" in model_lower or "fastesm" in model_lower:
-        teacher = FastEsmForMaskedLM.from_pretrained(teacher_path)
+        teacher = FastEsmForMaskedLM.from_pretrained(
+            teacher_path,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+            device_map=device
+        ).eval()
     else:
         # Default fallback is ESM++
-        teacher = ESMplusplusForMaskedLM.from_pretrained(teacher_path)
+        teacher = ESMplusplusForMaskedLM.from_pretrained(
+            teacher_path,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+            device_map=device
+        ).eval()
         
     teacher.attn_backend = "flex"
-    teacher = teacher.to(torch.bfloat16).to(device)
-    teacher.eval()
     for param in teacher.parameters():
         param.requires_grad = False
         
