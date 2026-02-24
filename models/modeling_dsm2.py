@@ -6,22 +6,20 @@ from typing import Optional, Tuple, Any, Union, List
 from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
 
-from .FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel, ESMplusplusConfig, UnifiedTransformerBlock
+from .plm import PLMForMaskedLM, PLMConfig
 from .generate_mixin import GenerateMixin
-from .FastPLMs.embedding_mixin import Pooler
+from .FastPLMs.embedding_mixin import EmbeddingMixin, Pooler
 
 
-class DSM2Config(ESMplusplusConfig):
+class DSM2Config(PLMConfig):
     model_type = "dsm2"
     def __init__(
         self,
         teacher_hidden_size: int = 768,
-        expansion_ratio: float = 8 / 3,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.teacher_hidden_size = teacher_hidden_size
-        self.expansion_ratio = expansion_ratio
 
 
 @dataclass
@@ -35,24 +33,6 @@ class DSM2Output(ModelOutput):
     last_hidden_state: Optional[torch.Tensor] = None
     student_hidden_states: Optional[Tuple[torch.Tensor]] = None
     t: Optional[torch.Tensor] = None
-
-
-
-class LMHead(nn.Module):
-    def __init__(self, hidden_size: int, vocab_size: int, soft_logit_cap: float = 30.0):
-        super().__init__()
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.layer_norm = nn.LayerNorm(hidden_size)
-        self.decoder = nn.Linear(hidden_size, vocab_size)
-        self.soft_logit_cap = soft_logit_cap
-        self.act = nn.GELU()
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.dense(x)
-        x = self.act(x)
-        x = self.layer_norm(x)
-        x = self.decoder(x)
-        return self.soft_logit_cap * torch.tanh(x / self.soft_logit_cap)
 
 
 def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
@@ -156,34 +136,16 @@ def jepa_loss(
     return valid_mse.mean()
 
 
-class DSM2(ESMplusplusModel, GenerateMixin):
+class DSM2(PLMForMaskedLM, GenerateMixin):
     config_class = DSM2Config
     def __init__(self, config: DSM2Config, **kwargs):
-        ESMplusplusModel.__init__(self, config, **kwargs)
+        PLMForMaskedLM.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self)
         self.config = config
         self.vocab_size = config.vocab_size
-        
-        self.lm_head = LMHead(config.hidden_size, config.vocab_size)
-        
+                
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
         self.mask_token_id = self.tokenizer.mask_token_id
-
-        # Replace transformer blocks with custom expansion size since ESM++ natively hardcodes 8 / 3
-        # and doesn't pass expansion_ratio down to UnifiedTransformerBlock through TransformerStack.
-        self.transformer.blocks = nn.ModuleList([
-            UnifiedTransformerBlock(
-                config.hidden_size,
-                config.num_attention_heads,
-                residue_scaling_factor=math.sqrt(config.num_hidden_layers / 36),
-                expansion_ratio=config.expansion_ratio,
-                dropout=config.dropout,
-                attn_backend=config.attn_backend,
-            )
-            for _ in range(config.num_hidden_layers)
-        ])
-        # Re-initialize the weights for these dynamically created blocks
-        self.apply(self._init_weights)
 
         # Projection layers to align student hidden states to teacher hidden size
         self.teacher_projections = nn.ModuleList([
@@ -216,8 +178,8 @@ class DSM2(ESMplusplusModel, GenerateMixin):
             output_hidden_states=False,
             output_attentions=False,
         )
-        x = outputs.last_hidden_state
-        return self.lm_head(x)
+        last_hidden_state = outputs.last_hidden_state
+        return self.lm_head(last_hidden_state)
 
     def forward(
         self,
@@ -266,11 +228,6 @@ class DSM2(ESMplusplusModel, GenerateMixin):
         )
 
         all_hidden_states = outputs.hidden_states
-        # Outputs from TransformerStack (in modeling_esm_plusplus.py) includes `hidden_states` as a tuple.
-        # But ESMplusplusModel forward returns `TransformerOutput` passing along `hidden_states`.
-        # Note: the first element in hidden_states is usually the embeddings. We iterate from index 1.
-        if len(all_hidden_states) == self.config.num_hidden_layers + 1:
-            all_hidden_states = all_hidden_states[1:]
             
         projected_student_states = []
         for state, proj in zip(all_hidden_states, self.teacher_projections):
@@ -278,8 +235,8 @@ class DSM2(ESMplusplusModel, GenerateMixin):
         
         projected_student_states = tuple(projected_student_states)
         
-        x = outputs.last_hidden_state
-        lm_logits = self.lm_head(x)
+        last_hidden_state = outputs.last_hidden_state
+        lm_logits = self.lm_head(last_hidden_state)
 
         joint_mask = mask_indices & attention_mask.bool()
         if not joint_mask.any():

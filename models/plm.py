@@ -18,53 +18,8 @@ from torch.nn.attention.flex_attention import create_block_mask
 from torch.nn.attention.flex_attention import flex_attention
 
 
-SLIDING_WINDOW_SIZE = 512
-DILATION = 16
-
-
-def get_attention_mask(
-    attn_backend: str, 
-    batch_size: int, 
-    seq_len: int, 
-    device: torch.device,
-    attention_mask: Optional[torch.Tensor] = None
-) -> torch.Tensor:
-    if attention_mask is None:
-        token_attention_mask = torch.ones((batch_size, seq_len), device=device).bool() 
-    else:
-        token_attention_mask = attention_mask.bool()
-    
-    if attn_backend == "flex":
-        assert create_block_mask is not None, "Flex attention backend requested but torch.create_block_mask is unavailable."
-
-        if attention_mask is None:
-            flex_block_mask = None
-        else:
-            def mask_mod(batch_idx, head_idx, q_idx, kv_idx):
-                diff = torch.abs(q_idx - kv_idx)
-                in_window = diff <= SLIDING_WINDOW_SIZE
-                is_dilated = (diff % DILATION) == 0
-                document_mask = token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx] & token_attention_mask[batch_idx, q_idx] != 0
-                return (in_window | is_dilated) & document_mask
-    
-            flex_block_mask = create_block_mask(
-                mask_mod,
-                batch_size,
-                1,
-                seq_len,
-                seq_len,
-                device=device,
-            )
-        extended_attention_mask = None
-    else:
-        flex_block_mask = None
-        extended_attention_mask = token_attention_mask[:, None, :, None] & token_attention_mask[:, None, None, :]
-
-    return extended_attention_mask, flex_block_mask
-
-
 class PLMConfig(PretrainedConfig):
-    """Configuration class for ESM++ model.
+    """Configuration class for PLM model.
     
     Args:
         vocab_size: Size of the vocabulary
@@ -79,26 +34,52 @@ class PLMConfig(PretrainedConfig):
         self,
         vocab_size: int = 64,
         hidden_size: int = 960,
-        num_attention_heads: int = 15,
+        expansion_ratio: float = 8 / 3,
+        head_size: int = 64,
         num_hidden_layers: int = 30,
         num_labels: int = 2,
         problem_type: str | None = None,
         dropout: float = 0.0,
         initializer_range: float = 0.02,
-        attn_backend: str = "sdpa",
+        attn_backend: str = "flex",
+        sliding_window_size: int = 512,
+        dilation: int = 16,
+        soft_logit_cap: float = 30.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
+        self.expansion_ratio = expansion_ratio
+        self.head_size = head_size
+        self.num_attention_heads = hidden_size // head_size
         self.num_hidden_layers = num_hidden_layers
         self.num_labels = num_labels
         self.problem_type = problem_type
         self.dropout = dropout
         self.initializer_range = initializer_range
+        self.sliding_window_size = sliding_window_size
+        self.dilation = dilation
         self.tie_word_embeddings = False
         self.attn_backend = attn_backend
+        self.soft_logit_cap = soft_logit_cap
+
+
+class LMHead(nn.Module):
+    def __init__(self, hidden_size: int, vocab_size: int, soft_logit_cap: float = 30.0):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size)
+        self.layer_norm = nn.LayerNorm(hidden_size)
+        self.decoder = nn.Linear(hidden_size, vocab_size)
+        self.soft_logit_cap = soft_logit_cap
+        self.act = nn.GELU()
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.dense(x)
+        x = self.act(x)
+        x = self.layer_norm(x)
+        x = self.decoder(x)
+        return self.soft_logit_cap * torch.tanh(x / self.soft_logit_cap)
 
 
 ### Rotary Embeddings
@@ -287,35 +268,26 @@ class RotaryEmbedding(torch.nn.Module):
             assert False
 
 
-### Feedforward Network Components
-def swiglu_correction_fn(expansion_ratio: float, d_model: int) -> int:
+def correction_fn(expansion_ratio: float, d_model: int) -> int:
     """Compute corrected dimension for SwiGLU."""
     return int(((expansion_ratio * d_model) + 255) // 256 * 256)
 
 
-class SwiGLU(nn.Module):
-    """SwiGLU activation function."""
-    def __init__(self):
-        super(SwiGLU, self).__init__()
+class MLP(nn.Module):
+    def __init__(self, hidden_size, expansion_ratio: float = 4.0, bias: bool = False):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.expansion_ratio = expansion_ratio
+        self.bias = bias
+        self.layernorm = nn.LayerNorm(hidden_size, bias=bias)
+        self.up_proj = nn.Linear(hidden_size, correction_fn(expansion_ratio, hidden_size), bias=bias)
+        self.down_proj = nn.Linear(correction_fn(expansion_ratio, hidden_size), hidden_size, bias=bias)
+        self.act = nn.GELU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1, x2 = x.chunk(2, dim=-1)
-        return F.silu(x1) * x2
+        return self.down_proj(self.act(self.layernorm(self.up_proj(x))))
 
 
-def swiglu_ln_ffn(d_model: int, expansion_ratio: float) -> nn.Sequential:
-    """Create SwiGLU feedforward network with layer normalization."""
-    return nn.Sequential(
-        nn.LayerNorm(d_model),
-        nn.Linear(
-            d_model, swiglu_correction_fn(expansion_ratio, d_model) * 2, bias=False
-        ),
-        SwiGLU(),
-        nn.Linear(swiglu_correction_fn(expansion_ratio, d_model), d_model, bias=False),
-    )
-
-
-### Attention
 class MultiHeadAttention(nn.Module):
     """Multi-head attention with rotary embeddings.
     
@@ -334,14 +306,15 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.d_head = self.d_model // self.n_heads
         self.attn_backend = attn_backend
-        self.layernorm_qkv = nn.Sequential(
-            nn.LayerNorm(d_model), nn.Linear(d_model, d_model * 3, bias=False)
-        )
-        self.out_proj = nn.Linear(d_model, d_model, bias=False)
+        self.W_q = nn.Linear(d_model, d_model, bias=False)
+        self.W_k = nn.Linear(d_model, d_model, bias=False)
+        self.W_v = nn.Linear(d_model, d_model, bias=False)
+        self.W_o = nn.Linear(d_model, d_model, bias=False)
         self.q_ln = nn.LayerNorm(d_model, bias=False)
         self.k_ln = nn.LayerNorm(d_model, bias=False)
         self.reshaper = partial(rearrange, pattern="b s (h d) -> b h s d", h=n_heads)
         self.rotary = RotaryEmbedding(d_model // n_heads)
+        self.scale = 1.0 / math.sqrt(self.d_head)
 
     def _apply_rotary(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply rotary embeddings to query and key."""
@@ -370,18 +343,14 @@ class MultiHeadAttention(nn.Module):
             Output tensor after self attention, and optionally attention weights
         """
         attn_weights = None
-        qkv_BLD3 = self.layernorm_qkv(x)
-        query_BLD, key_BLD, value_BLD = torch.chunk(qkv_BLD3, 3, dim=-1)
-        query_BLD, key_BLD = (
-            self.q_ln(query_BLD).to(query_BLD.dtype),
-            self.k_ln(key_BLD).to(query_BLD.dtype),
-        )
+        query_BLD = self.q_ln(self.W_q(x))
+        key_BLD = self.k_ln(self.W_k(x))
+        value_BLD = self.W_v(x)
         query_BLD, key_BLD = self._apply_rotary(query_BLD, key_BLD)
         query_BHLD, key_BHLD, value_BHLD = map(self.reshaper, (query_BLD, key_BLD, value_BLD))
-        scale = 1 / math.sqrt(self.d_head)
 
         if output_attentions: # Manual attention computation
-            attn_weights = torch.matmul(query_BHLD, key_BHLD.transpose(-2, -1)) * scale
+            attn_weights = torch.matmul(query_BHLD, key_BHLD.transpose(-2, -1)) * self.scale
             attn_weights = attn_weights.masked_fill(attention_mask.logical_not(), float('-inf'))
             attn_weights = F.softmax(attn_weights, dim=-1)
             context_BHLD = torch.matmul(attn_weights, value_BHLD)
@@ -395,7 +364,7 @@ class MultiHeadAttention(nn.Module):
                     key_BHLD,
                     value_BHLD,
                     block_mask=flex_block_mask,
-                    scale=scale,
+                    scale=self.scale,
                 )
             else:
                 context_BHLD = F.scaled_dot_product_attention(
@@ -403,11 +372,11 @@ class MultiHeadAttention(nn.Module):
                     key_BHLD,
                     value_BHLD,
                     attn_mask=attention_mask,
-                    scale=scale,
+                    scale=self.scale,
                 )
             
         context_BLD = rearrange(context_BHLD, "b h s d -> b s (h d)")
-        output = self.out_proj(context_BLD)
+        output = self.W_o(context_BLD)
         return output, attn_weights
 
 
@@ -429,8 +398,7 @@ def RegressionHead(d_model: int, output_dim: int, hidden_dim: Optional[int] = No
     )
 
 
-### Transformer Block
-class UnifiedTransformerBlock(nn.Module):
+class TransformerBlock(nn.Module):
     """Transformer block with attention and feedforward layers.
     
     Args:
@@ -443,7 +411,6 @@ class UnifiedTransformerBlock(nn.Module):
         self,
         d_model: int,
         n_heads: int,
-        residue_scaling_factor: float = 1,
         expansion_ratio: float = 8 / 3,
         dropout: float = 0.0,
         attn_backend: str = "sdpa",
@@ -454,8 +421,7 @@ class UnifiedTransformerBlock(nn.Module):
             n_heads=n_heads,
             attn_backend=attn_backend,
         )
-        self.ffn = swiglu_ln_ffn(d_model, expansion_ratio)
-        self.scaling_factor = residue_scaling_factor
+        self.mlp = mlp(d_model, expansion_ratio)
         self.dropout = nn.Dropout(dropout)
 
     def forward(
@@ -481,8 +447,8 @@ class UnifiedTransformerBlock(nn.Module):
             flex_block_mask,
             output_attentions,
         )
-        x = x + self.dropout(attn_output) / self.scaling_factor
-        x = x + self.dropout(self.ffn(x)) / self.scaling_factor
+        x = x + self.dropout(attn_output)
+        x = x + self.dropout(self.mlp(x))
         return x, attn_weights
 
 
@@ -496,8 +462,8 @@ class TransformerOutput(ModelOutput):
 
 
 @dataclass
-class ESMplusplusOutput(ModelOutput):
-    """Output type for ESM++ models."""
+class PLMOutput(ModelOutput):
+    """Output type for PLM models."""
     loss: Optional[torch.Tensor] = None
     logits: Optional[torch.Tensor] = None
     last_hidden_state: Optional[torch.Tensor] = None
@@ -527,7 +493,7 @@ class TransformerStack(nn.Module):
         self._attn_backend = attn_backend
         self.blocks = nn.ModuleList(
             [
-                UnifiedTransformerBlock(
+                TransformerBlock(
                     d_model,
                     n_heads,
                     residue_scaling_factor=math.sqrt(n_layers / 36),
@@ -552,6 +518,44 @@ class TransformerStack(nn.Module):
         for block in self.blocks:
             block.attn.attn_backend = backend
 
+    def get_attention_mask(
+        self,
+        batch_size: int, 
+        seq_len: int, 
+        device: torch.device,
+        attention_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        if attention_mask is None:
+            token_attention_mask = torch.ones((batch_size, seq_len), device=device).bool() 
+        else:
+            token_attention_mask = attention_mask.bool()
+        
+        if self.attn_backend == "flex":
+            if attention_mask is None:
+                flex_block_mask = None
+            else:
+                def mask_mod(batch_idx, head_idx, q_idx, kv_idx):
+                    diff = torch.abs(q_idx - kv_idx)
+                    in_window = diff <= SLIDING_WINDOW_SIZE
+                    is_dilated = (diff % DILATION) == 0
+                    document_mask = token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx] & token_attention_mask[batch_idx, q_idx] != 0
+                    return (in_window | is_dilated) & document_mask
+        
+                flex_block_mask = create_block_mask(
+                    mask_mod,
+                    batch_size,
+                    1,
+                    seq_len,
+                    seq_len,
+                    device=device,
+                )
+            extended_attention_mask = None
+        else:
+            flex_block_mask = None
+            extended_attention_mask = token_attention_mask[:, None, :, None] & token_attention_mask[:, None, None, :]
+
+        return extended_attention_mask, flex_block_mask
+
     def forward(
         self,
         x: torch.Tensor,
@@ -573,8 +577,7 @@ class TransformerStack(nn.Module):
         attentions = () if output_attentions else None
         
         # move to 4D attention mask or flex block mask
-        attention_mask, flex_block_mask = get_attention_mask(
-            attn_backend=self._attn_backend,
+        attention_mask, flex_block_mask = self.get_attention_mask(
             batch_size=x.shape[0],
             seq_len=x.shape[1],
             device=x.device,
@@ -616,12 +619,9 @@ class TransformerStack(nn.Module):
         )
 
 
-class PreTrainedESMplusplusModel(PreTrainedModel):
-    """
-    init weights for ESM++ models
-    """
-    config_class = ESMplusplusConfig
-    base_model_prefix = "esm++"
+class PreTrainedPLM(PreTrainedModel):
+    config_class = PLMConfig
+    base_model_prefix = "plm"
     supports_gradient_checkpointing = True
     all_tied_weights_keys = {}
 
@@ -676,25 +676,14 @@ class PreTrainedESMplusplusModel(PreTrainedModel):
         loaded._reset_rotary_embeddings()
         return loaded
 
-    @classmethod
-    def from_pretrained_esm(cls, model_name: str):
-        """Load a pretrained ESM++ model."""
-        if '300' in model_name:
-            return ESMplusplus_300M()
-        elif '600' in model_name:
-            return ESMplusplus_600M()
-        else:
-            raise ValueError(f"Invalid model name: {model_name}")
 
-
-### ESM++ Models
-class ESMplusplusModel(PreTrainedESMplusplusModel, EmbeddingMixin):
+class PLM(PreTrainedPLM, EmbeddingMixin):
     """
-    ESM++ model. transformer model with no heads
+    PLM model. transformer model with no heads
     """
-    config_class = ESMplusplusConfig
-    def __init__(self, config: ESMplusplusConfig, **kwargs):
-        PreTrainedESMplusplusModel.__init__(self, config, **kwargs)
+    config_class = PLMConfig
+    def __init__(self, config: PLMConfig, **kwargs):
+        PLM.__init__(self, config, **kwargs)
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
@@ -759,20 +748,16 @@ class ESMplusplusModel(PreTrainedESMplusplusModel, EmbeddingMixin):
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
         )
-        return ESMplusplusOutput(
+        return PLMOutput(
             last_hidden_state=transformer_output.last_hidden_state,
             hidden_states=transformer_output.hidden_states,
             attentions=transformer_output.attentions,
         )
 
-class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
-    """
-    ESM++ model for masked language modeling.
-    Implements the base ESM++ architecture with a masked language modeling head.
-    """
-    config_class = ESMplusplusConfig
-    def __init__(self, config: ESMplusplusConfig, **kwargs):
-        PreTrainedESMplusplusModel.__init__(self, config, **kwargs)
+class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
+    config_class = PLMConfig
+    def __init__(self, config: PLMConfig, **kwargs):
+        PreTrainedPLMModel.__init__(self, config, **kwargs)
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
@@ -783,7 +768,7 @@ class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
             dropout=config.dropout,
             attn_backend=config.attn_backend,
         )
-        self.sequence_head = RegressionHead(config.hidden_size, self.vocab_size)
+        self.lm_head = LMHead(config.hidden_size, self.vocab_size, config.soft_logit_cap)
         self.ce_loss = nn.CrossEntropyLoss()
         self.tokenizer = EsmSequenceTokenizer()
         self.init_weights()
@@ -819,7 +804,7 @@ class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None, # to play nice with HF adjacent packages
         **kwargs,
-    ) -> ESMplusplusOutput:
+    ) -> PLMOutput:
         """Forward pass for masked language modeling.
         
         Args:
@@ -831,7 +816,7 @@ class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
             output_attentions: Whether to return attention weights
             
         Returns:
-            ESMplusplusOutput containing loss, logits, hidden states and attention weights
+            PLMOutput containing loss, logits, hidden states and attention weights
         """
         if inputs_embeds is None:
             x = self.embed(input_ids)
@@ -846,12 +831,12 @@ class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
         )
 
         last_hidden_state = output.last_hidden_state
-        logits = self.sequence_head(last_hidden_state)
+        logits = self.lm_head(last_hidden_state)
         loss = None
         if labels is not None:
             loss = self.ce_loss(logits.view(-1, self.vocab_size), labels.view(-1))
         
-        return ESMplusplusOutput(
+        return PLMOutput(
             loss=loss,
             logits=logits,
             last_hidden_state=last_hidden_state,
@@ -860,13 +845,13 @@ class ESMplusplusForMaskedLM(PreTrainedESMplusplusModel, EmbeddingMixin):
         )
 
 
-class ESMplusplusForSequenceClassification(ESMplusplusForMaskedLM, EmbeddingMixin):
+class PLMForSequenceClassification(PLMForMaskedLM, EmbeddingMixin):
     """
-    ESM++ model for sequence classification.
-    Extends the base ESM++ model with a classification head.
+    PLM model for sequence classification.
+    Extends the base PLM model with a classification head.
     """
-    def __init__(self, config: ESMplusplusConfig, **kwargs):
-        ESMplusplusForMaskedLM.__init__(self, config, **kwargs)
+    def __init__(self, config: PLMConfig, **kwargs):
+        PLMForMaskedLM.__init__(self, config, **kwargs)
         self.config = config
         self.num_labels = config.num_labels
         self.classifier = RegressionHead(config.hidden_size * 2, config.num_labels, config.hidden_size * 4)
@@ -901,7 +886,7 @@ class ESMplusplusForSequenceClassification(ESMplusplusForMaskedLM, EmbeddingMixi
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None, # to play nice with HF adjacent packages
         **kwargs,
-    ) -> ESMplusplusOutput:
+    ) -> PLMOutput:
         """Forward pass for sequence classification.
         
         Args:
@@ -913,7 +898,7 @@ class ESMplusplusForSequenceClassification(ESMplusplusForMaskedLM, EmbeddingMixi
             output_attentions: Whether to return attention weights
             
         Returns:
-            ESMplusplusOutput containing loss, logits, and hidden states
+            PLMOutput containing loss, logits, and hidden states
         """
         output = super().forward(
             input_ids=input_ids,
@@ -949,7 +934,7 @@ class ESMplusplusForSequenceClassification(ESMplusplusForMaskedLM, EmbeddingMixi
             elif self.config.problem_type == "multi_label_classification":
                 loss = self.bce(logits, labels)
 
-        return ESMplusplusOutput(
+        return PLMOutput(
             loss=loss,
             logits=logits,
             last_hidden_state=last_hidden_state,
@@ -958,13 +943,13 @@ class ESMplusplusForSequenceClassification(ESMplusplusForMaskedLM, EmbeddingMixi
         )
 
 
-class ESMplusplusForTokenClassification(ESMplusplusForMaskedLM, EmbeddingMixin):
+class PLMForTokenClassification(PLMForMaskedLM, EmbeddingMixin):
     """
-    ESM++ model for token classification.
-    Extends the base ESM++ model with a token classification head.
+    PLM model for token classification.
+    Extends the base PLM model with a token classification head.
     """
-    def __init__(self, config: ESMplusplusConfig, **kwargs):
-        ESMplusplusForMaskedLM.__init__(self, config, **kwargs)
+    def __init__(self, config: PLMConfig, **kwargs):
+        PLMForMaskedLM.__init__(self, config, **kwargs)
         self.config = config
         self.num_labels = config.num_labels
         self.classifier = RegressionHead(config.hidden_size, config.num_labels, config.hidden_size * 4)
@@ -986,7 +971,7 @@ class ESMplusplusForTokenClassification(ESMplusplusForMaskedLM, EmbeddingMixin):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None, # to play nice with HF adjacent packages
         **kwargs,
-    ) -> ESMplusplusOutput:
+    ) -> PLMOutput:
         """Forward pass for token classification.
         
         Args:
@@ -998,7 +983,7 @@ class ESMplusplusForTokenClassification(ESMplusplusForMaskedLM, EmbeddingMixin):
             output_attentions: Whether to return attention weights
             
         Returns:
-            ESMplusplusOutput containing loss, logits, and hidden states
+            PLMOutput containing loss, logits, and hidden states
         """
         output = super().forward(
             input_ids=input_ids,
@@ -1015,98 +1000,13 @@ class ESMplusplusForTokenClassification(ESMplusplusForMaskedLM, EmbeddingMixin):
         if labels is not None:
             loss = self.loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
         
-        return ESMplusplusOutput(
+        return PLMOutput(
             loss=loss,
             logits=logits,
             last_hidden_state=last_hidden_state,
             hidden_states=output.hidden_states,
             attentions=output.attentions,
         )
-
-
-### Loading from EvolutionaryScale
-_ESMC_CHECKPOINT_SPECS = {
-    "esmc-300": {
-        "repo_id": "EvolutionaryScale/esmc-300m-2024-12",
-        "weights_relpath": "data/weights/esmc_300m_2024_12_v0.pth",
-        "hidden_size": 960,
-        "num_attention_heads": 15,
-        "num_hidden_layers": 30,
-    },
-    "esmc-600": {
-        "repo_id": "EvolutionaryScale/esmc-600m-2024-12",
-        "weights_relpath": "data/weights/esmc_600m_2024_12_v0.pth",
-        "hidden_size": 1152,
-        "num_attention_heads": 18,
-        "num_hidden_layers": 36,
-    },
-}
-
-
-def _resolve_esmc_checkpoint_key(model: str) -> str:
-    if "esmc-300" in model:
-        return "esmc-300"
-    if "esmc-600" in model:
-        return "esmc-600"
-    raise ValueError(f"{model=} is an invalid ESMC model name.")
-
-
-@staticmethod
-@cache
-def data_root(model: str):
-    if "INFRA_PROVIDER" in os.environ:
-        return Path("")
-    key = _resolve_esmc_checkpoint_key(model)
-    return Path(snapshot_download(repo_id=_ESMC_CHECKPOINT_SPECS[key]["repo_id"]))
-
-
-def get_esmc_checkpoint_path(model: str) -> Path:
-    key = _resolve_esmc_checkpoint_key(model)
-    return data_root(key) / _ESMC_CHECKPOINT_SPECS[key]["weights_relpath"]
-
-
-def _load_esmc_checkpoint_model(
-    config: ESMplusplusConfig,
-    model: str,
-    device: torch.device | str = "cpu",
-) -> ESMplusplusForMaskedLM:
-    key = _resolve_esmc_checkpoint_key(model)
-    spec = _ESMC_CHECKPOINT_SPECS[key]
-    assert config.hidden_size == spec["hidden_size"], (
-        f"ESMC loader expected hidden_size={spec['hidden_size']} for {key}, "
-        f"but got {config.hidden_size}."
-    )
-    assert config.num_attention_heads == spec["num_attention_heads"], (
-        f"ESMC loader expected num_attention_heads={spec['num_attention_heads']} for {key}, "
-        f"but got {config.num_attention_heads}."
-    )
-    assert config.num_hidden_layers == spec["num_hidden_layers"], (
-        f"ESMC loader expected num_hidden_layers={spec['num_hidden_layers']} for {key}, "
-        f"but got {config.num_hidden_layers}."
-    )
-    with torch.device(device):
-        model_obj = ESMplusplusForMaskedLM(config)
-    state_dict = torch.load(get_esmc_checkpoint_path(key), map_location=device)
-    model_obj.load_state_dict(state_dict)
-    return model_obj
-
-
-def ESMplusplus_300M(device: torch.device | str = "cpu"):
-    config = ESMplusplusConfig(
-        hidden_size=960,
-        num_attention_heads=15,
-        num_hidden_layers=30,
-    )
-    return _load_esmc_checkpoint_model(config=config, model="esmc-300", device=device)
-
-
-def ESMplusplus_600M(device: torch.device | str = "cpu"):
-    config = ESMplusplusConfig(
-        hidden_size=1152,
-        num_attention_heads=18,
-        num_hidden_layers=36,
-    )
-    return _load_esmc_checkpoint_model(config=config, model="esmc-600", device=device)
 
 
 ### Tokenization

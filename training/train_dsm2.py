@@ -147,33 +147,6 @@ class ComputeDSM2Metrics:
         return metrics
 
 
-class DynamicLengthCallback(TrainerCallback):
-    """
-    Linearly scales the maximum sequence length used by the collator from start_len to end_len
-    over the course of training in `interval` buckets.
-    """
-    def __init__(self, data_collator, total_steps: int, start_len: int = 128, end_len: int = 2048, interval: int = 64):
-        self.data_collator = data_collator
-        self.total_steps = total_steps
-        self.start_len = start_len
-        self.end_len = end_len
-        self.interval = interval
-
-    def on_step_begin(self, args, state, control, **kwargs):
-        progress = state.global_step / max(1, self.total_steps)
-        # Interpolate between start and end
-        current_target = self.start_len + (self.end_len - self.start_len) * progress
-        # Round down to nearest `interval` multiple
-        current_len = max(self.start_len, min(self.end_len, int(math.floor(current_target / self.interval) * self.interval)))
-        
-        if self.data_collator.max_length != current_len:
-            self.data_collator.max_length = current_len
-            if wandb is not None and WANDB_AVAILABLE:
-                wandb.log({"train/dynamic_max_length": current_len}, step=state.global_step)
-            # You can also uncomment this if you want it to print 
-            # print(f"Step {state.global_step}: Updated dynamic max token length to {current_len}")
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="DSM2 Trainer")
     parser.add_argument("--hf_token", type=str, default=None, help="Huggingface token")
@@ -198,9 +171,9 @@ def parse_args():
     parser.add_argument("--grad_accum", type=int, default=4, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for (typically 1 epoch)")
     
-    parser.add_argument("--start_max_length", type=int, default=128, help="Starting Maximum length of sequences")
-    parser.add_argument("--end_max_length", type=int, default=2048, help="Ending Maximum length of sequences")
-    parser.add_argument("--len_interval", type=int, default=128, help="Interval by which max length jumps")
+    parser.add_argument("--max_length", type=int, default=2048, help="Maximum length of sequences")
+    parser.add_argument("--sliding_window_size", type=int, default=512, help="Size of sliding window for attention")
+    parser.add_argument("--dilation", type=int, default=16, help="Dilation factor for attention")
     
     parser.add_argument("--save_every", type=int, default=1000, help="Save the model every n steps and evaluate every n/2 steps")
     parser.add_argument("--bugfix", action="store_true", help="Use small batch size, max length, and fast exit for debugging")
@@ -229,6 +202,8 @@ def main(args):
         teacher_hidden_size=temp_teacher_config.hidden_size,
         expansion_ratio=args.student_expansion_ratio,
         attn_backend="flex",
+        sliding_window_size=args.sliding_window_size,
+        dilation=args.dilation,
     )
     
     student_model = DSM2(student_config)
@@ -260,6 +235,8 @@ def main(args):
         hf_train_dataset = hf_train_dataset.select(range(100))
         hf_valid_dataset = hf_valid_dataset.select(range(10))
         hf_test_dataset = hf_test_dataset.select(range(10))
+    else:
+        hf_train_dataset = hf_train_dataset.select(range(int(1e6)))
     train_dataset = SequenceDatasetFromHF(hf_train_dataset, col_name="sequence")
     valid_dataset = SequenceDatasetFromHF(hf_valid_dataset, col_name="sequence")
     test_dataset = SequenceDatasetFromHF(hf_test_dataset, col_name="sequence")
