@@ -284,18 +284,21 @@ class DSM2(ESMplusplusModel, GenerateMixin):
         contrastive_loss_val = None
 
         if teacher_hidden_states is not None:
-            jepa_loss_val = jepa_loss(
-                student_hidden_states=projected_student_states,
-                teacher_hidden_states=teacher_hidden_states,
-                attention_mask=attention_mask,
-                p_masks=p_mask,
-            )
-            contrastive_loss_val = contrastive_loss(
-                student_hidden_states=projected_student_states,
-                teacher_hidden_states=teacher_hidden_states,
-                p_masks=p_mask,
-            )
-            total_loss = total_loss + (alpha_jepa * jepa_loss_val) + (alpha_contrastive * contrastive_loss_val)
+            if alpha_jepa > 0.0:
+                jepa_loss_val = jepa_loss(
+                    student_hidden_states=projected_student_states,
+                    teacher_hidden_states=teacher_hidden_states,
+                    attention_mask=attention_mask,
+                    p_masks=p_mask,
+                )
+                total_loss = total_loss + (alpha_jepa * jepa_loss_val)
+            
+            if alpha_contrastive > 0.0:
+                contrastive_loss_val = contrastive_loss(
+                    student_hidden_states=projected_student_states,
+                    teacher_hidden_states=teacher_hidden_states,
+                )
+                total_loss = total_loss + (alpha_contrastive * contrastive_loss_val)
 
         return DSM2Output(
             loss=total_loss,
@@ -358,6 +361,6 @@ if __name__ == "__main__":
         return loss
     
     old_c_res = old_contrastive(s_states, t_states)
-    new_c_res = contrastive_loss(s_states, t_states, p_mask)
+    new_c_res = contrastive_loss(s_states, t_states)
     print("Old Contrastive form (unscaled):", old_c_res.item())
     print("New Vectorized Contrastive form (scaled weight):", new_c_res.item())

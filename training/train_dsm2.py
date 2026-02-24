@@ -202,6 +202,7 @@ def parse_args():
     
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size")
+    parser.add_argument("--patch_size", type=int, default=8, help="Max batch size to put through a single forward pass")
     parser.add_argument("--grad_accum", type=int, default=16, help="Gradient accumulation steps")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum number of steps to train for (typically 1 epoch)")
     
@@ -322,37 +323,84 @@ def main(args):
         input_ids = inputs.get("input_ids")
         attention_mask = inputs.get("attention_mask")
         
-        # 1. Forward pass through frozen Teacher
-        with torch.no_grad():
-            teacher_outputs = teacher_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                output_hidden_states=True,
-                output_attentions=False,
-            )
-            # DPLM outputs the embeddings at index 0, hidden states at following indices. Same as ESM/ESM++
-            teacher_hidden_states = teacher_outputs.hidden_states
-            # Filter first element to match num_hidden_layers logic
-            if len(teacher_hidden_states) > teacher_model.config.num_hidden_layers:
-                teacher_hidden_states = teacher_hidden_states[1:] 
+        from models.modeling_dsm2 import pool_states, contrastive_loss_from_pooled
 
-        # 2. Forward pass through Student DSM2
-        dsm2_output = model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            teacher_hidden_states=teacher_hidden_states,
-            alpha_ce=args.alpha_ce,
-            alpha_jepa=args.alpha_jepa,
-            alpha_contrastive=args.alpha_contrastive,
-        )
-        
-        loss = dsm2_output.loss
+        batch_size = input_ids.size(0)
+        patch_size = args.patch_size if args.patch_size > 0 else batch_size
+
+        total_ce_loss = 0.0
+        total_jepa_loss = 0.0
+        total_contrastive_loss = 0.0
+
+        all_teacher_pooled = []
+        all_student_pooled = []
+
+        # Iterate over patches
+        for start_idx in range(0, batch_size, patch_size):
+            end_idx = min(start_idx + patch_size, batch_size)
+            patch_input_ids = input_ids[start_idx:end_idx]
+            patch_attention_mask = attention_mask[start_idx:end_idx]
+            current_patch_size = end_idx - start_idx
+            
+            # 1. Forward pass through frozen Teacher
+            with torch.no_grad():
+                teacher_outputs = teacher_model(
+                    input_ids=patch_input_ids,
+                    attention_mask=patch_attention_mask,
+                    output_hidden_states=True,
+                    output_attentions=False,
+                )
+                # DPLM outputs the embeddings at index 0, hidden states at following indices. Same as ESM/ESM++
+                teacher_hidden_states = teacher_outputs.hidden_states
+                # Filter first element to match num_hidden_layers logic
+                if len(teacher_hidden_states) > teacher_model.config.num_hidden_layers:
+                    teacher_hidden_states = teacher_hidden_states[1:] 
+
+            # 2. Forward pass through Student DSM2
+            # We enforce alpha_contrastive=0.0 during patch forward to avoid redundant calculation
+            dsm2_patch_output = model(
+                input_ids=patch_input_ids,
+                attention_mask=patch_attention_mask,
+                teacher_hidden_states=teacher_hidden_states,
+                alpha_ce=args.alpha_ce,
+                alpha_jepa=args.alpha_jepa,
+                alpha_contrastive=0.0,
+            )
+            
+            weight = current_patch_size / batch_size
+            total_ce_loss += (dsm2_patch_output.ce_loss * weight) if dsm2_patch_output.ce_loss is not None else 0.0
+            total_jepa_loss += (dsm2_patch_output.jepa_loss * weight) if dsm2_patch_output.jepa_loss is not None else 0.0
+
+            # Last step variables for potential logging/returning
+            dsm2_output = dsm2_patch_output
+
+            if args.alpha_contrastive > 0.0:
+                with torch.no_grad():
+                    teacher_pooled = pool_states(teacher_hidden_states)
+                student_pooled = pool_states(dsm2_patch_output.student_hidden_states)
+                
+                all_teacher_pooled.append(teacher_pooled)
+                all_student_pooled.append(student_pooled)
+
+        # 3. Compute contrastive loss over the entire aggregated batch
+        if args.alpha_contrastive > 0.0 and len(all_teacher_pooled) > 0:
+            # teacher_pooled: (num_layers, patch_size, 2d)
+            stacked_teacher_pooled = torch.cat(all_teacher_pooled, dim=1)
+            stacked_student_pooled = torch.cat(all_student_pooled, dim=1)
+            
+            contrastive_val = contrastive_loss_from_pooled(
+                s_pooled=stacked_student_pooled,
+                t_pooled=stacked_teacher_pooled,
+            )
+            total_contrastive_loss = contrastive_val
+
+        loss = (args.alpha_ce * total_ce_loss) + (args.alpha_jepa * total_jepa_loss) + (args.alpha_contrastive * total_contrastive_loss)
         
         if trainer.state.global_step % training_args.logging_steps == 0 and trainer.is_world_process_zero():
             logs = {
-                "train/ce_loss": dsm2_output.ce_loss.item() if dsm2_output.ce_loss is not None else 0.0,
-                "train/jepa_loss": dsm2_output.jepa_loss.item() if dsm2_output.jepa_loss is not None else 0.0,
-                "train/contrastive_loss": dsm2_output.contrastive_loss.item() if dsm2_output.contrastive_loss is not None else 0.0,
+                "train/ce_loss": total_ce_loss.item() if isinstance(total_ce_loss, torch.Tensor) else total_ce_loss,
+                "train/jepa_loss": total_jepa_loss.item() if isinstance(total_jepa_loss, torch.Tensor) else total_jepa_loss,
+                "train/contrastive_loss": total_contrastive_loss.item() if isinstance(total_contrastive_loss, torch.Tensor) else total_contrastive_loss,
             }
             if os.environ["WANDB_AVAILABLE"] == 'true' and args.wandb_token is not None:
                 wandb.log(logs, step=trainer.state.global_step)
