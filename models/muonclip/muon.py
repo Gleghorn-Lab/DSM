@@ -2,7 +2,8 @@
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from matmul_transpose_trition import matmul_transpose_assign
+from .matmul_transpose_trition import matmul_transpose_assign
+
 
 def fast_newtonschulz(G: Tensor, steps: int=5) -> Tensor:
     """

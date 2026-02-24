@@ -13,8 +13,9 @@ Adapted from:
 import torch
 from torch import Tensor
 from typing import List, Dict, Optional
-from muon import Muon
-from qk_clip import QKClip
+
+from .muon import Muon
+from .qk_clip import QKClip
 
 
 class MuonClip(Muon):

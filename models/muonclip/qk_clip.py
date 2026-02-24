@@ -3,6 +3,7 @@ import torch.distributed as dist
 from torch import Tensor
 from typing import List, Dict, Optional
 
+
 class QKClip:
     """
     QK-Clip for Attention Modules. It's used to mitigate instability of Muon optimizer.
