@@ -531,7 +531,7 @@ class TransformerStack(nn.Module):
                     diff = torch.abs(q_idx - kv_idx)
                     in_window = diff <= self.sliding_window_size
                     is_dilated = (diff % self.dilation) == 0
-                    document_mask = token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx] & token_attention_mask[batch_idx, q_idx] != 0
+                    document_mask = (token_attention_mask[batch_idx, q_idx] == token_attention_mask[batch_idx, kv_idx]) & (token_attention_mask[batch_idx, q_idx] != 0)
                     return (in_window | is_dilated) & document_mask
         
                 flex_block_mask = create_block_mask(
