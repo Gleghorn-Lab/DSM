@@ -301,9 +301,9 @@ def main(args):
         hf_train_dataset = hf_train_dataset.select(range(int(1e5)))
 
     print('Converting datasets to lists')
-    train_seqs = hf_train_dataset.data.column("sequence").to_pylist()
-    valid_seqs = hf_valid_dataset.data.column("sequence").to_pylist()
-    test_seqs = hf_test_dataset.data.column("sequence").to_pylist()
+    train_seqs = list(hf_train_dataset['sequence'])
+    valid_seqs = list(hf_valid_dataset['sequence'])
+    test_seqs = list(hf_test_dataset['sequence'])
 
     print('Creating torch datasets')
     train_dataset = SequenceDatasetFromList(train_seqs)
