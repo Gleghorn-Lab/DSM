@@ -705,7 +705,7 @@ class PLM(PreTrainedPLM, EmbeddingMixin):
     """
     config_class = PLMConfig
     def __init__(self, config: PLMConfig, **kwargs):
-        PLM.__init__(self, config, **kwargs)
+        PreTrainedPLM.__init__(self, config, **kwargs)
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
@@ -782,7 +782,7 @@ class PLM(PreTrainedPLM, EmbeddingMixin):
 class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
     config_class = PLMConfig
     def __init__(self, config: PLMConfig, **kwargs):
-        PreTrainedPLMModel.__init__(self, config, **kwargs)
+        PreTrainedPLM.__init__(self, config, **kwargs)
         self.config = config
         self.vocab_size = config.vocab_size
         self.embed = nn.Embedding(self.vocab_size, config.hidden_size)
@@ -870,13 +870,13 @@ class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
         )
 
 
-class PLMForSequenceClassification(PLMForMaskedLM, EmbeddingMixin):
+class PLMForSequenceClassification(PLM, EmbeddingMixin):
     """
     PLM model for sequence classification.
     Extends the base PLM model with a classification head.
     """
     def __init__(self, config: PLMConfig, **kwargs):
-        PLMForMaskedLM.__init__(self, config, **kwargs)
+        PLM.__init__(self, config, **kwargs)
         self.config = config
         self.num_labels = config.num_labels
         self.classifier = RegressionHead(config.hidden_size * 2, config.num_labels, config.hidden_size * 4)
@@ -968,13 +968,13 @@ class PLMForSequenceClassification(PLMForMaskedLM, EmbeddingMixin):
         )
 
 
-class PLMForTokenClassification(PLMForMaskedLM, EmbeddingMixin):
+class PLMForTokenClassification(PLM, EmbeddingMixin):
     """
     PLM model for token classification.
     Extends the base PLM model with a token classification head.
     """
     def __init__(self, config: PLMConfig, **kwargs):
-        PLMForMaskedLM.__init__(self, config, **kwargs)
+        PLM.__init__(self, config, **kwargs)
         self.config = config
         self.num_labels = config.num_labels
         self.classifier = RegressionHead(config.hidden_size, config.num_labels, config.hidden_size * 4)
