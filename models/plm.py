@@ -416,7 +416,6 @@ class TransformerBlock(nn.Module):
     Args:
         d_model: Model dimension
         n_heads: Number of attention heads
-        residue_scaling_factor: Factor for scaling residual connections
         expansion_ratio: Expansion ratio for feedforward network
     """
     def __init__(
@@ -512,7 +511,6 @@ class TransformerStack(nn.Module):
                 TransformerBlock(
                     d_model,
                     n_heads,
-                    residue_scaling_factor=math.sqrt(n_layers / 36),
                     dropout=dropout,
                     attn_backend=attn_backend,
                 )
