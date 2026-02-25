@@ -148,7 +148,7 @@ class BaseRuntimeTrainer:
             checkpoint_dir = os.path.join(self.output_dir, f"checkpoint-step-{global_step}")
             os.makedirs(checkpoint_dir, exist_ok=True)
 
-            self.model.save_pretrained(checkpoint_dir)
+            self.model._orid_mod.save_pretrained(checkpoint_dir)
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 
