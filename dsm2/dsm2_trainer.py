@@ -5,8 +5,8 @@ from accelerate.utils import extract_model_from_parallel
 from transformers import Trainer
 
 from models.modeling_dsm2 import contrastive_loss_from_pooled, pool_states
-from training.dsm2_config import DSM2LossConfig, DSM2OptimizationConfig
-from training.dsm2_optim import MuonAdamWWrapper, create_muonclip_optimizer, partition_dsm2_parameters
+from dsm2.dsm2_config import DSM2LossConfig, DSM2OptimizationConfig
+from dsm2.dsm2_optim import MuonAdamWWrapper, create_muonclip_optimizer, partition_dsm2_parameters
 
 
 class DSM2Trainer(Trainer):

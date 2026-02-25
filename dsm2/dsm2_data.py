@@ -4,7 +4,7 @@ from datasets import load_dataset
 from torch.utils.data import Dataset
 
 from data.data_collators import SequenceCollator
-from training.dsm2_config import DSM2DataConfig
+from dsm2.dsm2_config import DSM2DataConfig
 
 
 class HFSequenceDataset(Dataset):

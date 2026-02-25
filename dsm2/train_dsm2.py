@@ -12,8 +12,8 @@ from torchinfo import summary
 from transformers import TrainingArguments
 
 from models.modeling_dsm2 import DSM2, DSM2Config
-from training.dsm2_callbacks import EMATeacherCallback
-from training.dsm2_config import (
+from dsm2.dsm2_callbacks import EMATeacherCallback
+from dsm2.dsm2_config import (
     DSM2DataConfig,
     DSM2EMAConfig,
     DSM2LossConfig,
@@ -23,10 +23,10 @@ from training.dsm2_config import (
     DSM2TrainConfigBundle,
     apply_bugfix_profile,
 )
-from training.dsm2_data import build_dsm2_data_bundle
-from training.dsm2_metrics import ComputeDSM2Metrics
-from training.dsm2_teacher import load_teacher_model
-from training.dsm2_trainer import DSM2Trainer
+from dsm2.dsm2_data import build_dsm2_data_bundle
+from dsm2.dsm2_metrics import ComputeDSM2Metrics
+from dsm2.dsm2_teacher import load_teacher_model
+from dsm2.dsm2_trainer import DSM2Trainer
 
 
 def parse_args():
