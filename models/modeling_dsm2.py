@@ -231,11 +231,13 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
 
         all_hidden_states = outputs.hidden_states
             
-        projected_student_states = []
-        for state, proj in zip(all_hidden_states, self.teacher_projections):
-            projected_student_states.append(proj(state))
-        
-        projected_student_states = tuple(projected_student_states)
+        if self.teacher_projections is None:
+            projected_student_states = tuple(all_hidden_states)
+        else:
+            projected_student_states = []
+            for state, proj in zip(all_hidden_states, self.teacher_projections):
+                projected_student_states.append(proj(state))
+            projected_student_states = tuple(projected_student_states)
         
         last_hidden_state = outputs.last_hidden_state
         lm_logits = self.lm_head(last_hidden_state)

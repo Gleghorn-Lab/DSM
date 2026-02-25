@@ -31,6 +31,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
         assert loss_config.patch_size > 0, "DSM2 custom trainer requires patch_size > 0."
         self.teacher_model = teacher_model
         self.loss_config = loss_config
+        self.ema_cleanup_complete = False
 
         super().__init__(
             model=model,
@@ -81,7 +82,31 @@ class DSM2Trainer(BasePatchBatchTrainer):
     def _select_active_teacher(self, unwrapped_model):
         if unwrapped_model.ema_teacher is None:
             return self.teacher_model
+        self._cleanup_after_ema_start(unwrapped_model)
         return unwrapped_model.ema_teacher
+
+    def _cleanup_after_ema_start(self, unwrapped_model):
+        if self.ema_cleanup_complete:
+            return
+
+        assert self.teacher_model is not None, "teacher_model must exist before EMA cleanup."
+        print("EMA active: dropping teacher projections and original teacher model.")
+
+        student_base_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
+        assert student_base_model.teacher_projections is not None, "student teacher_projections must exist before cleanup."
+        student_base_model.teacher_projections = None
+
+        ema_teacher = unwrapped_model.ema_teacher
+        assert ema_teacher is not None, "ema_teacher must exist before cleanup."
+        ema_base_model = extract_model_from_parallel(ema_teacher, keep_torch_compile=False)
+        assert ema_base_model.teacher_projections is not None, "ema teacher_projections must exist before cleanup."
+        ema_base_model.teacher_projections = None
+
+        self.teacher_model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        self.ema_cleanup_complete = True
 
     def _forward_teacher_patch(self, active_teacher, patch_input_ids: torch.Tensor, patch_attention_mask: torch.Tensor):
         with torch.no_grad():
