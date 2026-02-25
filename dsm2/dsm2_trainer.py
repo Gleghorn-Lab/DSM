@@ -94,6 +94,9 @@ class DSM2Trainer(BasePatchBatchTrainer):
 
         student_base_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
         assert student_base_model.teacher_projections is not None, "student teacher_projections must exist before cleanup."
+        projection_params = list(student_base_model.teacher_projections.parameters())
+        assert isinstance(self.optimizer, MuonAdamWWrapper), f"Expected MuonAdamWWrapper, got {type(self.optimizer)}."
+        self.optimizer.remove_params(projection_params)
         student_base_model.teacher_projections = None
 
         ema_teacher = unwrapped_model.ema_teacher

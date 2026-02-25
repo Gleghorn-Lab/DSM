@@ -35,6 +35,34 @@ class MuonAdamWWrapper(torch.optim.Optimizer):
         self.adamw.zero_grad(set_to_none=set_to_none)
         self.last_s_max = None
 
+    def remove_params(self, params_to_remove):
+        remove_param_ids = {id(param) for param in params_to_remove}
+
+        def _prune_param_groups(param_groups):
+            kept_param_groups = []
+            for group in param_groups:
+                group_params = [param for param in group["params"] if id(param) not in remove_param_ids]
+                if len(group_params) == 0:
+                    continue
+                updated_group = dict(group)
+                updated_group["params"] = group_params
+                kept_param_groups.append(updated_group)
+            return kept_param_groups
+
+        self.muonclip.param_groups = _prune_param_groups(self.muonclip.param_groups)
+        self.adamw.param_groups = _prune_param_groups(self.adamw.param_groups)
+        self._muon_group_count = len(self.muonclip.param_groups)
+
+        for optimizer_state in (self.muonclip.state, self.adamw.state, self.state):
+            stale_params = []
+            for param in optimizer_state:
+                if id(param) in remove_param_ids:
+                    stale_params.append(param)
+            for param in stale_params:
+                del optimizer_state[param]
+
+        self._sync_wrapper_state()
+
     def state_dict(self):
         self._sync_wrapper_state()
         state_dict = super().state_dict()
