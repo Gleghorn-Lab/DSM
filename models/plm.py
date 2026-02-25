@@ -792,6 +792,7 @@ class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
         labels: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
+        output_s_max: Optional[bool] = None,
         return_dict: Optional[bool] = None, # to play nice with HF adjacent packages
         **kwargs,
     ) -> PLMOutput:
@@ -818,6 +819,7 @@ class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
             attention_mask=attention_mask,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
+            output_s_max=output_s_max,
         )
 
         last_hidden_state = output.last_hidden_state
@@ -832,6 +834,7 @@ class PLMForMaskedLM(PreTrainedPLM, EmbeddingMixin):
             last_hidden_state=last_hidden_state,
             hidden_states=output.hidden_states,
             attentions=output.attentions,
+            s_max=output.s_max,
         )
 
 
