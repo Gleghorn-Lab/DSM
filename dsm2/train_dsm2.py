@@ -23,6 +23,7 @@ from dsm2.dsm2_data import build_dsm2_data_bundle, build_dsm2_dataloaders
 from dsm2.dsm2_metrics import ComputeDSM2Metrics
 from dsm2.dsm2_teacher import load_teacher_model
 from dsm2.dsm2_trainer import DSM2Trainer
+from dsm2.model_utils import extract_model_from_parallel
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
 from models.modeling_dsm2 import DSM2, DSM2Config
 
@@ -52,7 +53,6 @@ def parse_args():
     parser.add_argument("--dilation", type=int, default=16, help="Dilation factor for flex attention")
     parser.add_argument("--save_every", type=int, default=1000, help="Save every N optimizer steps")
     parser.add_argument("--eval_every", type=int, default=0, help="Evaluate every N optimizer steps (<=0 uses save_every)")
-    parser.add_argument("--warmup_steps", type=int, default=-1, help="Learning-rate warmup steps (<0 uses save_every)")
     parser.add_argument("--logging_steps", type=int, default=100, help="Train metric logging frequency in optimizer steps")
     parser.add_argument("--ema_start_percent", type=float, default=0.25, help="Fraction of steps before EMA teacher starts")
     parser.add_argument("--ema_decay", type=float, default=0.999, help="EMA decay factor")
@@ -68,8 +68,6 @@ def parse_args():
     parser.add_argument("--distributed_backend", type=str, default="gloo", help="Torch distributed backend")
     parser.add_argument("--no_init_distributed", action="store_true", help="Do not initialize process groups in the trainer")
     parser.add_argument("--no_pin_memory", action="store_true", help="Disable pinned-memory dataloaders")
-    parser.add_argument("--no_compile_teacher", action="store_true", help="Disable torch.compile for the teacher model")
-    parser.add_argument("--no_compile_student", action="store_true", help="Disable torch.compile for the student model")
     parser.add_argument("--bugfix", action="store_true", help="Use a tiny debug configuration")
     return parser.parse_args()
 
@@ -79,18 +77,12 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
     if eval_every <= 0:
         eval_every = args.save_every
 
-    warmup_steps = args.warmup_steps
-    if warmup_steps < 0:
-        warmup_steps = args.save_every
-
     runtime_config = DSM2RuntimeConfig(
         hf_token=args.hf_token,
         wandb_token=args.wandb_token,
         wandb_project=args.wandb_project,
         save_path=args.save_path,
         bugfix=args.bugfix,
-        compile_teacher=not args.no_compile_teacher,
-        compile_student=not args.no_compile_student,
         distributed_backend=args.distributed_backend,
         init_distributed=not args.no_init_distributed,
         pin_memory=not args.no_pin_memory,
@@ -110,7 +102,7 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         max_steps=args.max_steps,
         save_every=args.save_every,
         eval_every=eval_every,
-        warmup_steps=warmup_steps,
+        warmup_steps=0,
         logging_steps=args.logging_steps,
         max_grad_norm=args.max_grad_norm,
         muon_lr=args.muon_lr,
@@ -147,16 +139,9 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
     )
 
 
-def maybe_compile_model(model, model_name: str, should_compile: bool):
-    if not should_compile:
-        return model
-
+def compile_model(model, model_name: str):
     print(f"Compiling {model_name} model...")
-    try:
-        return torch.compile(model)
-    except Exception as compile_error:
-        print(f"Warning: {model_name} torch.compile() failed: {compile_error}")
-        return model
+    return torch.compile(model)
 
 
 def initialize_wandb(config: DSM2TrainConfigBundle):
@@ -208,7 +193,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         print("Initializing Student DSM2 from scratch")
     student_model = build_student_model(config, teacher_model.config)
 
-    teacher_model = maybe_compile_model(teacher_model, "teacher", config.runtime.compile_teacher)
+    teacher_model = compile_model(teacher_model, "teacher")
 
     data_bundle = build_dsm2_data_bundle(config.data, tokenizer)
     use_distributed = config.runtime.init_distributed and (world_size > 1)
@@ -270,7 +255,8 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
             if config.runtime.hf_token is None:
                 print("Skipping push_to_hub because --hf_token was not provided.")
             else:
-                student_model._orid_mod.push_to_hub(config.runtime.save_path, private=True)
+                saveable_model = extract_model_from_parallel(trainer.model, keep_torch_compile=False)
+                saveable_model.push_to_hub(config.runtime.save_path, private=True)
     finally:
         trainer.shutdown()
         if wandb_enabled and is_main_process:

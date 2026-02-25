@@ -8,8 +8,6 @@ class DSM2RuntimeConfig:
     wandb_project: str
     save_path: str
     bugfix: bool
-    compile_teacher: bool
-    compile_student: bool
     distributed_backend: str
     init_distributed: bool
     pin_memory: bool

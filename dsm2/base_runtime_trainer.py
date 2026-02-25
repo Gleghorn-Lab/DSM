@@ -1,3 +1,4 @@
+import math
 import os
 import torch
 import torch.distributed as dist
@@ -7,6 +8,7 @@ from typing import Sequence
 
 from dsm2.dsm2_callbacks import DSM2TrainerCallback, TrainerCallbackState
 from dsm2.dsm2_config import DSM2OptimizationConfig, DSM2RuntimeConfig
+from dsm2.model_utils import extract_model_from_parallel
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
 
 
@@ -110,8 +112,7 @@ class BaseRuntimeTrainer:
 
     def _prepare_model(self):
         self.model = self.model.to(self.device)
-        if self.runtime_config.compile_student:
-            self.model = torch.compile(self.model)
+        self.model = torch.compile(self.model)
 
         if self.is_distributed:
             if self.device.type == "cuda":
@@ -120,21 +121,30 @@ class BaseRuntimeTrainer:
                 self.model = DistributedDataParallel(self.model)
 
     def _create_scheduler(self):
-        warmup_steps = self.optimization_config.warmup_steps
         max_steps = self.optimization_config.max_steps
         assert max_steps > 0, "max_steps must be > 0."
-        assert warmup_steps >= 0, "warmup_steps must be >= 0."
+        warmup_steps = max(1, int(max_steps * 0.01))
+        plateau_steps = max(1, int(max_steps * 0.49))
+        cooldown_steps = max(1, int(max_steps * 0.30))
+        total_phased_steps = warmup_steps + plateau_steps + cooldown_steps
+        assert total_phased_steps <= max_steps, (
+            f"Scheduler phases exceed max_steps: warmup={warmup_steps}, plateau={plateau_steps}, "
+            f"cooldown={cooldown_steps}, max_steps={max_steps}."
+        )
+        cooldown_start = warmup_steps + plateau_steps
+        cooldown_end = cooldown_start + cooldown_steps
 
         def lr_lambda(current_step: int) -> float:
-            if (warmup_steps > 0) and (current_step < warmup_steps):
+            if current_step < warmup_steps:
                 return float(current_step + 1) / float(warmup_steps)
-            if max_steps <= warmup_steps:
+            if current_step < cooldown_start:
                 return 1.0
-            decay_steps = max_steps - warmup_steps
-            remaining_steps = max_steps - current_step
-            if remaining_steps <= 0:
+            if current_step < cooldown_end:
+                cooldown_progress = float(current_step - cooldown_start + 1) / float(cooldown_steps)
+                return 0.5 * (1.0 + math.cos(math.pi * cooldown_progress))
+            if current_step >= max_steps:
                 return 0.0
-            return float(remaining_steps) / float(decay_steps)
+            return 0.0
 
         self.scheduler = LambdaLR(self.optimizer, lr_lambda=lr_lambda)
 
@@ -148,7 +158,8 @@ class BaseRuntimeTrainer:
             checkpoint_dir = os.path.join(self.output_dir, f"checkpoint-step-{global_step}")
             os.makedirs(checkpoint_dir, exist_ok=True)
 
-            self.model._orid_mod.save_pretrained(checkpoint_dir)
+            saveable_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
+            saveable_model.save_pretrained(checkpoint_dir)
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 

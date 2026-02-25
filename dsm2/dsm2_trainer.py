@@ -1,11 +1,11 @@
 import torch
-from accelerate.utils import extract_model_from_parallel
 from torch.utils.data import DataLoader, Dataset
 from typing import Dict, List, Sequence
 
 from dsm2.base_patch_batch_trainer import BasePatchBatchTrainer
 from dsm2.dsm2_callbacks import DSM2TrainerCallback
 from dsm2.dsm2_config import DSM2LossConfig, DSM2OptimizationConfig, DSM2RuntimeConfig
+from dsm2.model_utils import extract_model_from_parallel
 from dsm2.dsm2_optim import MuonAdamWWrapper, create_muonclip_optimizer, partition_dsm2_parameters
 from models.modeling_dsm2 import contrastive_loss_from_pooled, pool_states
 
@@ -60,7 +60,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
 
     def create_optimizer(self):
         if self.optimizer is None:
-            unwrapped_model = extract_model_from_parallel(self.model)
+            unwrapped_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
             muon_params, adamw_params, attention_params = partition_dsm2_parameters(unwrapped_model)
             muonclip = create_muonclip_optimizer(
                 model=unwrapped_model,

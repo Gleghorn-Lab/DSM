@@ -1,7 +1,8 @@
 import copy
 import torch
-from accelerate.utils import extract_model_from_parallel
 from dataclasses import dataclass
+
+from dsm2.model_utils import extract_model_from_parallel
 
 
 @dataclass
@@ -39,10 +40,12 @@ class EMATeacherCallback(DSM2TrainerCallback):
             print(f"Initializing EMA Teacher at step {state.global_step}")
 
             unwrapped_model = extract_model_from_parallel(model)
-            ema_teacher = copy.deepcopy(unwrapped_model)
+            student_base_model = extract_model_from_parallel(model, keep_torch_compile=False)
+            ema_teacher = copy.deepcopy(student_base_model)
             for param in ema_teacher.parameters():
                 param.requires_grad = False
             ema_teacher.eval()
+            ema_teacher = torch.compile(ema_teacher)
             unwrapped_model.ema_teacher = ema_teacher
 
     def on_step_end(self, state: TrainerCallbackState, model: torch.nn.Module):
