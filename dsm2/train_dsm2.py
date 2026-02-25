@@ -1,12 +1,11 @@
 #! /usr/bin/env python3
 # py -m dsm2.train_dsm2
+import entrypoint_setup
+
 import argparse
 import os
-from dataclasses import asdict
-
-import entrypoint_setup
 import torch
-
+from dataclasses import asdict
 from huggingface_hub import login
 
 from dsm2.dsm2_callbacks import EMATeacherCallback
@@ -237,7 +236,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         test_loader=data_loaders.test_loader,
         valid_dataset=data_bundle.valid_dataset,
         test_dataset=data_bundle.test_dataset,
-        compute_metrics=ComputeDSM2Metrics(tokenizer),
+        compute_metrics=ComputeDSM2Metrics(tokenizer, student_model.config.vocab_size),
         callbacks=[
             EMATeacherCallback(
                 total_steps=config.optimization.max_steps,
