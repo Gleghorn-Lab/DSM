@@ -255,8 +255,8 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
             if config.runtime.hf_token is None:
                 print("Skipping push_to_hub because --hf_token was not provided.")
             else:
-                saveable_model = extract_model_from_parallel(trainer.model, keep_torch_compile=False)
-                saveable_model.push_to_hub(config.runtime.save_path, private=True)
+                #saveable_model = extract_model_from_parallel(trainer.model, keep_torch_compile=False)
+                trainer.model.push_to_hub(config.runtime.save_path, private=True)
     finally:
         trainer.shutdown()
         if wandb_enabled and is_main_process:
