@@ -287,7 +287,7 @@ class MLP(nn.Module):
         self.act = nn.GELU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.down_proj(self.act(self.layernorm(self.up_proj(x))))
+        return self.down_proj(self.act(self.up_proj(self.layernorm(x))))
 
 
 class MultiHeadAttention(nn.Module):
