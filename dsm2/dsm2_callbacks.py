@@ -35,3 +35,4 @@ class EMATeacherCallback(TrainerCallback):
             with torch.no_grad():
                 for student_param, teacher_param in zip(unwrapped_model.parameters(), ema_teacher.parameters()):
                     teacher_param.data.mul_(self.ema_decay).add_(student_param.data, alpha=1.0 - self.ema_decay)
+    

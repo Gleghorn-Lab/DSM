@@ -57,6 +57,14 @@ class GetAlignmentScoreFromLogits:
     def _sanitize_pred(self, pred: list[int]) -> list[int]:
         return [token if token in self.canonical_tokens else self.alanine_token for token in pred]
 
+    def _prepare_ids_for_decode(self, token_ids: list[int]) -> list[int]:
+        prepared_ids = []
+        for token_id in token_ids:
+            token_id_int = int(token_id)
+            if 0 <= token_id_int < self.vocab_size:
+                prepared_ids.append(token_id_int)
+        return prepared_ids
+
     def batched_call(self, logits: Union[np.ndarray, torch.Tensor], labels: Union[np.ndarray, torch.Tensor]) -> float:
         scores = []
 
@@ -67,6 +75,10 @@ class GetAlignmentScoreFromLogits:
 
         for logit, label in zip(logits, labels):
             label = label.flatten().tolist()
+            label = self._prepare_ids_for_decode(label)
+            if len(label) == 0:
+                scores.append(0.0)
+                continue
             label = self.tokenizer.decode(label, skip_special_tokens=True).replace(' ', '')
             logit = logit.reshape(-1, self.vocab_size)
             pred = logit.argmax(axis=-1)
@@ -85,6 +97,9 @@ class GetAlignmentScoreFromLogits:
             labels = labels.cpu().numpy()
 
         labels = labels.flatten().tolist()
+        labels = self._prepare_ids_for_decode(labels)
+        if len(labels) == 0:
+            return 0.0
         labels = self.tokenizer.decode(labels, skip_special_tokens=True).replace(' ', '')
         logits = logits.reshape(-1, self.vocab_size)
         preds = logits.argmax(axis=-1)
