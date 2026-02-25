@@ -148,24 +148,11 @@ class BaseRuntimeTrainer:
         if isinstance(selected_model, DistributedDataParallel):
             selected_model = selected_model.module
 
-        if "_dynamo" in torch.__dict__:
-            optimized_module_type = torch.__dict__["_dynamo"].eval_frame.OptimizedModule
-            if isinstance(selected_model, optimized_module_type):
-                selected_model = selected_model._orig_mod
+        optimized_module_type = torch._dynamo.eval_frame.OptimizedModule
+        if isinstance(selected_model, optimized_module_type):
+            selected_model = selected_model._orig_mod
 
-        assert isinstance(selected_model, torch.nn.Module), (
-            f"Serialization model must be a torch.nn.Module, got {type(selected_model)}."
-        )
-        assert not isinstance(selected_model, DistributedDataParallel), (
-            "Serialization model must not be wrapped in DistributedDataParallel."
-        )
         return selected_model
-
-    def _unwrap_model(self) -> torch.nn.Module:
-        model_ref = self.model
-        if isinstance(model_ref, DistributedDataParallel):
-            model_ref = model_ref.module
-        return model_ref
 
     def get_model_for_hub(self) -> torch.nn.Module:
         return self._select_serialization_model(self._serialization_model)
@@ -177,7 +164,7 @@ class BaseRuntimeTrainer:
             os.makedirs(checkpoint_dir, exist_ok=True)
 
             model_to_save = self.get_model_for_hub()
-            model_to_save.save_pretrained(checkpoint_dir, safe_serialization=False)
+            model_to_save.save_pretrained(checkpoint_dir)
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 
