@@ -21,7 +21,6 @@ class BaseRuntimeTrainer:
         wandb_module,
     ):
         self.model = model
-        self._serialization_model = self._select_serialization_model(model)
         self.optimization_config = optimization_config
         self.runtime_config = runtime_config
         self.callbacks = list(callbacks)
