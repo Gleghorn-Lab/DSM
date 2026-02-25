@@ -349,13 +349,6 @@ class MultiHeadAttention(nn.Module):
         query_BLD, key_BLD = self._apply_rotary(query_BLD, key_BLD)
         query_BHLD, key_BHLD, value_BHLD = map(self.reshaper, (query_BLD, key_BLD, value_BLD))
 
-        # PyTorch autocast upcasts LayerNorm outputs to fp32, which breaks flex_attention downstream
-        target_dtype = self.W_q.weight.dtype
-        if query_BHLD.dtype != target_dtype:
-            query_BHLD = query_BHLD.to(target_dtype)
-            key_BHLD = key_BHLD.to(target_dtype)
-            value_BHLD = value_BHLD.to(target_dtype)
-
         if output_attentions: # Manual attention computation
             attn_weights = torch.matmul(query_BHLD, key_BHLD.transpose(-2, -1)) * self.scale
             attn_weights = attn_weights.masked_fill(attention_mask.logical_not(), float('-inf'))
