@@ -21,6 +21,7 @@ class BaseRuntimeTrainer:
         wandb_module,
     ):
         self.model = model
+        self._serialization_model = self._select_serialization_model(model)
         self.optimization_config = optimization_config
         self.runtime_config = runtime_config
         self.callbacks = list(callbacks)
@@ -142,18 +143,32 @@ class BaseRuntimeTrainer:
         if self.is_distributed:
             dist.barrier()
 
+    def _select_serialization_model(self, model_ref: torch.nn.Module) -> torch.nn.Module:
+        selected_model = model_ref
+        if isinstance(selected_model, DistributedDataParallel):
+            selected_model = selected_model.module
+
+        if "_dynamo" in torch.__dict__:
+            optimized_module_type = torch.__dict__["_dynamo"].eval_frame.OptimizedModule
+            if isinstance(selected_model, optimized_module_type):
+                selected_model = selected_model._orig_mod
+
+        assert isinstance(selected_model, torch.nn.Module), (
+            f"Serialization model must be a torch.nn.Module, got {type(selected_model)}."
+        )
+        assert not isinstance(selected_model, DistributedDataParallel), (
+            "Serialization model must not be wrapped in DistributedDataParallel."
+        )
+        return selected_model
+
     def _unwrap_model(self) -> torch.nn.Module:
-        model_to_save = self.model
-        if isinstance(model_to_save, DistributedDataParallel):
-            model_to_save = model_to_save.module
-
-        if "_orig_mod" in model_to_save.__dict__:
-            model_to_save = model_to_save.__dict__["_orig_mod"]
-
-        return model_to_save
+        model_ref = self.model
+        if isinstance(model_ref, DistributedDataParallel):
+            model_ref = model_ref.module
+        return model_ref
 
     def get_model_for_hub(self) -> torch.nn.Module:
-        return self._unwrap_model()
+        return self._select_serialization_model(self._serialization_model)
 
     def _save_checkpoint(self, global_step: int):
         if self.is_main_process:
@@ -162,8 +177,7 @@ class BaseRuntimeTrainer:
             os.makedirs(checkpoint_dir, exist_ok=True)
 
             model_to_save = self.get_model_for_hub()
-            model_to_save.config.save_pretrained(checkpoint_dir)
-            torch.save(model_to_save.state_dict(), os.path.join(checkpoint_dir, "pytorch_model.bin"))
+            model_to_save.save_pretrained(checkpoint_dir, safe_serialization=False)
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 
