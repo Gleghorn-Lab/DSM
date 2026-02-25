@@ -1,12 +1,10 @@
 import os
-
 import torch
 import torch.distributed as dist
-
-from dataclasses import dataclass
+from accelerate.utils import extract_model_from_parallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
-from typing import List, Sequence
+from typing import Sequence
 
 from dsm2.dsm2_callbacks import DSM2TrainerCallback, TrainerCallbackState
 from dsm2.dsm2_config import DSM2OptimizationConfig, DSM2RuntimeConfig
@@ -146,15 +144,10 @@ class BaseRuntimeTrainer:
             dist.barrier()
 
     def _unwrap_model(self) -> torch.nn.Module:
-        if isinstance(self.model, DistributedDataParallel):
-            return self.model.module
-        return self.model
+        return extract_model_from_parallel(self.model, keep_torch_compile=False)
 
     def get_model_for_hub(self) -> torch.nn.Module:
-        model_to_save = self._unwrap_model()
-        if self.runtime_config.compile_student:
-            model_to_save = model_to_save._orig_mod
-        return model_to_save
+        return self._unwrap_model()
 
     def _save_checkpoint(self, global_step: int):
         if self.is_main_process:

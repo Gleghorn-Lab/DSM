@@ -67,7 +67,6 @@ def parse_args():
     parser.add_argument("--dataloader_prefetch_factor", type=int, default=2, help="Dataloader prefetch factor when workers > 0")
     parser.add_argument("--distributed_backend", type=str, default="gloo", help="Torch distributed backend")
     parser.add_argument("--no_init_distributed", action="store_true", help="Do not initialize process groups in the trainer")
-    parser.add_argument("--no_amp", action="store_true", help="Disable AMP autocast")
     parser.add_argument("--no_pin_memory", action="store_true", help="Disable pinned-memory dataloaders")
     parser.add_argument("--no_compile_teacher", action="store_true", help="Disable torch.compile for the teacher model")
     parser.add_argument("--no_compile_student", action="store_true", help="Disable torch.compile for the student model")
@@ -94,7 +93,6 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         compile_student=not args.no_compile_student,
         distributed_backend=args.distributed_backend,
         init_distributed=not args.no_init_distributed,
-        use_amp=not args.no_amp,
         pin_memory=not args.no_pin_memory,
     )
     model_config = DSM2ModelConfig(

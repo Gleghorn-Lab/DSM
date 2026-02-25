@@ -1,10 +1,7 @@
-import numpy as np
 import torch
-
 from contextlib import nullcontext
-from torch.amp import autocast
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSampler
-from typing import Any, Dict, List, Sequence
+from typing import Dict, List, Sequence
 
 from dsm2.base_runtime_trainer import BaseRuntimeTrainer
 from dsm2.dsm2_callbacks import DSM2TrainerCallback
@@ -51,7 +48,6 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
         self.valid_dataset = valid_dataset
         self.test_dataset = test_dataset
         self.compute_metrics = compute_metrics
-        self.use_amp = runtime_config.use_amp and torch.cuda.is_available()
 
     def _accumulate_patch_group(self, data_iter) -> tuple[List[Dict[str, torch.Tensor]], bool]:
         patches: List[Dict[str, torch.Tensor]] = []
@@ -140,14 +136,11 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
                 if self.is_distributed and isinstance(self.model, torch.nn.parallel.DistributedDataParallel) and (not is_sync_step):
                     sync_context = self.model.no_sync()
 
-                amp_context = nullcontext()
-                if self.use_amp:
-                    amp_context = autocast("cuda", dtype=torch.bfloat16)
+ 
 
                 with sync_context:
-                    with amp_context:
-                        loss, train_metrics = self.train_step(patches)
-                        scaled_loss = loss / float(self.optimization_config.grad_accum)
+                    loss, train_metrics = self.train_step(patches)
+                    scaled_loss = loss / float(self.optimization_config.grad_accum)
                     scaled_loss.backward()
 
                 train_loss_window.append(float(loss.detach().item()))
@@ -219,13 +212,7 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
         local_input_ids: List[torch.Tensor] = []
 
         for patch in loader:
-            amp_context = nullcontext()
-            if self.use_amp:
-                amp_context = autocast("cuda", dtype=torch.bfloat16)
-
-            with amp_context:
-                loss, eval_payload = self.eval_step([patch])
-
+            loss, eval_payload = self.eval_step([patch])
             local_loss_sum += float(loss.item())
             local_loss_count += 1
             local_logits.append(eval_payload["logits"].detach().cpu())

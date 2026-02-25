@@ -12,7 +12,6 @@ class DSM2RuntimeConfig:
     compile_student: bool
     distributed_backend: str
     init_distributed: bool
-    use_amp: bool
     pin_memory: bool
 
 
