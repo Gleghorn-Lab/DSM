@@ -253,7 +253,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
 
     teacher_model = compile_model(teacher_model, "teacher")
 
-    data_bundle = build_dsm2_data_bundle(config.data, tokenizer)
+    data_bundle = build_dsm2_data_bundle(config.data, tokenizer, bugfix=config.runtime.bugfix)
     use_distributed = config.runtime.init_distributed and (world_size > 1)
     data_loaders = build_dsm2_dataloaders(
         data_bundle=data_bundle,
