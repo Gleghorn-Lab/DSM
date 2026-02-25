@@ -16,9 +16,9 @@ class DSM2EvalPrediction:
 
 
 class ComputeDSM2Metrics:
-    def __init__(self, tokenizer):
-        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer)
-        self.expected_vocab_size = tokenizer.vocab_size
+    def __init__(self, tokenizer, vocab_size):
+        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer, vocab_size)
+        self.expected_vocab_size = vocab_size
 
     def _to_numpy(self, value):
         if isinstance(value, torch.Tensor):
