@@ -142,25 +142,13 @@ class BaseRuntimeTrainer:
         if self.is_distributed:
             dist.barrier()
 
-    def get_model_for_hub(self, model_ref: torch.nn.Module) -> torch.nn.Module:
-        selected_model = model_ref
-        if isinstance(selected_model, DistributedDataParallel):
-            selected_model = selected_model.module
-
-        optimized_module_type = torch._dynamo.eval_frame.OptimizedModule
-        if isinstance(selected_model, optimized_module_type):
-            selected_model = selected_model._orig_mod
-
-        return selected_model
-
     def _save_checkpoint(self, global_step: int):
         if self.is_main_process:
             os.makedirs(self.output_dir, exist_ok=True)
             checkpoint_dir = os.path.join(self.output_dir, f"checkpoint-step-{global_step}")
             os.makedirs(checkpoint_dir, exist_ok=True)
 
-            model_to_save = self.get_model_for_hub(self.model)
-            model_to_save.save_pretrained(checkpoint_dir)
+            self.model.save_pretrained(checkpoint_dir)
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 
