@@ -23,7 +23,7 @@ from dsm2.dsm2_data import build_dsm2_data_bundle, build_dsm2_dataloaders
 from dsm2.dsm2_metrics import ComputeDSM2Metrics
 from dsm2.dsm2_teacher import load_teacher_model
 from dsm2.dsm2_trainer import DSM2Trainer
-from dsm2.model_utils import extract_model_from_parallel
+from dsm2.model_utils import patch_accelerate_extract_model_from_parallel
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
 from models.modeling_dsm2 import DSM2, DSM2Config
 
@@ -174,6 +174,8 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
 
 
 def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
+    patch_accelerate_extract_model_from_parallel()
+
     rank, world_size, local_rank = infer_rank_world_size_local_rank()
     is_main_process = rank == 0
 
