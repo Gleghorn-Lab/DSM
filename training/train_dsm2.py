@@ -268,7 +268,7 @@ def main(args):
         dilation=args.dilation,
     )
     
-    student_model = DSM2(student_config)
+    student_model = DSM2(student_config).to(torch.bfloat16)
     student_model.attn_backend = "flex"
     summary(student_model)
 
