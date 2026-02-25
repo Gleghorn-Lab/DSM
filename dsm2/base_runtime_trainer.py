@@ -1,7 +1,6 @@
 import os
 import torch
 import torch.distributed as dist
-from accelerate.utils import extract_model_from_parallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
 from typing import Sequence
@@ -144,7 +143,14 @@ class BaseRuntimeTrainer:
             dist.barrier()
 
     def _unwrap_model(self) -> torch.nn.Module:
-        return extract_model_from_parallel(self.model, keep_torch_compile=False)
+        model_to_save = self.model
+        if isinstance(model_to_save, DistributedDataParallel):
+            model_to_save = model_to_save.module
+
+        if "_orig_mod" in model_to_save.__dict__:
+            model_to_save = model_to_save.__dict__["_orig_mod"]
+
+        return model_to_save
 
     def get_model_for_hub(self) -> torch.nn.Module:
         return self._unwrap_model()
