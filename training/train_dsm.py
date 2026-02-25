@@ -35,9 +35,9 @@ except ImportError:
 
 
 class ComputeDSMMetrics:
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, vocab_size):
         self.tokenizer = tokenizer
-        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer)
+        self.alignment_scorer = GetAlignmentScoreFromLogits(tokenizer, vocab_size)
     
     def __call__(self, eval_preds: EvalPrediction):
         ### NOTE the eval mask percentage is fixed at 15%
@@ -169,7 +169,7 @@ def main(args):
         col_name="sequence",
         num_workers=4,
         prefetch_factor=10,
-        compute_metrics=ComputeDSMMetrics(tokenizer),
+        compute_metrics=ComputeDSMMetrics(tokenizer, model.config.vocab_size),
         callbacks=None,
         eval_dataset=valid_dataset,
     )

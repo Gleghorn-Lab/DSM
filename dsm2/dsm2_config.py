@@ -10,6 +10,10 @@ class DSM2RuntimeConfig:
     bugfix: bool
     compile_teacher: bool
     compile_student: bool
+    distributed_backend: str
+    init_distributed: bool
+    use_amp: bool
+    pin_memory: bool
 
 
 @dataclass
@@ -25,12 +29,18 @@ class DSM2ModelConfig:
 class DSM2OptimizationConfig:
     learning_rate: float
     batch_size: int
+    patch_accum: int
     grad_accum: int
     max_steps: int
     save_every: int
+    eval_every: int
+    warmup_steps: int
+    logging_steps: int
     max_grad_norm: float
     muon_lr: float
     muon_tau: float
+    dataloader_num_workers: int
+    dataloader_prefetch_factor: int
 
 
 @dataclass
@@ -71,8 +81,14 @@ class DSM2TrainConfigBundle:
 def apply_bugfix_profile(config: DSM2TrainConfigBundle):
     config.optimization.batch_size = 4
     config.loss.patch_size = 2
+    config.optimization.patch_accum = 2
+    config.optimization.grad_accum = 2
     config.optimization.save_every = 10
+    config.optimization.eval_every = 10
+    config.optimization.warmup_steps = 10
+    config.optimization.logging_steps = 1
     config.optimization.max_steps = 20
+    config.optimization.dataloader_num_workers = 0
     config.model.student_hidden_size = 256
     config.model.student_expansion_ratio = 2.0
     config.model.teacher_model_path = "Synthyra/ESM2-8M"

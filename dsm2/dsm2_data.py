@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 from datasets import load_dataset
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSampler, Sampler
+from typing import Optional
 
 from data.data_collators import SequenceCollator
 from dsm2.dsm2_config import DSM2DataConfig
@@ -26,6 +27,16 @@ class DSM2DataBundle:
     valid_dataset: Dataset
     test_dataset: Dataset
     data_collator: SequenceCollator
+
+
+@dataclass
+class DSM2DataLoaders:
+    train_loader: DataLoader
+    valid_loader: DataLoader
+    test_loader: DataLoader
+    train_sampler: Optional[Sampler]
+    valid_sampler: Optional[Sampler]
+    test_sampler: Optional[Sampler]
 
 
 def _shuffle_and_limit_split(split_dataset, split_name: str, limit: int, shuffle_seed: int):
@@ -62,4 +73,86 @@ def build_dsm2_data_bundle(config: DSM2DataConfig, tokenizer) -> DSM2DataBundle:
         valid_dataset=valid_dataset,
         test_dataset=test_dataset,
         data_collator=data_collator,
+    )
+
+
+def build_dsm2_dataloaders(
+    data_bundle: DSM2DataBundle,
+    patch_size: int,
+    num_workers: int,
+    prefetch_factor: int,
+    pin_memory: bool,
+    is_distributed: bool,
+    rank: int,
+    world_size: int,
+) -> DSM2DataLoaders:
+    assert patch_size > 0, "patch_size must be > 0."
+    assert num_workers >= 0, "num_workers must be >= 0."
+    assert prefetch_factor > 0, "prefetch_factor must be > 0."
+
+    if is_distributed:
+        train_sampler = DistributedSampler(
+            data_bundle.train_dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=True,
+            drop_last=True,
+        )
+        valid_sampler = DistributedSampler(
+            data_bundle.valid_dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=False,
+            drop_last=False,
+        )
+        test_sampler = DistributedSampler(
+            data_bundle.test_dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=False,
+            drop_last=False,
+        )
+    else:
+        train_sampler = RandomSampler(data_bundle.train_dataset)
+        valid_sampler = RandomSampler(data_bundle.valid_dataset)
+        test_sampler = RandomSampler(data_bundle.test_dataset)
+
+    common_loader_kwargs = {
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+        "collate_fn": data_bundle.data_collator,
+    }
+    if num_workers > 0:
+        common_loader_kwargs["persistent_workers"] = True
+        common_loader_kwargs["prefetch_factor"] = prefetch_factor
+
+    train_loader = DataLoader(
+        data_bundle.train_dataset,
+        sampler=train_sampler,
+        batch_size=patch_size,
+        drop_last=True,
+        **common_loader_kwargs,
+    )
+    valid_loader = DataLoader(
+        data_bundle.valid_dataset,
+        sampler=valid_sampler,
+        batch_size=patch_size,
+        drop_last=False,
+        **common_loader_kwargs,
+    )
+    test_loader = DataLoader(
+        data_bundle.test_dataset,
+        sampler=test_sampler,
+        batch_size=patch_size,
+        drop_last=False,
+        **common_loader_kwargs,
+    )
+
+    return DSM2DataLoaders(
+        train_loader=train_loader,
+        valid_loader=valid_loader,
+        test_loader=test_loader,
+        train_sampler=train_sampler,
+        valid_sampler=valid_sampler,
+        test_sampler=test_sampler,
     )

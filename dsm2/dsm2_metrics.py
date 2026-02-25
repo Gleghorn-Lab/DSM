@@ -2,16 +2,17 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    matthews_corrcoef,
-    precision_score,
-    recall_score,
-)
-from transformers import EvalPrediction
+from dataclasses import dataclass
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, precision_score, recall_score
+from typing import Any
 
 from models.alignment_helpers import GetAlignmentScoreFromLogits
+
+
+@dataclass
+class DSM2EvalPrediction:
+    predictions: Any
+    label_ids: Any
 
 
 class ComputeDSM2Metrics:
@@ -57,7 +58,7 @@ class ComputeDSM2Metrics:
         assert lm_logits is not None, "Could not extract 3D language-model logits from eval predictions."
         return lm_logits, mask_labels
 
-    def __call__(self, eval_preds: EvalPrediction):
+    def __call__(self, eval_preds: DSM2EvalPrediction):
         metrics = {}
         lm_logits, mask_labels = self._select_logits_and_mask_labels(eval_preds.predictions)
 
@@ -105,3 +106,21 @@ class ComputeDSM2Metrics:
             metrics["mcc"] = 0.0
 
         return metrics
+
+    def from_custom_outputs(self, logits, mask_labels, input_ids):
+        eval_preds = DSM2EvalPrediction(
+            predictions=(logits, mask_labels),
+            label_ids=input_ids,
+        )
+        return self(eval_preds)
+
+    def zero_metrics(self):
+        return {
+            "cross_entropy_loss": 0.0,
+            "alignment_score": 0.0,
+            "f1": 0.0,
+            "prec": 0.0,
+            "rec": 0.0,
+            "acc": 0.0,
+            "mcc": 0.0,
+        }

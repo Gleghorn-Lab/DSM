@@ -46,13 +46,13 @@ class AlignmentScorer:
     
 
 class GetAlignmentScoreFromLogits:
-    def __init__(self, tokenizer, gap_score=-10):
+    def __init__(self, tokenizer, vocab_size,gap_score=-10):
         self.scorer = AlignmentScorer(gap_score)
         self.tokenizer = tokenizer
         self.canonical_aa = set("ACDEFGHIKLMNPQRSTVWY")
         self.canonical_tokens = set([self.tokenizer.encode(aa, add_special_tokens=False)[0] for aa in list(self.canonical_aa)])
         self.alanine_token = self.tokenizer.encode('A', add_special_tokens=False)[0]
-        self.vocab_size = len(self.tokenizer)
+        self.vocab_size = vocab_size
 
     def _sanitize_pred(self, pred: list[int]) -> list[int]:
         return [token if token in self.canonical_tokens else self.alanine_token for token in pred]
