@@ -1,3 +1,4 @@
+import os
 import torch
 from contextlib import nullcontext
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSampler
@@ -86,15 +87,17 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
         else:
             sampler = RandomSampler(eval_dataset)
 
+        is_windows = os.name == "nt"
+        eval_num_workers = 0 if is_windows else self.optimization_config.dataloader_num_workers
         loader_kwargs = {
             "sampler": sampler,
             "batch_size": self.patch_size,
             "drop_last": False,
-            "num_workers": self.optimization_config.dataloader_num_workers,
+            "num_workers": eval_num_workers,
             "pin_memory": self.runtime_config.pin_memory and torch.cuda.is_available(),
             "collate_fn": self.train_loader.collate_fn,
         }
-        if self.optimization_config.dataloader_num_workers > 0:
+        if eval_num_workers > 0:
             loader_kwargs["persistent_workers"] = True
             loader_kwargs["prefetch_factor"] = self.optimization_config.dataloader_prefetch_factor
 

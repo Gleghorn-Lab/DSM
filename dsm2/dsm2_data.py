@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSampler, Sampler
@@ -121,35 +122,51 @@ def build_dsm2_dataloaders(
         valid_sampler = RandomSampler(data_bundle.valid_dataset)
         test_sampler = RandomSampler(data_bundle.test_dataset)
 
-    common_loader_kwargs = {
-        "num_workers": num_workers,
+    common_collate_kwargs = {
         "pin_memory": pin_memory,
         "collate_fn": data_bundle.data_collator,
     }
+
+    train_loader_kwargs = {
+        "num_workers": num_workers,
+        **common_collate_kwargs,
+    }
     if num_workers > 0:
-        common_loader_kwargs["persistent_workers"] = True
-        common_loader_kwargs["prefetch_factor"] = prefetch_factor
+        train_loader_kwargs["persistent_workers"] = True
+        train_loader_kwargs["prefetch_factor"] = prefetch_factor
+
+    is_windows = os.name == "nt"
+    eval_num_workers = 0 if is_windows else num_workers
+    # On Windows, keep eval/test single-process to avoid expensive spawn latency.
+    # On Linux, allow eval/test workers for better throughput.
+    eval_loader_kwargs = {
+        "num_workers": eval_num_workers,
+        **common_collate_kwargs,
+    }
+    if eval_num_workers > 0:
+        eval_loader_kwargs["persistent_workers"] = True
+        eval_loader_kwargs["prefetch_factor"] = prefetch_factor
 
     train_loader = DataLoader(
         data_bundle.train_dataset,
         sampler=train_sampler,
         batch_size=patch_size,
         drop_last=True,
-        **common_loader_kwargs,
+        **train_loader_kwargs,
     )
     valid_loader = DataLoader(
         data_bundle.valid_dataset,
         sampler=valid_sampler,
         batch_size=patch_size,
         drop_last=False,
-        **common_loader_kwargs,
+        **eval_loader_kwargs,
     )
     test_loader = DataLoader(
         data_bundle.test_dataset,
         sampler=test_sampler,
         batch_size=patch_size,
         drop_last=False,
-        **common_loader_kwargs,
+        **eval_loader_kwargs,
     )
 
     return DSM2DataLoaders(

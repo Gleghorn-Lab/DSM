@@ -1,4 +1,5 @@
 import os
+import sys
 
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Only error/warning messages
@@ -10,7 +11,7 @@ os.environ['TORCHDYNAMO_VERBOSE'] = '1'
 
 
 # if on a linux machine, set HF_HOME to the directory of the script
-if os.name == 'linux' and "HF_HOME" not in os.environ:
+if sys.platform.startswith("linux") and "HF_HOME" not in os.environ:
     os.environ['HF_HOME'] = os.path.dirname(os.path.abspath(__file__))
 
 

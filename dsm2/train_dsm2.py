@@ -22,12 +22,7 @@ from dsm2.dsm2_config import (
     apply_bugfix_profile,
 )
 from dsm2.dsm2_data import build_dsm2_data_bundle, build_dsm2_dataloaders
-from dsm2.dsm2_metrics import ComputeDSM2Metrics
-from dsm2.dsm2_teacher import load_teacher_model
-from dsm2.dsm2_trainer import DSM2Trainer
-from dsm2.model_utils import extract_model_from_parallel, patch_accelerate_extract_model_from_parallel
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
-from models.modeling_dsm2 import DSM2, DSM2Config
 
 
 def parse_args():
@@ -42,12 +37,11 @@ def parse_args():
     parser.add_argument("--sequence_column", type=str, default="sequence", help="Name of the sequence column in dataset splits")
     parser.add_argument("--save_path", type=str, default="GleghornLab/DSM2_600", help="Path to save the model and report to wandb")
     parser.add_argument("--alpha_ce", type=float, default=1.0, help="Weight for CE loss")
-    parser.add_argument("--alpha_jepa", type=float, default=1.0, help="Weight for JEPA loss")
-    parser.add_argument("--alpha_contrastive", type=float, default=1.0, help="Weight for contrastive loss")
+    parser.add_argument("--alpha_jepa", type=float, default=0.1, help="Weight for JEPA loss")
+    parser.add_argument("--alpha_contrastive", type=float, default=10.0, help="Weight for contrastive loss")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=128, help="Batch size (effective size metadata)")
-    parser.add_argument("--patch_size", type=int, default=8, help="Micro-batch size processed per forward pass")
-    parser.add_argument("--patch_accum", type=int, default=4, help="Number of micro-batches grouped into one patch group")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size (effective size metadata)")
+    parser.add_argument("--patch_size", type=int, default=16, help="Micro-batch size processed per forward pass")
     parser.add_argument("--grad_accum", type=int, default=4, help="Gradient accumulation steps over patch groups")
     parser.add_argument("--max_steps", type=int, default=100000, help="Maximum optimizer steps")
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum tokenized sequence length")
@@ -56,16 +50,16 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=1000, help="Save every N optimizer steps")
     parser.add_argument("--eval_every", type=int, default=0, help="Evaluate every N optimizer steps (<=0 uses save_every)")
     parser.add_argument("--logging_steps", type=int, default=100, help="Train metric logging frequency in optimizer steps")
-    parser.add_argument("--ema_start_percent", type=float, default=0.25, help="Fraction of steps before EMA teacher starts")
+    parser.add_argument("--ema_start_percent", type=float, default=0.4, help="Fraction of steps before EMA teacher starts")
     parser.add_argument("--ema_decay", type=float, default=0.999, help="EMA decay factor")
-    parser.add_argument("--muon_lr", type=float, default=0.02, help="Muon optimizer learning rate")
+    parser.add_argument("--muon_lr", type=float, default=0.001, help="Muon optimizer learning rate")
     parser.add_argument("--muon_tau", type=float, default=100.0, help="QK-Clip tau threshold")
     parser.add_argument("--train_limit", type=int, default=100000, help="Maximum train samples to load (<=0 uses full split)")
     parser.add_argument("--valid_limit", type=int, default=1000, help="Maximum validation samples to load (<=0 uses full split)")
     parser.add_argument("--test_limit", type=int, default=1000, help="Maximum test samples to load (<=0 uses full split)")
     parser.add_argument("--shuffle_seed", type=int, default=42, help="Random seed used for dataset shuffling")
     parser.add_argument("--max_grad_norm", type=float, default=0.0, help="Gradient clipping norm, 0 disables")
-    parser.add_argument("--dataloader_num_workers", type=int, default=0, help="Number of dataloader workers")
+    parser.add_argument("--dataloader_num_workers", type=int, default=4, help="Number of dataloader workers")
     parser.add_argument("--dataloader_prefetch_factor", type=int, default=2, help="Dataloader prefetch factor when workers > 0")
     parser.add_argument("--distributed_backend", type=str, default="gloo", help="Torch distributed backend")
     parser.add_argument("--no_init_distributed", action="store_true", help="Do not initialize process groups in the trainer")
@@ -159,6 +153,8 @@ def initialize_wandb(config: DSM2TrainConfigBundle):
 
 
 def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
+    from models.modeling_dsm2 import DSM2, DSM2Config
+
     student_config = DSM2Config(
         vocab_size=teacher_config.vocab_size,
         hidden_size=config.model.student_hidden_size,
@@ -221,6 +217,11 @@ def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders,
 
 
 def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
+    from dsm2.dsm2_metrics import ComputeDSM2Metrics
+    from dsm2.dsm2_teacher import load_teacher_model
+    from dsm2.dsm2_trainer import DSM2Trainer
+    from dsm2.model_utils import extract_model_from_parallel, patch_accelerate_extract_model_from_parallel
+
     patch_accelerate_extract_model_from_parallel()
 
     rank, world_size, local_rank = infer_rank_world_size_local_rank()
@@ -342,6 +343,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
 
 if __name__ == "__main__":
     args = parse_args()
+    args.patch_accum = args.batch_size // args.patch_size
     config_bundle = build_config_bundle(args)
 
     if config_bundle.runtime.bugfix:
