@@ -64,7 +64,7 @@ def parse_args():
     parser.add_argument("--valid_limit", type=int, default=1000, help="Maximum validation samples to load (<=0 uses full split)")
     parser.add_argument("--test_limit", type=int, default=1000, help="Maximum test samples to load (<=0 uses full split)")
     parser.add_argument("--shuffle_seed", type=int, default=42, help="Random seed used for dataset shuffling")
-    parser.add_argument("--max_grad_norm", type=float, default=10.0, help="Gradient clipping norm")
+    parser.add_argument("--max_grad_norm", type=float, default=0.0, help="Gradient clipping norm, 0 disables")
     parser.add_argument("--dataloader_num_workers", type=int, default=0, help="Number of dataloader workers")
     parser.add_argument("--dataloader_prefetch_factor", type=int, default=2, help="Dataloader prefetch factor when workers > 0")
     parser.add_argument("--distributed_backend", type=str, default="gloo", help="Torch distributed backend")

@@ -123,12 +123,7 @@ def jepa_loss(
     depth_weights = torch.arange(1, num_layers + 1, device=squared_diff.device, dtype=squared_diff.dtype) / num_layers
     depth_weights = depth_weights.view(num_layers, 1, 1)
 
-    # Scale the Loss by 1 / p_masks
-    # p_masks is (b, seq_len)
-    # We want 1 / p_masks (where we enforce an eps threshold inside DSM2)
-    inv_p_masks = (1.0 / p_masks).unsqueeze(0) # (1, b, seq_len)
-
-    weighted_mse = mse_per_token * depth_weights * inv_p_masks
+    weighted_mse = mse_per_token * depth_weights
 
     # Filter out padding tokens and sum up
     valid_mse = weighted_mse[:, mask]
