@@ -53,12 +53,14 @@ class SequenceCollator:
         self.max_length = max_length
 
     def __call__(self, batch: Tuple[List[str], List[str]]) -> Dict[str, torch.Tensor]:
-        batch = self.tokenizer(batch,
-                          padding='longest',
-                          truncation=True,
-                          max_length=self.max_length,
-                          return_tensors='pt',
-                          add_special_tokens=True)
+        batch = self.tokenizer(
+            batch,
+            padding='max_length',
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors='pt',
+            add_special_tokens=True,
+        )
         return batch
     
 
