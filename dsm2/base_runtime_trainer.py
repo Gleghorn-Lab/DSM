@@ -162,7 +162,8 @@ class BaseRuntimeTrainer:
             os.makedirs(checkpoint_dir, exist_ok=True)
 
             model_to_save = self.get_model_for_hub()
-            model_to_save.save_pretrained(checkpoint_dir, safe_serialization=False)
+            model_to_save.config.save_pretrained(checkpoint_dir)
+            torch.save(model_to_save.state_dict(), os.path.join(checkpoint_dir, "pytorch_model.bin"))
             torch.save(self.optimizer.state_dict(), os.path.join(checkpoint_dir, "optimizer.pt"))
             torch.save(self.scheduler.state_dict(), os.path.join(checkpoint_dir, "scheduler.pt"))
 
