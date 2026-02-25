@@ -581,12 +581,13 @@ class TransformerStack(nn.Module):
             
         for block in self.blocks:
             if self.gradient_checkpointing and self.training:
-                x, attn_weights = self._gradient_checkpointing_func(
+                x, attn_weights, s_max = self._gradient_checkpointing_func(
                     block.__call__,
                     x=x,
                     attention_mask=attention_mask,
                     flex_block_mask=flex_block_mask,
                     output_attentions=output_attentions,
+                    output_s_max=output_s_max,
                 )
             else:
                 x, attn_weights, s_max = block(
