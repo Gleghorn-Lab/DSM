@@ -15,10 +15,10 @@ def extract_model_from_parallel(model: torch.nn.Module, keep_torch_compile: bool
     is_compiled = is_compiled_module(model)
     if is_compiled:
         compiled_model = model
-        assert "_orig_mod" in compiled_model.__dict__, (
+        assert "_orig_mod" in dir(compiled_model), (
             "Expected compiled model to contain _orig_mod for unwrapping."
         )
-        model = compiled_model.__dict__["_orig_mod"]
+        model = compiled_model._orig_mod
 
     if keep_torch_compile and is_compiled:
         compiled_model._orig_mod = model
