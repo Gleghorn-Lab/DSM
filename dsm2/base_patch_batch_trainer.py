@@ -240,18 +240,14 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
         )
         total_loss = global_loss_sum / float(max(1, global_loss_count))
 
-        if len(local_logits) > 0:
-            local_eval_object = {
-                "logits": torch.cat(local_logits, dim=0).numpy(),
-                "mask_labels": torch.cat(local_mask_labels, dim=0).numpy(),
-                "input_ids": torch.cat(local_input_ids, dim=0).numpy(),
-            }
-        else:
-            local_eval_object = {
-                "logits": np.zeros((0, 1, 1), dtype=np.float32),
-                "mask_labels": np.zeros((0, 1), dtype=np.int64),
-                "input_ids": np.zeros((0, 1), dtype=np.int64),
-            }
+        assert len(local_logits) > 0, "local_logits must contain at least one tensor."
+        assert len(local_logits) == len(local_mask_labels) == len(local_input_ids), "local_logits, local_mask_labels, and local_input_ids must have the same length."
+    
+        local_eval_object = {
+            "logits": torch.cat(local_logits, dim=0).float().numpy(),
+            "mask_labels": torch.cat(local_mask_labels, dim=0).int().numpy(),
+            "input_ids": torch.cat(local_input_ids, dim=0).int().numpy(),
+        }
 
         gathered_eval_objects = gather_object_across_ranks(
             local_object=local_eval_object,
