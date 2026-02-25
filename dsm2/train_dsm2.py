@@ -4,9 +4,11 @@ import entrypoint_setup
 
 import argparse
 import os
+import time
 import torch
 from dataclasses import asdict
 from huggingface_hub import login
+from tqdm.auto import tqdm
 
 from dsm2.dsm2_callbacks import EMATeacherCallback
 from dsm2.dsm2_config import (
@@ -173,6 +175,51 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
     return student_model
 
 
+def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders, world_size: int, is_main_process: bool):
+    if not is_main_process:
+        return
+
+    effective_samples_per_optimizer_step = (
+        config.loss.patch_size * config.optimization.patch_accum * config.optimization.grad_accum * world_size
+    )
+    eval_every = config.optimization.eval_every
+    if eval_every <= 0:
+        eval_every = config.optimization.save_every
+
+    print("==== DSM2 Run Overview ====")
+    print(f"Save path: {config.runtime.save_path}")
+    print(f"Teacher model: {config.model.teacher_model_path}")
+    print(f"Dataset: {config.data.data_path}")
+    print(
+        f"Split sizes loaded | train={len(data_bundle.train_dataset)}, "
+        f"valid={len(data_bundle.valid_dataset)}, test={len(data_bundle.test_dataset)}"
+    )
+    print(
+        f"Dataloader patches | train={len(data_loaders.train_loader)}, "
+        f"valid={len(data_loaders.valid_loader)}, test={len(data_loaders.test_loader)}"
+    )
+    print(
+        "Optimization | "
+        f"max_steps={config.optimization.max_steps}, "
+        f"lr={config.optimization.learning_rate:.2e}, "
+        f"patch_size={config.loss.patch_size}, "
+        f"patch_accum={config.optimization.patch_accum}, "
+        f"grad_accum={config.optimization.grad_accum}"
+    )
+    print(
+        f"Effective samples per optimizer step across all ranks: {effective_samples_per_optimizer_step} "
+        f"(world_size={world_size})"
+    )
+    print(
+        "Milestones | "
+        f"log every {config.optimization.logging_steps} steps, "
+        f"evaluate every {eval_every} steps, "
+        f"save every {config.optimization.save_every} steps"
+    )
+    print("Progress bars | training optimizer steps + per-evaluation patch progress")
+    print("============================")
+
+
 def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
     patch_accelerate_extract_model_from_parallel()
 
@@ -209,6 +256,13 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         rank=rank,
         world_size=world_size,
     )
+    print_run_overview(
+        config=config,
+        data_bundle=data_bundle,
+        data_loaders=data_loaders,
+        world_size=world_size,
+        is_main_process=is_main_process,
+    )
 
     trainer = DSM2Trainer(
         model=student_model,
@@ -233,25 +287,45 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         wandb_module=wandb_module,
     )
 
+    phase_progress = tqdm(
+        total=4,
+        desc="DSM2 run phases",
+        unit="phase",
+        dynamic_ncols=True,
+        leave=True,
+        disable=not is_main_process,
+    )
+    run_start_time = time.perf_counter()
+
     try:
+        phase_progress.set_description_str("DSM2 phase: prepare trainer")
         trainer.prep_for_training()
+        phase_progress.update(1)
 
         if is_main_process:
             print("Trainer initialized")
             print("Initial Evaluation")
+        phase_progress.set_description_str("DSM2 phase: initial test evaluation")
         initial_metrics = trainer.evaluate(eval_dataset=data_bundle.test_dataset, prefix="test")
+        phase_progress.update(1)
         if is_main_process:
             print("Initial Metrics:\n", initial_metrics)
 
         if is_main_process:
             print("Training")
+        phase_progress.set_description_str("DSM2 phase: training")
         trainer.train()
+        phase_progress.update(1)
 
         if is_main_process:
             print("Final Evaluation")
+        phase_progress.set_description_str("DSM2 phase: final test evaluation")
         final_metrics = trainer.evaluate(eval_dataset=data_bundle.test_dataset, prefix="test")
+        phase_progress.update(1)
         if is_main_process:
             print("Final Metrics:\n", final_metrics)
+            elapsed_minutes = (time.perf_counter() - run_start_time) / 60.0
+            print(f"Total runtime: {elapsed_minutes:.2f} minutes")
 
         if is_main_process:
             if config.runtime.hf_token is None:
@@ -260,6 +334,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
                 saveable_model = extract_model_from_parallel(trainer.model, keep_torch_compile=False)
                 saveable_model.push_to_hub(config.runtime.save_path, private=True)
     finally:
+        phase_progress.close()
         trainer.shutdown()
         if wandb_enabled and is_main_process:
             wandb_module.finish()
