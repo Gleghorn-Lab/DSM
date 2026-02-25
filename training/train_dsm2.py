@@ -151,30 +151,49 @@ class MuonAdamWWrapper(torch.optim.Optimizer):
     def __init__(self, muonclip, adamw):
         self.muonclip = muonclip
         self.adamw = adamw
-        self.defaults = adamw.defaults
-        self.param_groups = muonclip.param_groups + adamw.param_groups
-        self.state = {}
-        for opt in [muonclip, adamw]:
-            self.state.update(opt.state)
+        wrapper_param_groups = self.muonclip.param_groups + self.adamw.param_groups
+        super().__init__(wrapper_param_groups, defaults={})
+        self._muon_group_count = len(self.muonclip.param_groups)
         self.last_s_max = None
+        self._sync_wrapper_state()
+
+    def _sync_wrapper_state(self):
+        self.param_groups = self.muonclip.param_groups + self.adamw.param_groups
+        merged_state = {}
+        merged_state.update(self.muonclip.state)
+        merged_state.update(self.adamw.state)
+        self.state = merged_state
         
     def step(self, closure=None):
         loss = None
         if closure is not None:
             loss = closure()
-            
-        if self.last_s_max is not None:
-            self.muonclip.step(self.last_s_max)
-        else:
-            print("Warning: last_s_max is None")
-            
+
+        assert self.last_s_max is not None, "MuonClip step requires per-head s_max values from the model forward pass."
+        self.muonclip.step(self.last_s_max)
         self.adamw.step()
+        self._sync_wrapper_state()
         return loss
 
     def zero_grad(self, set_to_none=True):
         self.muonclip.zero_grad(set_to_none=set_to_none)
         self.adamw.zero_grad(set_to_none=set_to_none)
         self.last_s_max = None
+
+    def state_dict(self):
+        self._sync_wrapper_state()
+        state_dict = super().state_dict()
+        state_dict["last_s_max"] = self.last_s_max
+        return state_dict
+
+    def load_state_dict(self, state_dict):
+        state_dict_copy = dict(state_dict)
+        self.last_s_max = state_dict_copy.pop("last_s_max", None)
+        super().load_state_dict(state_dict_copy)
+        self.muonclip.param_groups = self.param_groups[:self._muon_group_count]
+        self.adamw.param_groups = self.param_groups[self._muon_group_count:]
+        self.muonclip.state = self.state
+        self.adamw.state = self.state
 
 
 class EMATeacherCallback(TrainerCallback):

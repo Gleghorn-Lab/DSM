@@ -126,9 +126,32 @@ class QKClip:
             head_idx: The index of the head to scale
             scale: The scaling factor
         """
-        assert hasattr(layer, weight_name), f"Layer {layer} does not have attribute {weight_name}"
-        weight = getattr(layer, weight_name)
-        assert isinstance(weight, torch.nn.Parameter), f"Weight attribute {weight_name} is not a torch.nn.Parameter"
+        if weight_name == "W_q":
+            weight_owner = layer.W_q
+        elif weight_name == "W_k":
+            weight_owner = layer.W_k
+        elif weight_name == "W_qc":
+            weight_owner = layer.W_qc
+        elif weight_name == "W_kc":
+            weight_owner = layer.W_kc
+        elif weight_name == "W_qr":
+            weight_owner = layer.W_qr
+        else:
+            raise AssertionError(f"Unsupported attention weight name for QKClip: {weight_name}")
+
+        if isinstance(weight_owner, torch.nn.Linear):
+            weight = weight_owner.weight
+        elif isinstance(weight_owner, torch.nn.Parameter):
+            weight = weight_owner
+        else:
+            raise AssertionError(
+                f"QKClip expected {weight_name} to be nn.Linear or torch.nn.Parameter, got {type(weight_owner)}"
+            )
+
+        assert weight.ndim == 2, f"QKClip expects 2D attention weights, got shape {tuple(weight.shape)} for {weight_name}"
+        assert weight.size(0) % self.n_head == 0, (
+            f"Weight rows must be divisible by n_head. Got rows={weight.size(0)}, n_head={self.n_head} for {weight_name}"
+        )
         
         head_dim = weight.size(0) // self.n_head
         start_idx = head_idx * head_dim

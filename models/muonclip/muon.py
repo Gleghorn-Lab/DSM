@@ -77,6 +77,28 @@ class Muon(torch.optim.Optimizer):
     @torch.no_grad()
     def step(self):
         for group in self.param_groups:
+            # Single GPU / non-DDP path
+            if (self.world_size == 1) or (not dist.is_available()) or (not dist.is_initialized()):
+                params: list[Tensor] = group["params"]
+                for p in params:
+                    g = p.grad
+                    assert g is not None
+                    state = self.state[p]
+                    if "momentum_buffer" not in state:
+                        state["momentum_buffer"] = torch.zeros_like(g)
+                    buf: Tensor = state["momentum_buffer"]
+                    buf.lerp_(g, 1 - group["momentum"])
+                    g = g.lerp_(buf, group["momentum"]) if group["nesterov"] else buf
+                    if g.ndim == 4:  # for the case of conv filters
+                        g = g.view(len(g), -1)
+                    g = fast_newtonschulz(g, steps=group["ns_steps"])
+                    p.mul_(1 - group["lr"] * group["weight_decay"])
+                    p.add_(
+                        g.view_as(p),
+                        alpha=-group["lr"] * max(1, p.size(-2) / p.size(-1))**0.5
+                    )
+                continue
+
             update_buffer: Tensor = group["update_buffer"]
             update_buffer_views: list[Tensor] = group["update_buffer_views"]
             # generate weight updates in distributed fashion
