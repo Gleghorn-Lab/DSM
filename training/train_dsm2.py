@@ -524,9 +524,17 @@ def main(args):
                     max_val = max(patch[l][h] for patch in all_s_max_patches)
                     layer_maxes.append(max_val)
                 reduced_s_max.append(layer_maxes)
-            
-            if hasattr(trainer, 'optimizer') and hasattr(trainer.optimizer, 'last_s_max'):
-                trainer.optimizer.last_s_max = reduced_s_max
+
+            from accelerate.optimizer import AcceleratedOptimizer
+
+            optimizer_for_s_max = trainer.optimizer
+            if isinstance(optimizer_for_s_max, AcceleratedOptimizer):
+                optimizer_for_s_max = optimizer_for_s_max.optimizer
+
+            assert isinstance(
+                optimizer_for_s_max, MuonAdamWWrapper
+            ), f"Expected MuonAdamWWrapper, got {type(optimizer_for_s_max)}"
+            optimizer_for_s_max.last_s_max = reduced_s_max
 
         loss = (args.alpha_ce * total_ce_loss) + (args.alpha_jepa * total_jepa_loss) + (args.alpha_contrastive * total_contrastive_loss)
         
