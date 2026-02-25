@@ -39,15 +39,13 @@ class MuonAdamWWrapper(torch.optim.Optimizer):
         remove_param_ids = {id(param) for param in params_to_remove}
 
         def _prune_param_groups(param_groups):
-            kept_param_groups = []
+            updated_param_groups = []
             for group in param_groups:
                 group_params = [param for param in group["params"] if id(param) not in remove_param_ids]
-                if len(group_params) == 0:
-                    continue
                 updated_group = dict(group)
                 updated_group["params"] = group_params
-                kept_param_groups.append(updated_group)
-            return kept_param_groups
+                updated_param_groups.append(updated_group)
+            return updated_param_groups
 
         self.muonclip.param_groups = _prune_param_groups(self.muonclip.param_groups)
         self.adamw.param_groups = _prune_param_groups(self.adamw.param_groups)
