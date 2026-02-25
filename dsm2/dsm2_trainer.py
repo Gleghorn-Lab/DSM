@@ -29,8 +29,12 @@ class DSM2Trainer(BasePatchBatchTrainer):
         wandb_module,
     ):
         assert loss_config.patch_size > 0, "DSM2 custom trainer requires patch_size > 0."
+        assert 0.0 <= loss_config.teacher_free_percent <= 1.0, (
+            f"teacher_free_percent must be in [0.0, 1.0], got {loss_config.teacher_free_percent}."
+        )
         self.teacher_model = teacher_model
         self.loss_config = loss_config
+        self.teacher_free_steps = int(optimization_config.max_steps * loss_config.teacher_free_percent)
         self.ema_cleanup_complete = False
 
         super().__init__(
@@ -185,21 +189,29 @@ class DSM2Trainer(BasePatchBatchTrainer):
         all_mask_labels = []
         all_input_ids = []
 
-        unwrapped_model = extract_model_from_parallel(self.model)
-        active_teacher = self._select_active_teacher(unwrapped_model)
+        use_teacher = (not training) or (self.global_step >= self.teacher_free_steps)
+        active_teacher = None
+        if use_teacher:
+            unwrapped_model = extract_model_from_parallel(self.model)
+            active_teacher = self._select_active_teacher(unwrapped_model)
 
         for patch in patches:
             patch_input_ids = patch["input_ids"].to(self.device, non_blocking=True)
             patch_attention_mask = patch["attention_mask"].to(self.device, non_blocking=True)
             current_patch_size = int(patch_input_ids.size(0))
 
-            teacher_hidden_states = self._forward_teacher_patch(active_teacher, patch_input_ids, patch_attention_mask)
+            teacher_hidden_states = None
+            alpha_jepa = 0.0
+            if use_teacher:
+                assert active_teacher is not None, "active_teacher must be set when teacher losses are enabled."
+                teacher_hidden_states = self._forward_teacher_patch(active_teacher, patch_input_ids, patch_attention_mask)
+                alpha_jepa = self.loss_config.alpha_jepa
             dsm2_patch_output = self.model(
                 input_ids=patch_input_ids,
                 attention_mask=patch_attention_mask,
                 teacher_hidden_states=teacher_hidden_states,
                 alpha_ce=self.loss_config.alpha_ce,
-                alpha_jepa=self.loss_config.alpha_jepa,
+                alpha_jepa=alpha_jepa,
                 alpha_contrastive=0.0,
             )
 
@@ -209,7 +221,8 @@ class DSM2Trainer(BasePatchBatchTrainer):
             if dsm2_patch_output.jepa_loss is not None:
                 total_jepa_loss += dsm2_patch_output.jepa_loss * weight
 
-            if self.loss_config.alpha_contrastive > 0.0:
+            if use_teacher and (self.loss_config.alpha_contrastive > 0.0):
+                assert teacher_hidden_states is not None, "teacher_hidden_states must be set when contrastive loss is enabled."
                 with torch.no_grad():
                     teacher_pooled = pool_states(teacher_hidden_states)
                 student_hidden_states = dsm2_patch_output.student_hidden_states
@@ -228,7 +241,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
             all_mask_labels.append(dsm2_patch_output.mask_labels)
             all_input_ids.append(patch_input_ids)
 
-        if (self.loss_config.alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
+        if use_teacher and (self.loss_config.alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
             stacked_teacher_pooled = torch.cat(all_teacher_pooled, dim=1)
             stacked_student_pooled = torch.cat(all_student_pooled, dim=1)
             total_contrastive_loss = contrastive_loss_from_pooled(

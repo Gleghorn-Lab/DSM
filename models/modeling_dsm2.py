@@ -52,16 +52,17 @@ def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
 def contrastive_loss_from_pooled(
     s_pooled: torch.Tensor,
     t_pooled: torch.Tensor,
+    **kwargs: Any,
 ) -> torch.Tensor:
     """
     Computes depth-weighted contrastive loss from pre-pooled student and teacher representations.
     s_pooled, t_pooled: (num_layers, b, 2d)
     """
-    num_layers = s_pooled.shape[0]
-
+    num_layers, batch_size, vector_size = s_pooled.shape
+    scale = 1 / (vector_size ** 0.5)
     # (num_layers, b, b)
-    intra_student_reps = torch.bmm(s_pooled, s_pooled.transpose(1, 2)).softmax(dim=-1)
-    intra_teacher_reps = torch.bmm(t_pooled, t_pooled.transpose(1, 2)).softmax(dim=-1)
+    intra_student_reps = torch.bmm(s_pooled, s_pooled.transpose(1, 2)) * scale
+    intra_teacher_reps = torch.bmm(t_pooled, t_pooled.transpose(1, 2)) * scale
 
     # (num_layers, b, b)
     squared_diff = (intra_student_reps - intra_teacher_reps) ** 2
@@ -82,7 +83,7 @@ def contrastive_loss_from_pooled(
 def contrastive_loss(
     student_hidden_states: Tuple[torch.Tensor, ...],
     teacher_hidden_states: Tuple[torch.Tensor, ...],
-    p_masks: torch.Tensor,
+    **kwargs: Any,
 ) -> torch.Tensor:
     """
     Computes a depth-weighted contrastive loss mapping student representations
@@ -91,14 +92,14 @@ def contrastive_loss(
     assert len(student_hidden_states) == len(teacher_hidden_states), "Student and teacher hidden states must have the same number of layers"
     s_pooled = pool_states(student_hidden_states)
     t_pooled = pool_states(teacher_hidden_states)
-    return contrastive_loss_from_pooled(s_pooled, t_pooled, p_masks)
+    return contrastive_loss_from_pooled(s_pooled, t_pooled)
 
 
 def jepa_loss(
     student_hidden_states: Tuple[torch.Tensor, ...],
     teacher_hidden_states: Tuple[torch.Tensor, ...],
     attention_mask: torch.Tensor,
-    p_masks: torch.Tensor,
+    **kwargs: Any,
 ) -> torch.Tensor:
     """
     Computes depth-weighted MSE between student and teacher hidden states for unmasked tokens,

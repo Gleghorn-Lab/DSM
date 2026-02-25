@@ -9,6 +9,7 @@ import torch
 from dataclasses import asdict
 from huggingface_hub import login
 from tqdm.auto import tqdm
+from torchinfo import summary
 
 from dsm2.dsm2_callbacks import EMATeacherCallback
 from dsm2.dsm2_config import (
@@ -36,9 +37,10 @@ def parse_args():
     parser.add_argument("--data_path", type=str, default="Synthyra/uniref50", help="Dataset repository containing train/valid/test splits")
     parser.add_argument("--sequence_column", type=str, default="sequence", help="Name of the sequence column in dataset splits")
     parser.add_argument("--save_path", type=str, default="GleghornLab/DSM2_600", help="Path to save the model and report to wandb")
-    parser.add_argument("--alpha_ce", type=float, default=1.0, help="Weight for CE loss")
-    parser.add_argument("--alpha_jepa", type=float, default=0.1, help="Weight for JEPA loss")
-    parser.add_argument("--alpha_contrastive", type=float, default=10.0, help="Weight for contrastive loss")
+    parser.add_argument("--alpha_ce", type=float, default=10.0, help="Weight for CE loss")
+    parser.add_argument("--alpha_jepa", type=float, default=0.01, help="Weight for JEPA loss")
+    parser.add_argument("--alpha_contrastive", type=float, default=2.0, help="Weight for contrastive loss")
+    parser.add_argument("--teacher_free_percent", type=float, default=0.1, help="Fraction of early optimizer steps that run CE-only")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size (effective size metadata)")
     parser.add_argument("--patch_size", type=int, default=16, help="Micro-batch size processed per forward pass")
@@ -54,7 +56,7 @@ def parse_args():
     parser.add_argument("--ema_decay", type=float, default=0.999, help="EMA decay factor")
     parser.add_argument("--muon_lr", type=float, default=0.001, help="Muon optimizer learning rate")
     parser.add_argument("--muon_tau", type=float, default=100.0, help="QK-Clip tau threshold")
-    parser.add_argument("--train_limit", type=int, default=100000, help="Maximum train samples to load (<=0 uses full split)")
+    parser.add_argument("--train_limit", type=int, default=0, help="Maximum train samples to load (<=0 uses full split)")
     parser.add_argument("--valid_limit", type=int, default=1000, help="Maximum validation samples to load (<=0 uses full split)")
     parser.add_argument("--test_limit", type=int, default=1000, help="Maximum test samples to load (<=0 uses full split)")
     parser.add_argument("--shuffle_seed", type=int, default=42, help="Random seed used for dataset shuffling")
@@ -69,6 +71,9 @@ def parse_args():
 
 
 def build_config_bundle(args) -> DSM2TrainConfigBundle:
+    assert 0.0 <= args.teacher_free_percent <= 1.0, (
+        f"--teacher_free_percent must be in [0.0, 1.0], got {args.teacher_free_percent}."
+    )
     eval_every = args.eval_every
     if eval_every <= 0:
         eval_every = args.save_every
@@ -110,6 +115,7 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         alpha_ce=args.alpha_ce,
         alpha_jepa=args.alpha_jepa,
         alpha_contrastive=args.alpha_contrastive,
+        teacher_free_percent=args.teacher_free_percent,
         patch_size=args.patch_size,
     )
     data_config = DSM2DataConfig(
@@ -198,6 +204,7 @@ def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders,
         "Optimization | "
         f"max_steps={config.optimization.max_steps}, "
         f"lr={config.optimization.learning_rate:.2e}, "
+        f"teacher_free_percent={config.loss.teacher_free_percent:.3f}, "
         f"patch_size={config.loss.patch_size}, "
         f"patch_accum={config.optimization.patch_accum}, "
         f"grad_accum={config.optimization.grad_accum}"
@@ -242,6 +249,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
     if is_main_process:
         print("Initializing Student DSM2 from scratch")
     student_model = build_student_model(config, teacher_model.config)
+    summary(student_model)
 
     teacher_model = compile_model(teacher_model, "teacher")
 
