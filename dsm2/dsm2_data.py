@@ -49,8 +49,13 @@ def _shuffle_and_limit_split(split_dataset, split_name: str, limit: int, shuffle
     return shuffled.select(range(upper))
 
 
-def build_dsm2_data_bundle(config: DSM2DataConfig, tokenizer) -> DSM2DataBundle:
-    hf_dataset = load_dataset(config.data_path)
+def build_dsm2_data_bundle(config: DSM2DataConfig, tokenizer, bugfix: bool = False) -> DSM2DataBundle:
+    if bugfix:
+        data_path, sequence_column = 'GleghornLab/MB_reg', 'seqs'
+    else:
+        data_path, sequence_column = config.data_path, config.sequence_column
+
+    hf_dataset = load_dataset(data_path)
     assert "train" in hf_dataset, "Dataset must contain a 'train' split."
     assert "valid" in hf_dataset, "Dataset must contain a 'valid' split."
     assert "test" in hf_dataset, "Dataset must contain a 'test' split."
@@ -59,13 +64,13 @@ def build_dsm2_data_bundle(config: DSM2DataConfig, tokenizer) -> DSM2DataBundle:
     valid_split = _shuffle_and_limit_split(hf_dataset["valid"], "valid", config.valid_limit, config.shuffle_seed)
     test_split = _shuffle_and_limit_split(hf_dataset["test"], "test", config.test_limit, config.shuffle_seed)
 
-    assert config.sequence_column in train_split.column_names, f"Missing column '{config.sequence_column}' in train split."
-    assert config.sequence_column in valid_split.column_names, f"Missing column '{config.sequence_column}' in valid split."
-    assert config.sequence_column in test_split.column_names, f"Missing column '{config.sequence_column}' in test split."
+    assert sequence_column in train_split.column_names, f"Missing column '{sequence_column}' in train split."
+    assert sequence_column in valid_split.column_names, f"Missing column '{sequence_column}' in valid split."
+    assert sequence_column in test_split.column_names, f"Missing column '{sequence_column}' in test split."
 
-    train_dataset = HFSequenceDataset(train_split, config.sequence_column)
-    valid_dataset = HFSequenceDataset(valid_split, config.sequence_column)
-    test_dataset = HFSequenceDataset(test_split, config.sequence_column)
+    train_dataset = HFSequenceDataset(train_split, sequence_column)
+    valid_dataset = HFSequenceDataset(valid_split, sequence_column)
+    test_dataset = HFSequenceDataset(test_split, sequence_column)
     data_collator = SequenceCollator(tokenizer, max_length=config.max_length)
 
     return DSM2DataBundle(
