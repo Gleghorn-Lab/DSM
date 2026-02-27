@@ -32,9 +32,13 @@ class DSM2Trainer(BasePatchBatchTrainer):
         assert 0.0 <= loss_config.teacher_free_percent <= 1.0, (
             f"teacher_free_percent must be in [0.0, 1.0], got {loss_config.teacher_free_percent}."
         )
+        assert 0.0 <= loss_config.aux_loss_warmup_percent <= 1.0, (
+            f"aux_loss_warmup_percent must be in [0.0, 1.0], got {loss_config.aux_loss_warmup_percent}."
+        )
         self.teacher_model = teacher_model
         self.loss_config = loss_config
         self.teacher_free_steps = int(optimization_config.max_steps * loss_config.teacher_free_percent)
+        self.aux_loss_warmup_steps = int(optimization_config.max_steps * loss_config.aux_loss_warmup_percent)
         self.ema_cleanup_complete = False
 
         super().__init__(
@@ -185,6 +189,16 @@ class DSM2Trainer(BasePatchBatchTrainer):
         assert isinstance(self.optimizer, MuonAdamWWrapper), f"Expected MuonAdamWWrapper, got {type(self.optimizer)}."
         self.optimizer.last_s_max = reduced_s_max
 
+    def _aux_loss_warmup_scale(self, training: bool, use_teacher: bool) -> float:
+        if (not use_teacher) and training:
+            return 0.0
+        if not training:
+            return 1.0 if use_teacher else 0.0
+        if self.aux_loss_warmup_steps <= 0:
+            return 1.0
+        progress = float(self.global_step - self.teacher_free_steps) / float(self.aux_loss_warmup_steps)
+        return float(max(0.0, min(1.0, progress)))
+
     def _run_patch_group(self, patches: List[Dict[str, torch.Tensor]], training: bool):
         batch_size = 0
         for patch in patches:
@@ -203,6 +217,9 @@ class DSM2Trainer(BasePatchBatchTrainer):
         all_input_ids = []
 
         use_teacher = (not training) or (self.global_step >= self.teacher_free_steps)
+        aux_loss_scale = self._aux_loss_warmup_scale(training=training, use_teacher=use_teacher)
+        scaled_alpha_jepa = self.loss_config.alpha_jepa * aux_loss_scale
+        scaled_alpha_contrastive = self.loss_config.alpha_contrastive * aux_loss_scale
         active_teacher = None
         if use_teacher:
             unwrapped_model = extract_model_from_parallel(self.model)
@@ -218,7 +235,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
             if use_teacher:
                 assert active_teacher is not None, "active_teacher must be set when teacher losses are enabled."
                 teacher_hidden_states = self._forward_teacher_patch(active_teacher, patch_input_ids, patch_attention_mask)
-                alpha_jepa = self.loss_config.alpha_jepa
+                alpha_jepa = scaled_alpha_jepa
             dsm2_patch_output = self.model(
                 input_ids=patch_input_ids,
                 attention_mask=patch_attention_mask,
@@ -235,7 +252,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
             if dsm2_patch_output.jepa_loss is not None:
                 total_jepa_loss += dsm2_patch_output.jepa_loss * weight
 
-            if use_teacher and (self.loss_config.alpha_contrastive > 0.0):
+            if use_teacher and (scaled_alpha_contrastive > 0.0):
                 assert teacher_hidden_states is not None, "teacher_hidden_states must be set when contrastive loss is enabled."
                 with torch.no_grad():
                     teacher_pooled = pool_states(teacher_hidden_states)
@@ -255,7 +272,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
             all_mask_labels.append(dsm2_patch_output.mask_labels)
             all_input_ids.append(patch_input_ids)
 
-        if use_teacher and (self.loss_config.alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
+        if use_teacher and (scaled_alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
             stacked_teacher_pooled = torch.cat(all_teacher_pooled, dim=1)
             stacked_student_pooled = torch.cat(all_student_pooled, dim=1)
             total_contrastive_loss = contrastive_loss_from_pooled(
@@ -269,8 +286,8 @@ class DSM2Trainer(BasePatchBatchTrainer):
 
         loss = (
             (self.loss_config.alpha_ce * total_ce_loss)
-            + (self.loss_config.alpha_jepa * total_jepa_loss)
-            + (self.loss_config.alpha_contrastive * total_contrastive_loss)
+            + (scaled_alpha_jepa * total_jepa_loss)
+            + (scaled_alpha_contrastive * total_contrastive_loss)
         )
 
         metrics = {

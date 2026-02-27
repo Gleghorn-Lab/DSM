@@ -4,10 +4,11 @@ import entrypoint_setup
 
 import argparse
 import os
+import shutil
 import time
 import torch
 from dataclasses import asdict
-from huggingface_hub import login
+from huggingface_hub import hf_hub_download, login
 from tqdm.auto import tqdm
 from torchinfo import summary
 
@@ -42,6 +43,7 @@ def parse_args():
     parser.add_argument("--alpha_jepa", type=float, default=0.1, help="Weight for JEPA loss")
     parser.add_argument("--alpha_contrastive", type=float, default=1.0, help="Weight for contrastive loss")
     parser.add_argument("--teacher_free_percent", type=float, default=0.1, help="Fraction of early optimizer steps that run CE-only")
+    parser.add_argument("--aux_loss_warmup_percent", type=float, default=0.1, help="Fraction of total optimizer steps used to warm up JEPA/contrastive weights after teacher-free phase")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size (effective size metadata)")
     parser.add_argument("--patch_size", type=int, default=16, help="Micro-batch size processed per forward pass")
@@ -76,6 +78,9 @@ def parse_args():
 def build_config_bundle(args) -> DSM2TrainConfigBundle:
     assert 0.0 <= args.teacher_free_percent <= 1.0, (
         f"--teacher_free_percent must be in [0.0, 1.0], got {args.teacher_free_percent}."
+    )
+    assert 0.0 <= args.aux_loss_warmup_percent <= 1.0, (
+        f"--aux_loss_warmup_percent must be in [0.0, 1.0], got {args.aux_loss_warmup_percent}."
     )
     eval_every = args.eval_every
     if eval_every <= 0:
@@ -122,6 +127,7 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         alpha_jepa=args.alpha_jepa,
         alpha_contrastive=args.alpha_contrastive,
         teacher_free_percent=args.teacher_free_percent,
+        aux_loss_warmup_percent=args.aux_loss_warmup_percent,
         patch_size=args.patch_size,
     )
     data_config = DSM2DataConfig(
@@ -162,6 +168,25 @@ def initialize_wandb(config: DSM2TrainConfigBundle):
         wandb.init(project=config.runtime.wandb_project, name=run_name, config=asdict(config))
         return True, wandb
     return False, None
+
+
+def ensure_e1_tokenizer_asset():
+    dsm2_dir = os.path.dirname(__file__)
+    target_tokenizer = os.path.join(dsm2_dir, "tokenizer.json")
+    if os.path.exists(target_tokenizer):
+        return target_tokenizer
+
+    repo_root = os.path.abspath(os.path.join(dsm2_dir, ".."))
+    fastplms_tokenizer = os.path.join(repo_root, "models", "FastPLMs", "e1_fastplms", "tokenizer.json")
+    if os.path.exists(fastplms_tokenizer):
+        shutil.copyfile(fastplms_tokenizer, target_tokenizer)
+        print(f"Copied tokenizer.json into dsm2 package from {fastplms_tokenizer}")
+        return target_tokenizer
+
+    downloaded_tokenizer = hf_hub_download(repo_id="Synthyra/Profluent-E1-150M", filename="tokenizer.json")
+    shutil.copyfile(downloaded_tokenizer, target_tokenizer)
+    print("Downloaded tokenizer.json once and persisted it at dsm2/tokenizer.json")
+    return target_tokenizer
 
 
 def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
@@ -249,6 +274,7 @@ def print_run_overview(
         f"attn_backend={config.model.attn_backend}, "
         f"muon={config.optimization.use_muon}, "
         f"teacher_free_percent={config.loss.teacher_free_percent:.3f}, "
+        f"aux_loss_warmup_percent={config.loss.aux_loss_warmup_percent:.3f}, "
         f"patch_size={config.loss.patch_size}, "
         f"patch_accum={config.optimization.patch_accum}, "
         f"grad_accum={config.optimization.grad_accum}"
@@ -298,6 +324,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         else:
             print(f"Seeding Student DSM2 from pretrained weights: {config.model.pretrained_weights}")
 
+    ensure_e1_tokenizer_asset()
     teacher_model = load_teacher_model(teacher_source_path, device=device, attn_backend=config.model.attn_backend)
     tokenizer = teacher_model.tokenizer
 

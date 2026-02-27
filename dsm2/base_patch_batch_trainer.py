@@ -1,6 +1,7 @@
 import os
 import torch
 from contextlib import nullcontext
+from concurrent.futures import Future, ThreadPoolExecutor
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSampler
 from typing import Dict, List, Sequence
 from tqdm.auto import tqdm
@@ -9,6 +10,31 @@ from dsm2.base_runtime_trainer import BaseRuntimeTrainer
 from dsm2.dsm2_callbacks import DSM2TrainerCallback
 from dsm2.dsm2_config import DSM2OptimizationConfig, DSM2RuntimeConfig
 from dsm2.trainer_utils import gather_object_across_ranks, reduce_loss_sum_and_count, reduce_mean_float
+
+
+class AsyncPatchGroupPrefetcher:
+    def __init__(self, fetch_fn):
+        self.fetch_fn = fetch_fn
+        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.pending_future: Future | None = None
+        self.is_shutdown = False
+
+    def submit(self):
+        assert not self.is_shutdown, "Cannot submit to a shutdown prefetcher."
+        assert self.pending_future is None, "Prefetch already in flight; consume it before submitting another."
+        self.pending_future = self.executor.submit(self.fetch_fn)
+
+    def get(self):
+        assert self.pending_future is not None, "No prefetched patch-group is available to consume."
+        prefetched = self.pending_future.result()
+        self.pending_future = None
+        return prefetched
+
+    def shutdown(self):
+        if self.is_shutdown:
+            return
+        self.is_shutdown = True
+        self.executor.shutdown(wait=True)
 
 
 class BasePatchBatchTrainer(BaseRuntimeTrainer):
@@ -142,71 +168,81 @@ class BasePatchBatchTrainer(BaseRuntimeTrainer):
                 train_iter = iter(self.train_loader)
                 exhausted = False
                 micro_step_idx = 0
+                prefetcher = AsyncPatchGroupPrefetcher(lambda: self._accumulate_patch_group(train_iter))
+                patches, exhausted = self._accumulate_patch_group(train_iter)
+                try:
+                    while (len(patches) > 0) and (self.global_step < self.optimization_config.max_steps):
+                        if not exhausted:
+                            prefetcher.submit()
 
-                while (not exhausted) and (self.global_step < self.optimization_config.max_steps):
-                    patches, exhausted = self._accumulate_patch_group(train_iter)
-                    if len(patches) == 0:
-                        break
+                        micro_step_idx += 1
+                        is_sync_step = (micro_step_idx % self.optimization_config.grad_accum == 0) or exhausted
+                        if is_sync_step:
+                            self._dispatch_on_step_begin()
 
-                    micro_step_idx += 1
-                    is_sync_step = (micro_step_idx % self.optimization_config.grad_accum == 0) or exhausted
-                    if is_sync_step:
-                        self._dispatch_on_step_begin()
+                        sync_context = nullcontext()
+                        if self.is_distributed and isinstance(self.model, torch.nn.parallel.DistributedDataParallel) and (not is_sync_step):
+                            sync_context = self.model.no_sync()
 
-                    sync_context = nullcontext()
-                    if self.is_distributed and isinstance(self.model, torch.nn.parallel.DistributedDataParallel) and (not is_sync_step):
-                        sync_context = self.model.no_sync()
+                        with sync_context:
+                            loss, train_metrics = self.train_step(patches)
+                            scaled_loss = loss / float(self.optimization_config.grad_accum)
+                            scaled_loss.backward()
 
-                    with sync_context:
-                        loss, train_metrics = self.train_step(patches)
-                        scaled_loss = loss / float(self.optimization_config.grad_accum)
-                        scaled_loss.backward()
+                        train_loss_window.append(float(loss.detach().item()))
+                        for metric_name in train_metrics:
+                            if metric_name not in train_metric_windows:
+                                train_metric_windows[metric_name] = []
+                            train_metric_windows[metric_name].append(float(train_metrics[metric_name]))
 
-                    train_loss_window.append(float(loss.detach().item()))
-                    for metric_name in train_metrics:
-                        if metric_name not in train_metric_windows:
-                            train_metric_windows[metric_name] = []
-                        train_metric_windows[metric_name].append(float(train_metrics[metric_name]))
+                        if is_sync_step:
+                            if self.optimization_config.max_grad_norm > 0.0:
+                                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.optimization_config.max_grad_norm)
 
-                    if is_sync_step:
-                        if self.optimization_config.max_grad_norm > 0.0:
-                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.optimization_config.max_grad_norm)
+                            self.optimizer.step()
+                            self.scheduler.step()
+                            self.optimizer.zero_grad(set_to_none=True)
 
-                        self.optimizer.step()
-                        self.scheduler.step()
-                        self.optimizer.zero_grad(set_to_none=True)
+                            self.global_step += 1
+                            self._dispatch_on_step_end()
+                            train_progress.update(1)
 
-                        self.global_step += 1
-                        self._dispatch_on_step_end()
-                        train_progress.update(1)
+                            if self.global_step % self.optimization_config.logging_steps == 0:
+                                mean_metrics: Dict[str, float] = {}
+                                mean_metrics["loss"] = float(sum(train_loss_window) / len(train_loss_window))
+                                for metric_name in train_metric_windows:
+                                    metric_history = train_metric_windows[metric_name]
+                                    mean_metrics[metric_name] = float(sum(metric_history) / len(metric_history))
 
-                        if self.global_step % self.optimization_config.logging_steps == 0:
-                            mean_metrics: Dict[str, float] = {}
-                            mean_metrics["loss"] = float(sum(train_loss_window) / len(train_loss_window))
-                            for metric_name in train_metric_windows:
-                                metric_history = train_metric_windows[metric_name]
-                                mean_metrics[metric_name] = float(sum(metric_history) / len(metric_history))
+                                reduced_metrics = self._reduce_train_metrics(mean_metrics)
+                                if self.is_main_process:
+                                    learning_rate = float(self.scheduler.get_last_lr()[0])
+                                    print(f"Train step {self.global_step}: {reduced_metrics}")
+                                    train_progress.set_postfix(
+                                        loss=f"{reduced_metrics['loss']:.4f}",
+                                        lr=f"{learning_rate:.2e}",
+                                    )
+                                self._log_prefixed_metrics("train", reduced_metrics)
 
-                            reduced_metrics = self._reduce_train_metrics(mean_metrics)
-                            if self.is_main_process:
-                                learning_rate = float(self.scheduler.get_last_lr()[0])
-                                print(f"Train step {self.global_step}: {reduced_metrics}")
-                                train_progress.set_postfix(
-                                    loss=f"{reduced_metrics['loss']:.4f}",
-                                    lr=f"{learning_rate:.2e}",
-                                )
-                            self._log_prefixed_metrics("train", reduced_metrics)
+                                train_loss_window = []
+                                train_metric_windows = {}
 
-                            train_loss_window = []
-                            train_metric_windows = {}
+                            if self.global_step % eval_every == 0:
+                                valid_metrics = self.evaluate(eval_dataset=self.valid_dataset, prefix="valid")
+                                if self.is_main_process:
+                                    print(f"Validation at step {self.global_step}: {valid_metrics}")
 
-                        if self.global_step % eval_every == 0:
-                            valid_metrics = self.evaluate(eval_dataset=self.valid_dataset, prefix="valid")
-                            if self.is_main_process:
-                                print(f"Validation at step {self.global_step}: {valid_metrics}")
+                            if self.global_step % self.optimization_config.save_every == 0:
+                                self._save_checkpoint(self.global_step)
 
-                        if self.global_step % self.optimization_config.save_every == 0:
-                            self._save_checkpoint(self.global_step)
+                        if self.global_step >= self.optimization_config.max_steps:
+                            break
+                        if exhausted:
+                            patches = []
+                        else:
+                            patches, exhausted = prefetcher.get()
+                finally:
+                    prefetcher.shutdown()
         finally:
             train_progress.close()
 

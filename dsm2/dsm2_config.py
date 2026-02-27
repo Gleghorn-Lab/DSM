@@ -49,6 +49,7 @@ class DSM2LossConfig:
     alpha_jepa: float
     alpha_contrastive: float
     teacher_free_percent: float
+    aux_loss_warmup_percent: float
     patch_size: int
 
 

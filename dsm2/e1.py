@@ -19,6 +19,15 @@ from models.FastPLMs.embedding_mixin import Pooler
 
 logger = logging.get_logger(__name__)
 
+
+def _infer_kernels_flash_variant(kernel: Any) -> str | None:
+    if hasattr(kernel, "fwd") and hasattr(kernel, "varlen_fwd"):
+        return "flash_attn2"
+    if hasattr(kernel, "flash_attn_func") and hasattr(kernel, "flash_attn_varlen_func"):
+        return "flash_attn3"
+    return None
+
+
 ### Establish attention compatibility
 try:
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -41,17 +50,23 @@ except ImportError:
 
 try:
     from kernels import get_kernel
+    flash_kernel_variant = None
     try:
         flash_kernel = get_kernel("kernels-community/flash-attn3")
+        flash_kernel_variant = _infer_kernels_flash_variant(flash_kernel)
         logger.info(f"Using flash-attn3 kernel: {flash_kernel}")
+        assert flash_kernel_variant is not None, "Loaded flash-attn3 kernel does not expose a supported API."
     except Exception as e1:
         logger.warning(f"Failed to load flash-attn3 kernel: {e1}")
         try:
             flash_kernel = get_kernel("kernels-community/flash-attn2")
+            flash_kernel_variant = _infer_kernels_flash_variant(flash_kernel)
             logger.info(f"Using flash-attn2 kernel: {flash_kernel}")
+            assert flash_kernel_variant is not None, "Loaded flash-attn2 kernel does not expose a supported API."
         except Exception as e2:
             logger.warning(f"Failed to load flash-attn2 kernel: {e2}")
             flash_kernel = None
+            flash_kernel_variant = None
     try:
         layer_norm = get_kernel("kernels-community/triton-layer-norm")
         logger.info(f"Using triton-layer-norm kernel: {layer_norm}")
@@ -62,11 +77,98 @@ try:
 except Exception as e:
     logger.warning(f"Failed to load kernels package components: {e}")
     flash_kernel = None
+    flash_kernel_variant = None
     layer_norm = None
 
 
 def is_kernels_flash_attention_available() -> bool:
     return flash_kernel is not None and (os.getenv("USE_KERNELS_FLASH_ATTN", "1") == "1")
+
+
+def _kernels_flash_forward(
+    query_states: torch.Tensor,
+    key_states: torch.Tensor,
+    value_states: torch.Tensor,
+    causal: bool,
+) -> torch.Tensor:
+    assert flash_kernel is not None, "Kernel Flash Attention is not available in this environment."
+
+    if flash_kernel_variant == "flash_attn2":
+        return flash_kernel.fwd(q=query_states, k=key_states, v=value_states, is_causal=causal)[0]  # type: ignore[union-attr]
+    if flash_kernel_variant == "flash_attn3":
+        try:
+            output = flash_kernel.flash_attn_func(  # type: ignore[union-attr]
+                q=query_states,
+                k=key_states,
+                v=value_states,
+                causal=causal,
+            )
+        except TypeError:
+            output = flash_kernel.flash_attn_func(  # type: ignore[union-attr]
+                query_states,
+                key_states,
+                value_states,
+                0.0,
+                None,
+                causal,
+            )
+        if isinstance(output, tuple):
+            return output[0]
+        return output
+    raise AssertionError(f"Unsupported kernels flash attention variant: {flash_kernel_variant}")
+
+
+def _kernels_flash_varlen_forward(
+    query_states: torch.Tensor,
+    key_states: torch.Tensor,
+    value_states: torch.Tensor,
+    cu_seqlens_q: torch.Tensor,
+    cu_seqlens_k: torch.Tensor,
+    max_seqlen_in_batch_q: int,
+    max_seqlen_in_batch_k: int,
+) -> torch.Tensor:
+    assert flash_kernel is not None, "Kernel Flash Attention is not available in this environment."
+
+    if flash_kernel_variant == "flash_attn2":
+        return flash_kernel.varlen_fwd(  # type: ignore[union-attr]
+            q=query_states,
+            k=key_states,
+            v=value_states,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_in_batch_q,
+            max_seqlen_k=max_seqlen_in_batch_k,
+            is_causal=False,
+        )[0]
+    if flash_kernel_variant == "flash_attn3":
+        try:
+            output = flash_kernel.flash_attn_varlen_func(  # type: ignore[union-attr]
+                q=query_states,
+                k=key_states,
+                v=value_states,
+                cu_seqlens_q=cu_seqlens_q,
+                cu_seqlens_k=cu_seqlens_k,
+                max_seqlen_q=max_seqlen_in_batch_q,
+                max_seqlen_k=max_seqlen_in_batch_k,
+                causal=False,
+            )
+        except TypeError:
+            output = flash_kernel.flash_attn_varlen_func(  # type: ignore[union-attr]
+                query_states,
+                key_states,
+                value_states,
+                cu_seqlens_q,
+                cu_seqlens_k,
+                max_seqlen_in_batch_q,
+                max_seqlen_in_batch_k,
+                0.0,
+                None,
+                False,
+            )
+        if isinstance(output, tuple):
+            return output[0]
+        return output
+    raise AssertionError(f"Unsupported kernels flash attention variant: {flash_kernel_variant}")
 
 
 def is_flex_attention_available() -> bool:
@@ -165,19 +267,23 @@ def kernels_flash_attention_func(
             (max_seqlen_in_batch_q, max_seqlen_in_batch_k),
         ) = _unpad_input(query_states, key_states, value_states, q_sequence_ids, k_sequence_ids)
 
-        attn_output_unpad = flash_kernel.varlen_fwd(  # type: ignore[union-attr]
-            q=query_states,
-            k=key_states,
-            v=value_states,
+        attn_output_unpad = _kernels_flash_varlen_forward(
+            query_states=query_states,
+            key_states=key_states,
+            value_states=value_states,
             cu_seqlens_q=cu_seqlens_q,
             cu_seqlens_k=cu_seqlens_k,
-            max_seqlen_q=max_seqlen_in_batch_q,
-            max_seqlen_k=max_seqlen_in_batch_k,
-            is_causal=False,
-        )[0]
+            max_seqlen_in_batch_q=max_seqlen_in_batch_q,
+            max_seqlen_in_batch_k=max_seqlen_in_batch_k,
+        )
         attn_output = pad_input(attn_output_unpad, indices_q, batch_size, q_len)
     else:
-        attn_output = flash_kernel.fwd(q=query_states, k=key_states, v=value_states, is_causal=True)[0]  # type: ignore[union-attr]
+        attn_output = _kernels_flash_forward(
+            query_states=query_states,
+            key_states=key_states,
+            value_states=value_states,
+            causal=True,
+        )
 
     return attn_output
 
@@ -1203,7 +1309,7 @@ class Attention(nn.Module):
         attn_output = kernels_flash_attention_func(
             query_states=query_states,
             key_states=key_states,
-            val_states=val_states,
+            value_states=val_states,
             q_sequence_ids=q_sequence_ids,
             k_sequence_ids=k_sequence_ids,
             causal=False,

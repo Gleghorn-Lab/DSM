@@ -1,0 +1,12 @@
+# Ignore everything by default
+*
+
+# Keep Python source files anywhere in the tree
+!**/*.py
+
+# Keep dependency manifest used during build
+!requirements.txt
+
+# Keep tokenizer assets used by E1/DSM2 initialization
+!dsm2/tokenizer.json
+!models/FastPLMs/e1_fastplms/tokenizer.json
