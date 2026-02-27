@@ -16,10 +16,12 @@ class DSM2Config(E1Config):
     def __init__(
         self,
         teacher_hidden_size: int = 768,
+        use_teacher_projections: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.teacher_hidden_size = teacher_hidden_size
+        self.use_teacher_projections = use_teacher_projections
 
 
 @dataclass
@@ -144,11 +146,14 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         self.ce_loss = nn.CrossEntropyLoss(ignore_index=-100, reduction='none')
         self.mask_token_id = self.tokenizer.mask_token_id
 
-        # Projection layers to align student hidden states to teacher hidden size
-        self.teacher_projections = nn.ModuleList([
-            nn.Linear(config.hidden_size, config.teacher_hidden_size)
-            for _ in range(config.num_hidden_layers)
-        ])
+        # Projection layers align student hidden states to teacher hidden size when distillation dims differ.
+        if config.use_teacher_projections:
+            self.teacher_projections = nn.ModuleList([
+                nn.Linear(config.hidden_size, config.teacher_hidden_size)
+                for _ in range(config.num_hidden_layers)
+            ])
+        else:
+            self.teacher_projections = None
         
         self.special_token_ids = self.get_special_token_ids()
 
@@ -253,12 +258,13 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
 
         all_hidden_states = outputs.hidden_states
         assert all_hidden_states is not None, "DSM2 requires hidden_states from the student model."
-            
+        student_states_for_distill = tuple(all_hidden_states[: self.config.num_hidden_layers])
+
         if self.teacher_projections is None:
-            projected_student_states = tuple(all_hidden_states)
+            projected_student_states = student_states_for_distill
         else:
             projected_student_states = []
-            for state, proj in zip(all_hidden_states, self.teacher_projections):
+            for state, proj in zip(student_states_for_distill, self.teacher_projections):
                 projected_student_states.append(proj(state))
             projected_student_states = tuple(projected_student_states)
         
@@ -281,6 +287,15 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         contrastive_loss_val = None
 
         if teacher_hidden_states is not None:
+            assert len(projected_student_states) == len(teacher_hidden_states), (
+                f"Student hidden states ({len(projected_student_states)}) and teacher hidden states ({len(teacher_hidden_states)}) "
+                "must have the same number of layers."
+            )
+            if self.teacher_projections is None and ((alpha_jepa > 0.0) or (alpha_contrastive > 0.0)):
+                assert projected_student_states[0].shape[-1] == teacher_hidden_states[0].shape[-1], (
+                    f"Teacher hidden size ({teacher_hidden_states[0].shape[-1]}) does not match student hidden size "
+                    f"({projected_student_states[0].shape[-1]}). Set use_teacher_projections=True, or disable distillation losses."
+                )
             if alpha_jepa > 0.0:
                 jepa_loss_val = jepa_loss(
                     student_hidden_states=projected_student_states,

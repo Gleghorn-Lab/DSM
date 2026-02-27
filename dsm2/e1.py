@@ -41,15 +41,28 @@ except ImportError:
 
 try:
     from kernels import get_kernel
-    flash_kernel = get_kernel("kernels-community/flash-attn")
-    layer_norm = get_kernel("kernels-community/triton-layer-norm")
+    try:
+        flash_kernel = get_kernel("kernels-community/flash-attn3")
+        logger.info(f"Using flash-attn3 kernel: {flash_kernel}")
+    except Exception as e1:
+        logger.warning(f"Failed to load flash-attn3 kernel: {e1}")
+        try:
+            flash_kernel = get_kernel("kernels-community/flash-attn2")
+            logger.info(f"Using flash-attn2 kernel: {flash_kernel}")
+        except Exception as e2:
+            logger.warning(f"Failed to load flash-attn2 kernel: {e2}")
+            flash_kernel = None
+    try:
+        layer_norm = get_kernel("kernels-community/triton-layer-norm")
+        logger.info(f"Using triton-layer-norm kernel: {layer_norm}")
+    except Exception as e3:
+        logger.warning(f"Failed to load triton-layer-norm kernel: {e3}")
+        layer_norm = None
+        logger.warning("Will be using PyTorch RMSNorm instead")
 except Exception as e:
     logger.warning(f"Failed to load kernels package components: {e}")
     flash_kernel = None
     layer_norm = None
-
-if layer_norm is None:
-    logger.warning("Will be using PyTorch RMSNorm instead")
 
 
 def is_kernels_flash_attention_available() -> bool:

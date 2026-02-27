@@ -180,6 +180,7 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
             num_key_value_heads=config.model.student_hidden_size // 64,
             num_hidden_layers=teacher_config.num_hidden_layers,
             teacher_hidden_size=teacher_config.hidden_size,
+            use_teacher_projections=True,
             global_attention_every_n_layers=0,
             attn_backend=config.model.attn_backend,
         )
@@ -190,6 +191,7 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
             trust_remote_code=True,
         )
         student_config.teacher_hidden_size = teacher_config.hidden_size
+        student_config.use_teacher_projections = False
         student_config.attn_backend = config.model.attn_backend
         student_model = DSM2.from_pretrained(
             config.model.pretrained_weights,
@@ -197,6 +199,8 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
             trust_remote_code=True,
             dtype=torch.bfloat16,
         )
+        student_model.teacher_projections = None
+        student_model.config.use_teacher_projections = False
     student_model = student_model.to(torch.bfloat16)
     student_model.attn_backend = config.model.attn_backend
     return student_model
