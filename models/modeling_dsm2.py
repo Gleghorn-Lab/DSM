@@ -1,14 +1,13 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
 from transformers.modeling_outputs import ModelOutput
 
 from dsm2.e1 import E1Config, E1ForMaskedLM
+from dsm2.losses import contrastive_loss, jepa_loss
 from .generate_mixin import GenerateMixin
-from .FastPLMs.embedding_mixin import Pooler
 
 
 class DSM2Config(E1Config):
@@ -36,103 +35,6 @@ class DSM2Output(ModelOutput):
     student_hidden_states: Optional[Tuple[torch.Tensor]] = None
     t: Optional[torch.Tensor] = None
     s_max: Optional[Tuple[List[torch.Tensor]]] = None
-
-
-def pool_states(hidden_states: Tuple[torch.Tensor, ...]) -> torch.Tensor:
-    """
-    Pools a tuple of hidden states natively using mean and var pooling.
-    Returns stacked pooled states of shape (num_layers, b, 2d).
-    """
-    pooler = Pooler(pooling_types=["mean", "var"])
-    stacked = torch.stack(hidden_states)
-    pooled = []
-    for layer in stacked:
-        pooled.append(pooler(layer)) # (b, 2d)
-    return torch.stack(pooled) # (num_layers, b, 2d)
-
-
-def contrastive_loss_from_pooled(
-    s_pooled: torch.Tensor,
-    t_pooled: torch.Tensor,
-    **kwargs: Any,
-) -> torch.Tensor:
-    """
-    Computes depth-weighted contrastive loss from pre-pooled student and teacher representations.
-    s_pooled, t_pooled: (num_layers, b, 2d)
-    """
-    num_layers, batch_size, vector_size = s_pooled.shape
-    scale = 1 / (vector_size ** 0.5)
-    # (num_layers, b, b)
-    intra_student_reps = torch.bmm(s_pooled, s_pooled.transpose(1, 2)) * scale
-    intra_teacher_reps = torch.bmm(t_pooled, t_pooled.transpose(1, 2)) * scale
-
-    # (num_layers, b, b)
-    squared_diff = (intra_student_reps - intra_teacher_reps) ** 2
-
-    # Weight by depth
-    depth_weights = torch.arange(1, num_layers + 1, device=squared_diff.device, dtype=squared_diff.dtype) / num_layers
-    # (num_layers, 1, 1)
-    depth_weights = depth_weights.view(num_layers, 1, 1)
-
-    weighted_squared_diff = squared_diff * depth_weights
-
-    # Average over layers and batch pairs
-    layer_batch_loss = weighted_squared_diff.mean(dim=0).mean() # scalar
-
-    return layer_batch_loss
-
-
-def contrastive_loss(
-    student_hidden_states: Tuple[torch.Tensor, ...],
-    teacher_hidden_states: Tuple[torch.Tensor, ...],
-    **kwargs: Any,
-) -> torch.Tensor:
-    """
-    Computes a depth-weighted contrastive loss mapping student representations
-    to teacher representations, scaled by the inverse of the mask rate.
-    """
-    assert len(student_hidden_states) == len(teacher_hidden_states), "Student and teacher hidden states must have the same number of layers"
-    s_pooled = pool_states(student_hidden_states)
-    t_pooled = pool_states(teacher_hidden_states)
-    return contrastive_loss_from_pooled(s_pooled, t_pooled)
-
-
-def jepa_loss(
-    student_hidden_states: Tuple[torch.Tensor, ...],
-    teacher_hidden_states: Tuple[torch.Tensor, ...],
-    attention_mask: torch.Tensor,
-    **kwargs: Any,
-) -> torch.Tensor:
-    """
-    Computes depth-weighted MSE between student and teacher hidden states for unmasked tokens,
-    scaled by inverse mask rate.
-    """
-    assert len(student_hidden_states) == len(teacher_hidden_states), "Student and teacher hidden states must have the same number of layers"
-    num_layers = len(student_hidden_states)
-    
-    mask = attention_mask.bool() # (b, seq_len)
-
-    # Stack to (num_layers, b, seq_len, d)
-    s_stacked = torch.stack(student_hidden_states)
-    t_stacked = torch.stack(teacher_hidden_states)
-
-    # MSE per token, (num_layers, b, seq_len, d)
-    squared_diff = (s_stacked - t_stacked) ** 2
-    
-    # Mean over hidden dimension, (num_layers, b, seq_len)
-    mse_per_token = squared_diff.mean(dim=-1)
-
-    # Weight by layer depth, (num_layers, 1, 1)
-    depth_weights = torch.arange(1, num_layers + 1, device=squared_diff.device, dtype=squared_diff.dtype) / num_layers
-    depth_weights = depth_weights.view(num_layers, 1, 1)
-
-    weighted_mse = mse_per_token * depth_weights
-
-    # Filter out padding tokens and sum up
-    valid_mse = weighted_mse[:, mask]
-
-    # Average over valid tokens and layers
-    return valid_mse.mean()
 
 
 class DSM2(E1ForMaskedLM, GenerateMixin):
@@ -324,56 +226,3 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
             t=t,
             s_max=outputs.s_max,
         )
-
-if __name__ == "__main__":
-    # Test vectorization locally
-    from FastPLMs.embedding_mixin import Pooler
-    
-    b = 2
-    l = 16
-    d = 32
-    num_layers = 4
-    
-    # student & teacher mock
-    s_states = tuple(torch.randn(b, l, d) for _ in range(num_layers))
-    t_states = tuple(torch.randn(b, l, d) for _ in range(num_layers))
-    
-    attn_mask = torch.ones(b, l)
-    p_mask = torch.full((b, l), 0.15)
-    
-    # naive jepa loop
-    def old_jepa(s_states, t_states, attn_mask):
-        mask = attn_mask.bool()
-        loss = 0
-        for depth, (s, t) in enumerate(zip(s_states, t_states)):
-            s_masked = s[mask]
-            t_masked = t[mask]
-            layer_loss = F.mse_loss(s_masked, t_masked)
-            layer_loss *= (depth + 1) / len(s_states)
-            loss += layer_loss
-        return loss
-    
-    # Run
-    old_j_res = old_jepa(s_states, t_states, attn_mask)
-    new_j_res = jepa_loss(s_states, t_states, attn_mask, p_mask)
-    print("Old JEPA form (unscaled by 1/p):", old_j_res.item())
-    # New JEPA scaled by ~ 6.66 on average
-    print("New Vectorized JEPA (scaled by 1/p):", new_j_res.item())
-    
-    def old_contrastive(s_states, t_states):
-        pooler = Pooler(pooling_types=["mean", "var"])
-        loss = 0
-        for depth, (s, t) in enumerate(zip(s_states, t_states)):
-            sp = pooler(s)
-            tp = pooler(t)
-            intra_s = sp.matmul(sp.T)
-            intra_t = tp.matmul(tp.T)
-            layer_loss = F.mse_loss(intra_s, intra_t)
-            layer_loss *= (depth + 1) / len(s_states)
-            loss += layer_loss
-        return loss
-    
-    old_c_res = old_contrastive(s_states, t_states)
-    new_c_res = contrastive_loss(s_states, t_states)
-    print("Old Contrastive form (unscaled):", old_c_res.item())
-    print("New Vectorized Contrastive form (scaled weight):", new_c_res.item())
