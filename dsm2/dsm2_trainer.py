@@ -104,17 +104,23 @@ class DSM2Trainer(BasePatchBatchTrainer):
         print("EMA active: dropping teacher projections and original teacher model.")
 
         student_base_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
-        assert student_base_model.teacher_projections is not None, "student teacher_projections must exist before cleanup."
-        projection_params = list(student_base_model.teacher_projections.parameters())
-        if isinstance(self.optimizer, MuonAdamWWrapper):
-            self.optimizer.remove_params(projection_params)
-        student_base_model.teacher_projections = None
+        if student_base_model.teacher_projections is not None:
+            projection_params = list(student_base_model.teacher_projections.parameters())
+            if isinstance(self.optimizer, MuonAdamWWrapper):
+                self.optimizer.remove_params(projection_params)
+            student_base_model.teacher_projections = None
+            print("EMA cleanup: removed student teacher_projections.")
+        else:
+            print("EMA cleanup: student teacher_projections already absent (pretrained path).")
 
         ema_teacher = unwrapped_model.ema_teacher
         assert ema_teacher is not None, "ema_teacher must exist before cleanup."
         ema_base_model = extract_model_from_parallel(ema_teacher, keep_torch_compile=False)
-        assert ema_base_model.teacher_projections is not None, "ema teacher_projections must exist before cleanup."
-        ema_base_model.teacher_projections = None
+        if ema_base_model.teacher_projections is not None:
+            ema_base_model.teacher_projections = None
+            print("EMA cleanup: removed EMA teacher_projections.")
+        else:
+            print("EMA cleanup: EMA teacher_projections already absent.")
 
         self.teacher_model = None
         if torch.cuda.is_available():
