@@ -16,10 +16,12 @@ class DSM2RuntimeConfig:
 @dataclass
 class DSM2ModelConfig:
     teacher_model_path: str
+    pretrained_weights: str | None
     student_hidden_size: int
     student_expansion_ratio: float
     sliding_window_size: int
     dilation: int
+    attn_backend: str
 
 
 @dataclass
@@ -34,6 +36,7 @@ class DSM2OptimizationConfig:
     warmup_steps: int
     logging_steps: int
     max_grad_norm: float
+    use_muon: bool
     muon_lr: float
     muon_tau: float
     dataloader_num_workers: int

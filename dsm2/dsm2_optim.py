@@ -2,6 +2,12 @@ import torch
 import torch.distributed as dist
 
 
+class _QKClipAttentionView:
+    def __init__(self, attention_module: torch.nn.Module):
+        self.W_q = attention_module.q_proj
+        self.W_k = attention_module.k_proj
+
+
 class MuonAdamWWrapper(torch.optim.Optimizer):
     def __init__(self, muonclip, adamw: torch.optim.AdamW):
         self.muonclip = muonclip
@@ -83,13 +89,30 @@ def partition_dsm2_parameters(model):
     attention_params = []
 
     for name, param in model.named_parameters():
-        if (param.ndim >= 2) and ("embed" not in name) and ("lm_head" not in name):
+        if (param.ndim >= 2) and ("embed" not in name) and ("lm_head" not in name) and ("mlm_head" not in name):
             muon_params.append(param)
         else:
             adamw_params.append(param)
 
-    for block in model.transformer.blocks:
-        attention_params.append(block.attn)
+    legacy_transformer_blocks = None
+    try:
+        legacy_transformer_blocks = model.transformer.blocks
+    except AttributeError:
+        legacy_transformer_blocks = None
+
+    if legacy_transformer_blocks is not None:
+        for block in legacy_transformer_blocks:
+            attention_params.append(block.attn)
+    else:
+        e1_layers = None
+        try:
+            e1_layers = model.model.layers
+        except AttributeError:
+            e1_layers = None
+
+        assert e1_layers is not None, "Could not locate attention layers for MuonClip."
+        for layer in e1_layers:
+            attention_params.append(_QKClipAttentionView(layer.norm_attn_norm.self_attn))
 
     assert len(muon_params) > 0, "No parameters selected for Muon."
     assert len(adamw_params) > 0, "No parameters selected for AdamW."

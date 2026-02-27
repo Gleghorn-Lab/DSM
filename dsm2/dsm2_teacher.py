@@ -1,6 +1,7 @@
 import torch
 
-def load_teacher_model(teacher_model_path: str, device: str | torch.device):
+
+def load_teacher_model(teacher_model_path: str, device: str | torch.device, attn_backend: str = "flex"):
     model_lower = teacher_model_path.lower()
     print(f"Loading Teacher Model from {teacher_model_path}...")
 
@@ -31,6 +32,15 @@ def load_teacher_model(teacher_model_path: str, device: str | torch.device):
             dtype=torch.bfloat16,
             device_map=device,
         ).eval()
+    elif "e1" in model_lower:
+        from dsm2.e1 import E1ForMaskedLM
+
+        teacher_model = E1ForMaskedLM.from_pretrained(
+            teacher_model_path,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+            device_map=device,
+        ).eval()
     else:
         from models.FastPLMs.esm_plusplus.modeling_esm_plusplus import ESMplusplusModel
 
@@ -41,7 +51,13 @@ def load_teacher_model(teacher_model_path: str, device: str | torch.device):
             device_map=device,
         ).eval()
 
-    teacher_model.attn_backend = "flex"
+    try:
+        teacher_model.attn_backend = attn_backend
+    except Exception:
+        try:
+            teacher_model.attn_backend = "flex"
+        except Exception:
+            pass
     for param in teacher_model.parameters():
         param.requires_grad = False
 

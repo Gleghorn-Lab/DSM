@@ -4,3 +4,6 @@
 [submodule "Efficient-MuonClip"]
 	path = Efficient-MuonClip
 	url = https://github.com/axion66/Efficient-MuonClip.git/
+[submodule "E1"]
+	path = E1
+	url = https://github.com/Profluent-AI/E1.git

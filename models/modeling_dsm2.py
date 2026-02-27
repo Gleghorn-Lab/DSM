@@ -1,17 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from typing import Optional, Tuple, Any, Union, List
-from transformers.modeling_outputs import ModelOutput
 from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple
 
-from .plm import PLMForMaskedLM, PLMConfig
+from transformers.modeling_outputs import ModelOutput
+
+from dsm2.e1 import E1Config, E1ForMaskedLM
 from .generate_mixin import GenerateMixin
-from .FastPLMs.embedding_mixin import EmbeddingMixin, Pooler
+from .FastPLMs.embedding_mixin import Pooler
 
 
-class DSM2Config(PLMConfig):
+class DSM2Config(E1Config):
     model_type = "dsm2"
     def __init__(
         self,
@@ -133,10 +133,10 @@ def jepa_loss(
     return valid_mse.mean()
 
 
-class DSM2(PLMForMaskedLM, GenerateMixin):
+class DSM2(E1ForMaskedLM, GenerateMixin):
     config_class = DSM2Config
     def __init__(self, config: DSM2Config, **kwargs):
-        PLMForMaskedLM.__init__(self, config, **kwargs)
+        E1ForMaskedLM.__init__(self, config, **kwargs)
         GenerateMixin.__init__(self)
         self.config = config
         self.vocab_size = config.vocab_size
@@ -153,11 +153,20 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
         self.special_token_ids = self.get_special_token_ids()
 
     def get_special_token_ids(self, extra_tokens: Optional[List[str]] = None):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         mask_token = self.tokenizer.mask_token
-        self.special_token_ids = [self.tokenizer.convert_tokens_to_ids(v) for k, v in self.tokenizer.special_tokens_map.items() if v != mask_token]
+        collected_tokens: list[str] = []
+        for token_value in self.tokenizer.special_tokens_map.values():
+            if isinstance(token_value, str):
+                if token_value != mask_token:
+                    collected_tokens.append(token_value)
+            elif isinstance(token_value, list):
+                for token in token_value:
+                    if token != mask_token:
+                        collected_tokens.append(token)
+        self.special_token_ids = [self.tokenizer.convert_tokens_to_ids(token) for token in collected_tokens]
         if extra_tokens is not None:
-            self.special_token_ids.extend([self.tokenizer.convert_tokens_to_ids(v) for v in extra_tokens])
+            self.special_token_ids.extend([self.tokenizer.convert_tokens_to_ids(token) for token in extra_tokens])
         self.special_token_ids = list(set(self.special_token_ids))
         self.special_token_ids = torch.tensor(self.special_token_ids, device=device).flatten()
         return self.special_token_ids
@@ -167,21 +176,27 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
         self,
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
+        token_type_ids: Optional[torch.Tensor] = None,
         **kwargs: Any
     ) -> torch.Tensor:
+        model_kwargs: dict[str, Any] = {}
+        if token_type_ids is not None:
+            model_kwargs["token_type_ids"] = token_type_ids
         outputs = super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
             output_hidden_states=False,
             output_attentions=False,
+            **model_kwargs,
         )
-        last_hidden_state = outputs.last_hidden_state
-        return self.lm_head(last_hidden_state)
+        assert outputs.logits is not None, "Student model must return logits."
+        return outputs.logits
 
     def forward(
         self,
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
+        token_type_ids: Optional[torch.Tensor] = None,
         teacher_hidden_states: Optional[Tuple[torch.Tensor, ...]] = None,
         alpha_ce: float = 1.0,
         alpha_jepa: float = 1.0,
@@ -205,27 +220,39 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
         p_mask = t[:, None].repeat(1, seq_len)
         mask_indices = torch.rand(batch_size, seq_len, device=device) < p_mask
         
-        # ensure special_token_ids is on the same device
-        if getattr(self, 'special_token_ids', None) is not None:
-            special_mask = torch.isin(input_ids, self.special_token_ids.to(device))
-            mask_indices = mask_indices & ~special_mask & attention_mask.bool()
-        else:
-            mask_indices = mask_indices & attention_mask.bool()
+        special_mask = torch.isin(input_ids, self.special_token_ids.to(device))
+        mask_indices = mask_indices & ~special_mask & attention_mask.bool()
 
         noisy_batch = torch.where(mask_indices, self.mask_token_id, input_ids)
         labels = input_ids.clone()
         non_mask_indices = ~mask_indices | (attention_mask == 0)
         labels[non_mask_indices] = -100
 
+        output_s_max = self.training
+        if "output_s_max" in kwargs:
+            output_s_max = kwargs["output_s_max"]
+
+        model_kwargs: dict[str, Any] = {}
+        if token_type_ids is not None:
+            model_kwargs["token_type_ids"] = token_type_ids
+        if "within_seq_position_ids" in kwargs:
+            model_kwargs["within_seq_position_ids"] = kwargs["within_seq_position_ids"]
+        if "global_position_ids" in kwargs:
+            model_kwargs["global_position_ids"] = kwargs["global_position_ids"]
+        if "sequence_ids" in kwargs:
+            model_kwargs["sequence_ids"] = kwargs["sequence_ids"]
+
         outputs = super().forward(
             input_ids=noisy_batch,
             attention_mask=attention_mask,
             output_hidden_states=True,
             output_attentions=False,
-            output_s_max=self.training,
+            output_s_max=output_s_max,
+            **model_kwargs,
         )
 
         all_hidden_states = outputs.hidden_states
+        assert all_hidden_states is not None, "DSM2 requires hidden_states from the student model."
             
         if self.teacher_projections is None:
             projected_student_states = tuple(all_hidden_states)
@@ -236,7 +263,7 @@ class DSM2(PLMForMaskedLM, GenerateMixin):
             projected_student_states = tuple(projected_student_states)
         
         last_hidden_state = outputs.last_hidden_state
-        lm_logits = self.lm_head(last_hidden_state)
+        lm_logits = self.mlm_head(last_hidden_state)
 
         joint_mask = mask_indices & attention_mask.bool()
         if not joint_mask.any():

@@ -20,7 +20,7 @@ pip install --upgrade pip setuptools
 
 # Install requirements with force reinstall
 echo "Installing requirements"
-pip install -r requirements.txt -U
+pip install -r requirements.txt
 
 # Install torch and torchvision
 echo "Installing torch and torchvision..."

@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--wandb_token", type=str, default=None, help="Wandb token")
     parser.add_argument("--wandb_project", type=str, default="DSM2", help="Wandb project name")
     parser.add_argument("--teacher_model_path", type=str, default="Synthyra/DPLM-3B", help="Path to initialize the teacher model from")
+    parser.add_argument("--pretrained_weights", type=str, default=None, help="Optional HF path to seed DSM2 student weights via from_pretrained")
     parser.add_argument("--student_hidden_size", type=int, default=256, help="Hidden size for the student model")
     parser.add_argument("--student_expansion_ratio", type=float, default=4.0, help="FFN expansion ratio for the student model")
     parser.add_argument("--data_path", type=str, default="Synthyra/uniref50", help="Dataset repository containing train/valid/test splits")
@@ -49,11 +50,13 @@ def parse_args():
     parser.add_argument("--max_length", type=int, default=2048, help="Maximum tokenized sequence length")
     parser.add_argument("--sliding_window_size", type=int, default=512, help="Sliding-window size for flex attention")
     parser.add_argument("--dilation", type=int, default=16, help="Dilation factor for flex attention")
+    parser.add_argument("--attn_backend", type=str, default="auto", choices=["auto", "kernels_flash", "flash_attn", "flex", "sdpa"], help="Attention backend for DSM2 student")
     parser.add_argument("--save_every", type=int, default=1000, help="Save every N optimizer steps")
     parser.add_argument("--eval_every", type=int, default=0, help="Evaluate every N optimizer steps (<=0 uses save_every)")
     parser.add_argument("--logging_steps", type=int, default=100, help="Train metric logging frequency in optimizer steps")
     parser.add_argument("--ema_start_percent", type=float, default=0.4, help="Fraction of steps before EMA teacher starts")
     parser.add_argument("--ema_decay", type=float, default=0.999, help="EMA decay factor")
+    parser.add_argument("--muon", action="store_true", help="Enable MuonClip optimizer and s_max tracking")
     parser.add_argument("--muon_lr", type=float, default=0.001, help="Muon optimizer learning rate")
     parser.add_argument("--muon_tau", type=float, default=100.0, help="QK-Clip tau threshold")
     parser.add_argument("--train_limit", type=int, default=0, help="Maximum train samples to load (<=0 uses full split)")
@@ -61,7 +64,7 @@ def parse_args():
     parser.add_argument("--test_limit", type=int, default=1000, help="Maximum test samples to load (<=0 uses full split)")
     parser.add_argument("--shuffle_seed", type=int, default=42, help="Random seed used for dataset shuffling")
     parser.add_argument("--max_grad_norm", type=float, default=0.0, help="Gradient clipping norm, 0 disables")
-    parser.add_argument("--dataloader_num_workers", type=int, default=4, help="Number of dataloader workers")
+    parser.add_argument("--dataloader_num_workers", type=int, default=0, help="Number of dataloader workers")
     parser.add_argument("--dataloader_prefetch_factor", type=int, default=2, help="Dataloader prefetch factor when workers > 0")
     parser.add_argument("--distributed_backend", type=str, default="gloo", help="Torch distributed backend")
     parser.add_argument("--no_init_distributed", action="store_true", help="Do not initialize process groups in the trainer")
@@ -90,10 +93,12 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
     )
     model_config = DSM2ModelConfig(
         teacher_model_path=args.teacher_model_path,
+        pretrained_weights=args.pretrained_weights,
         student_hidden_size=args.student_hidden_size,
         student_expansion_ratio=args.student_expansion_ratio,
         sliding_window_size=args.sliding_window_size,
         dilation=args.dilation,
+        attn_backend=args.attn_backend,
     )
     optimization_config = DSM2OptimizationConfig(
         learning_rate=args.lr,
@@ -106,6 +111,7 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         warmup_steps=0,
         logging_steps=args.logging_steps,
         max_grad_norm=args.max_grad_norm,
+        use_muon=args.muon,
         muon_lr=args.muon_lr,
         muon_tau=args.muon_tau,
         dataloader_num_workers=args.dataloader_num_workers,
@@ -161,23 +167,49 @@ def initialize_wandb(config: DSM2TrainConfigBundle):
 def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
     from models.modeling_dsm2 import DSM2, DSM2Config
 
-    student_config = DSM2Config(
-        vocab_size=teacher_config.vocab_size,
-        hidden_size=config.model.student_hidden_size,
-        num_attention_heads=config.model.student_hidden_size // 64,
-        num_hidden_layers=teacher_config.num_hidden_layers,
-        teacher_hidden_size=teacher_config.hidden_size,
-        expansion_ratio=config.model.student_expansion_ratio,
-        attn_backend="flex",
-        sliding_window_size=config.model.sliding_window_size,
-        dilation=config.model.dilation,
-    )
-    student_model = DSM2(student_config).to(torch.bfloat16)
-    student_model.attn_backend = "flex"
+    if config.model.pretrained_weights is None:
+        assert config.model.student_hidden_size % 64 == 0, (
+            f"student_hidden_size must be divisible by 64, got {config.model.student_hidden_size}."
+        )
+        intermediate_size = int(config.model.student_hidden_size * config.model.student_expansion_ratio)
+        student_config = DSM2Config(
+            vocab_size=teacher_config.vocab_size,
+            hidden_size=config.model.student_hidden_size,
+            intermediate_size=intermediate_size,
+            num_attention_heads=config.model.student_hidden_size // 64,
+            num_key_value_heads=config.model.student_hidden_size // 64,
+            num_hidden_layers=teacher_config.num_hidden_layers,
+            teacher_hidden_size=teacher_config.hidden_size,
+            global_attention_every_n_layers=0,
+            attn_backend=config.model.attn_backend,
+        )
+        student_model = DSM2(student_config)
+    else:
+        student_config = DSM2Config.from_pretrained(
+            config.model.pretrained_weights,
+            trust_remote_code=True,
+        )
+        student_config.teacher_hidden_size = teacher_config.hidden_size
+        student_config.attn_backend = config.model.attn_backend
+        student_model = DSM2.from_pretrained(
+            config.model.pretrained_weights,
+            config=student_config,
+            trust_remote_code=True,
+            dtype=torch.bfloat16,
+        )
+    student_model = student_model.to(torch.bfloat16)
+    student_model.attn_backend = config.model.attn_backend
     return student_model
 
 
-def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders, world_size: int, is_main_process: bool):
+def print_run_overview(
+    config: DSM2TrainConfigBundle,
+    data_bundle,
+    data_loaders,
+    world_size: int,
+    is_main_process: bool,
+    teacher_source_path: str,
+):
     if not is_main_process:
         return
 
@@ -190,7 +222,8 @@ def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders,
 
     print("==== DSM2 Run Overview ====")
     print(f"Save path: {config.runtime.save_path}")
-    print(f"Teacher model: {config.model.teacher_model_path}")
+    print(f"Teacher model: {teacher_source_path}")
+    print(f"Student pretrained weights: {config.model.pretrained_weights}")
     print(f"Dataset: {config.data.data_path}")
     print(
         f"Split sizes loaded | train={len(data_bundle.train_dataset)}, "
@@ -204,6 +237,8 @@ def print_run_overview(config: DSM2TrainConfigBundle, data_bundle, data_loaders,
         "Optimization | "
         f"max_steps={config.optimization.max_steps}, "
         f"lr={config.optimization.learning_rate:.2e}, "
+        f"attn_backend={config.model.attn_backend}, "
+        f"muon={config.optimization.use_muon}, "
         f"teacher_free_percent={config.loss.teacher_free_percent:.3f}, "
         f"patch_size={config.loss.patch_size}, "
         f"patch_accum={config.optimization.patch_accum}, "
@@ -243,11 +278,20 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
     else:
         device = torch.device("cpu")
 
-    teacher_model = load_teacher_model(config.model.teacher_model_path, device=device)
-    tokenizer = teacher_model.tokenizer
+    teacher_source_path = config.model.teacher_model_path
+    if config.model.pretrained_weights is not None:
+        teacher_source_path = config.model.pretrained_weights
 
     if is_main_process:
-        print("Initializing Student DSM2 from scratch")
+        print(f"Loading teacher from: {teacher_source_path}")
+        if config.model.pretrained_weights is None:
+            print("Initializing Student DSM2 from scratch")
+        else:
+            print(f"Seeding Student DSM2 from pretrained weights: {config.model.pretrained_weights}")
+
+    teacher_model = load_teacher_model(teacher_source_path, device=device, attn_backend=config.model.attn_backend)
+    tokenizer = teacher_model.tokenizer
+
     student_model = build_student_model(config, teacher_model.config)
     summary(student_model)
 
@@ -271,6 +315,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
         data_loaders=data_loaders,
         world_size=world_size,
         is_main_process=is_main_process,
+        teacher_source_path=teacher_source_path,
     )
 
     trainer = DSM2Trainer(

@@ -66,20 +66,27 @@ class DSM2Trainer(BasePatchBatchTrainer):
     def create_optimizer(self):
         if self.optimizer is None:
             unwrapped_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
-            muon_params, adamw_params, attention_params = partition_dsm2_parameters(unwrapped_model)
-            muonclip = create_muonclip_optimizer(
-                model=unwrapped_model,
-                muon_params=muon_params,
-                attention_params=attention_params,
-                muon_lr=self.optimization_config.muon_lr,
-                muon_tau=self.optimization_config.muon_tau,
-            )
-            adamw = torch.optim.AdamW(
-                adamw_params,
-                lr=self.optimization_config.learning_rate,
-                weight_decay=0.0,
-            )
-            self.optimizer = MuonAdamWWrapper(muonclip, adamw)
+            if self.optimization_config.use_muon:
+                muon_params, adamw_params, attention_params = partition_dsm2_parameters(unwrapped_model)
+                muonclip = create_muonclip_optimizer(
+                    model=unwrapped_model,
+                    muon_params=muon_params,
+                    attention_params=attention_params,
+                    muon_lr=self.optimization_config.muon_lr,
+                    muon_tau=self.optimization_config.muon_tau,
+                )
+                adamw = torch.optim.AdamW(
+                    adamw_params,
+                    lr=self.optimization_config.learning_rate,
+                    weight_decay=0.0,
+                )
+                self.optimizer = MuonAdamWWrapper(muonclip, adamw)
+            else:
+                self.optimizer = torch.optim.AdamW(
+                    unwrapped_model.parameters(),
+                    lr=self.optimization_config.learning_rate,
+                    weight_decay=0.0,
+                )
 
         return self.optimizer
 
@@ -99,8 +106,8 @@ class DSM2Trainer(BasePatchBatchTrainer):
         student_base_model = extract_model_from_parallel(self.model, keep_torch_compile=False)
         assert student_base_model.teacher_projections is not None, "student teacher_projections must exist before cleanup."
         projection_params = list(student_base_model.teacher_projections.parameters())
-        assert isinstance(self.optimizer, MuonAdamWWrapper), f"Expected MuonAdamWWrapper, got {type(self.optimizer)}."
-        self.optimizer.remove_params(projection_params)
+        if isinstance(self.optimizer, MuonAdamWWrapper):
+            self.optimizer.remove_params(projection_params)
         student_base_model.teacher_projections = None
 
         ema_teacher = unwrapped_model.ema_teacher
@@ -213,6 +220,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
                 alpha_ce=self.loss_config.alpha_ce,
                 alpha_jepa=alpha_jepa,
                 alpha_contrastive=0.0,
+                output_s_max=training and self.optimization_config.use_muon,
             )
 
             weight = float(current_patch_size) / float(batch_size)
@@ -231,7 +239,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
                 all_teacher_pooled.append(teacher_pooled)
                 all_student_pooled.append(student_pooled)
 
-            if training:
+            if training and self.optimization_config.use_muon:
                 assert dsm2_patch_output.s_max is not None, "Training step requires s_max for MuonClip."
                 all_s_max_patches.append(dsm2_patch_output.s_max)
 
@@ -249,7 +257,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
                 t_pooled=stacked_teacher_pooled,
             )
 
-        if training:
+        if training and self.optimization_config.use_muon:
             reduced_s_max = self._aggregate_s_max(all_s_max_patches)
             self._set_optimizer_s_max(reduced_s_max)
 
