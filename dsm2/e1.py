@@ -917,6 +917,7 @@ class Attention(nn.Module):
         self.max_num_seqs = config.max_num_sequences
         self.clip_qkv = config.clip_qkv
         self.scale = 1.0 / (self.head_dim**0.5)
+        self.last_backend_used: str | None = None
 
         if (self.head_dim * self.num_heads) != self.hidden_size:
             raise ValueError(
@@ -1102,6 +1103,7 @@ class Attention(nn.Module):
         output_s_max: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor | None, list[torch.Tensor] | None]:
         if output_attentions:
+            self.last_backend_used = "manual"
             return self._manual_attn(
                 query_states=query_states,
                 key_states=key_states,
@@ -1112,6 +1114,7 @@ class Attention(nn.Module):
             )
 
         backend = self._resolve_attention_backend()
+        self.last_backend_used = backend.value
         if backend == AttentionBackend.KERNELS_FLASH:
             attn_output, attn_weights = self._kernels_flash_attn(
                 query_states=query_states,
@@ -1536,6 +1539,7 @@ class FAST_E1_ENCODER(E1PreTrainedModel):
             pad_token="<pad>",
             mask_token="?",
         )
+        self._reported_attention_backend: str | None = None
         #self.init_weights()
 
     def get_input_embeddings(self) -> nn.Embedding:
@@ -1543,6 +1547,26 @@ class FAST_E1_ENCODER(E1PreTrainedModel):
 
     def set_input_embeddings(self, value: nn.Embedding) -> None:
         self.embed_tokens = value
+
+    def get_resolved_attention_backend(self) -> str:
+        resolved_backend = self.layers[0].norm_attn_norm.self_attn._resolve_attention_backend().value
+        if self._reported_attention_backend != resolved_backend:
+            logger.warning(
+                f"E1 attention backend resolved: requested={self.config.attn_backend}, using={resolved_backend}"
+            )
+            self._reported_attention_backend = resolved_backend
+        return resolved_backend
+
+    def get_last_attention_backend_used(self) -> str:
+        last_backend_used = self.layers[0].norm_attn_norm.self_attn.last_backend_used
+        if last_backend_used is not None:
+            if self._reported_attention_backend != last_backend_used:
+                logger.warning(
+                    f"E1 attention backend used at runtime: requested={self.config.attn_backend}, using={last_backend_used}"
+                )
+                self._reported_attention_backend = last_backend_used
+            return last_backend_used
+        return self.get_resolved_attention_backend()
 
     @torch.inference_mode()
     def _embed(self, sequences: List[str], return_attention_mask: bool = False, **kwargs) -> torch.Tensor:
@@ -1828,6 +1852,7 @@ class FAST_E1_ENCODER(E1PreTrainedModel):
             all_hidden_states += (hidden_states,)  # type: ignore[operator]
 
         next_cache = next_decoder_cache if use_cache else None
+        self.get_last_attention_backend_used()
 
         return E1ModelOutputWithPast(
             last_hidden_state=hidden_states,

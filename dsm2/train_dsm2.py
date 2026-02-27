@@ -208,6 +208,7 @@ def build_student_model(config: DSM2TrainConfigBundle, teacher_config):
 
 def print_run_overview(
     config: DSM2TrainConfigBundle,
+    student_model,
     data_bundle,
     data_loaders,
     world_size: int,
@@ -228,6 +229,10 @@ def print_run_overview(
     print(f"Save path: {config.runtime.save_path}")
     print(f"Teacher model: {teacher_source_path}")
     print(f"Student pretrained weights: {config.model.pretrained_weights}")
+    resolved_backend = config.model.attn_backend
+    if hasattr(student_model, "model") and hasattr(student_model.model, "get_resolved_attention_backend"):
+        resolved_backend = student_model.model.get_resolved_attention_backend()
+    print(f"Attention backend | requested={config.model.attn_backend}, resolved={resolved_backend}")
     print(f"Dataset: {config.data.data_path}")
     print(
         f"Split sizes loaded | train={len(data_bundle.train_dataset)}, "
@@ -315,6 +320,7 @@ def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
     )
     print_run_overview(
         config=config,
+        student_model=student_model,
         data_bundle=data_bundle,
         data_loaders=data_loaders,
         world_size=world_size,
