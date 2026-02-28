@@ -124,5 +124,5 @@ def jepa_loss(
 
     # Branch-free masked reduction is friendlier to torch.compile.
     mask_float = mask.to(weighted_mse.dtype).unsqueeze(0)
-    denom = mask_float.sum().clamp_min(1.0)
+    denom = (mask_float.sum() * float(num_layers)).clamp_min(1.0)
     return (weighted_mse * mask_float).sum() / denom

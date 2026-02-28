@@ -187,8 +187,7 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         joint_mask = torch.where(joint_mask.any(), joint_mask, attention_mask_bool)
 
         distill_mask = (~mask_indices) & attention_mask_bool & ~special_mask
-        fallback_distill_mask = attention_mask_bool & ~special_mask
-        distill_mask = torch.where(distill_mask.any(), distill_mask, fallback_distill_mask)
+        # If no unmasked/non-special token survives, distill on all valid tokens.
         distill_mask = torch.where(distill_mask.any(), distill_mask, attention_mask_bool)
 
         token_loss = self.ce_loss(
