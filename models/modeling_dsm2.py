@@ -160,7 +160,15 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
 
         all_hidden_states = outputs.hidden_states
         assert all_hidden_states is not None, "DSM2 requires hidden_states from the student model."
-        student_states_for_distill = tuple(all_hidden_states[: self.config.num_hidden_layers])
+        expected_hidden_state_count = self.config.num_hidden_layers + 1
+        assert len(all_hidden_states) == expected_hidden_state_count, (
+            f"Expected {expected_hidden_state_count} hidden-state tensors (embedding + {self.config.num_hidden_layers} layers), "
+            f"got {len(all_hidden_states)}."
+        )
+        student_states_for_distill = tuple(all_hidden_states[1:expected_hidden_state_count])
+        assert len(student_states_for_distill) == self.config.num_hidden_layers, (
+            f"Expected {self.config.num_hidden_layers} student distillation layers, got {len(student_states_for_distill)}."
+        )
 
         if self.teacher_projections is None:
             projected_student_states = student_states_for_distill
@@ -176,6 +184,8 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         joint_mask = mask_indices & attention_mask.bool()
         if not joint_mask.any():
             joint_mask = attention_mask.bool()
+        distill_mask = (~mask_indices) & attention_mask.bool() & ~special_mask
+        assert distill_mask.any(), "distill_mask must include at least one non-special, non-padding token."
 
         token_loss = self.ce_loss(
             lm_logits[joint_mask].view(-1, self.vocab_size),
@@ -189,10 +199,17 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         contrastive_loss_val = None
 
         if teacher_hidden_states is not None:
+            teacher_hidden_states = tuple(teacher_hidden_states)
             assert len(projected_student_states) == len(teacher_hidden_states), (
                 f"Student hidden states ({len(projected_student_states)}) and teacher hidden states ({len(teacher_hidden_states)}) "
                 "must have the same number of layers."
             )
+            for layer_idx in range(len(projected_student_states)):
+                student_shape = projected_student_states[layer_idx].shape
+                teacher_shape = teacher_hidden_states[layer_idx].shape
+                assert student_shape == teacher_shape, (
+                    f"Layer {layer_idx} hidden-state shape mismatch: student {student_shape} vs teacher {teacher_shape}."
+                )
             if self.teacher_projections is None and ((alpha_jepa > 0.0) or (alpha_contrastive > 0.0)):
                 assert projected_student_states[0].shape[-1] == teacher_hidden_states[0].shape[-1], (
                     f"Teacher hidden size ({teacher_hidden_states[0].shape[-1]}) does not match student hidden size "
@@ -202,8 +219,7 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
                 jepa_loss_val = jepa_loss(
                     student_hidden_states=projected_student_states,
                     teacher_hidden_states=teacher_hidden_states,
-                    attention_mask=attention_mask,
-                    p_masks=p_mask,
+                    distill_mask=distill_mask,
                 )
                 total_loss = total_loss + (alpha_jepa * jepa_loss_val)
             
@@ -211,6 +227,7 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
                 contrastive_loss_val = contrastive_loss(
                     student_hidden_states=projected_student_states,
                     teacher_hidden_states=teacher_hidden_states,
+                    attention_mask=attention_mask,
                 )
                 total_loss = total_loss + (alpha_contrastive * contrastive_loss_val)
 

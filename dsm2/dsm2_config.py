@@ -50,6 +50,7 @@ class DSM2LossConfig:
     alpha_contrastive: float
     teacher_free_percent: float
     aux_loss_warmup_percent: float
+    max_aux_to_ce_ratio: float
     patch_size: int
 
 

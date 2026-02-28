@@ -44,6 +44,7 @@ def parse_args():
     parser.add_argument("--alpha_contrastive", type=float, default=1.0, help="Weight for contrastive loss")
     parser.add_argument("--teacher_free_percent", type=float, default=0.1, help="Fraction of early optimizer steps that run CE-only")
     parser.add_argument("--aux_loss_warmup_percent", type=float, default=0.1, help="Fraction of total optimizer steps used to warm up JEPA/contrastive weights after teacher-free phase")
+    parser.add_argument("--max_aux_to_ce_ratio", type=float, default=0.25, help="Upper bound on weighted aux-to-CE loss ratio during training, <=0 disables guard")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size (effective size metadata)")
     parser.add_argument("--patch_size", type=int, default=16, help="Micro-batch size processed per forward pass")
@@ -81,6 +82,9 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
     )
     assert 0.0 <= args.aux_loss_warmup_percent <= 1.0, (
         f"--aux_loss_warmup_percent must be in [0.0, 1.0], got {args.aux_loss_warmup_percent}."
+    )
+    assert args.max_aux_to_ce_ratio >= 0.0, (
+        f"--max_aux_to_ce_ratio must be >= 0.0, got {args.max_aux_to_ce_ratio}."
     )
     eval_every = args.eval_every
     if eval_every <= 0:
@@ -128,6 +132,7 @@ def build_config_bundle(args) -> DSM2TrainConfigBundle:
         alpha_contrastive=args.alpha_contrastive,
         teacher_free_percent=args.teacher_free_percent,
         aux_loss_warmup_percent=args.aux_loss_warmup_percent,
+        max_aux_to_ce_ratio=args.max_aux_to_ce_ratio,
         patch_size=args.patch_size,
     )
     data_config = DSM2DataConfig(
@@ -249,6 +254,9 @@ def print_run_overview(
     eval_every = config.optimization.eval_every
     if eval_every <= 0:
         eval_every = config.optimization.save_every
+    teacher_free_steps = int(config.optimization.max_steps * config.loss.teacher_free_percent)
+    aux_loss_warmup_steps = int(config.optimization.max_steps * config.loss.aux_loss_warmup_percent)
+    aux_full_step = teacher_free_steps + aux_loss_warmup_steps
 
     print("==== DSM2 Run Overview ====")
     print(f"Save path: {config.runtime.save_path}")
@@ -275,9 +283,16 @@ def print_run_overview(
         f"muon={config.optimization.use_muon}, "
         f"teacher_free_percent={config.loss.teacher_free_percent:.3f}, "
         f"aux_loss_warmup_percent={config.loss.aux_loss_warmup_percent:.3f}, "
+        f"max_aux_to_ce_ratio={config.loss.max_aux_to_ce_ratio:.3f}, "
         f"patch_size={config.loss.patch_size}, "
         f"patch_accum={config.optimization.patch_accum}, "
         f"grad_accum={config.optimization.grad_accum}"
+    )
+    print(
+        "Aux schedule | "
+        f"teacher_free_steps={teacher_free_steps}, "
+        f"aux_warmup_steps={aux_loss_warmup_steps}, "
+        f"aux_full_strength_step={aux_full_step}"
     )
     print(
         f"Effective samples per optimizer step across all ranks: {effective_samples_per_optimizer_step} "

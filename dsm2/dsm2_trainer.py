@@ -35,6 +35,9 @@ class DSM2Trainer(BasePatchBatchTrainer):
         assert 0.0 <= loss_config.aux_loss_warmup_percent <= 1.0, (
             f"aux_loss_warmup_percent must be in [0.0, 1.0], got {loss_config.aux_loss_warmup_percent}."
         )
+        assert loss_config.max_aux_to_ce_ratio >= 0.0, (
+            f"max_aux_to_ce_ratio must be >= 0.0, got {loss_config.max_aux_to_ce_ratio}."
+        )
         self.teacher_model = teacher_model
         self.loss_config = loss_config
         self.teacher_free_steps = int(optimization_config.max_steps * loss_config.teacher_free_percent)
@@ -143,9 +146,10 @@ class DSM2Trainer(BasePatchBatchTrainer):
                 )
                 teacher_hidden_states = teacher_outputs.hidden_states
                 assert teacher_hidden_states is not None, "Teacher must return hidden states for DSM2 training."
+                teacher_hidden_states = tuple(teacher_hidden_states)
                 if len(teacher_hidden_states) > self.teacher_model.config.num_hidden_layers:
                     teacher_hidden_states = teacher_hidden_states[1:]
-                return teacher_hidden_states
+                return tuple(hidden_state.detach() for hidden_state in teacher_hidden_states)
 
             teacher_outputs = active_teacher(
                 input_ids=patch_input_ids,
@@ -156,7 +160,8 @@ class DSM2Trainer(BasePatchBatchTrainer):
             )
             teacher_hidden_states = teacher_outputs.student_hidden_states
             assert teacher_hidden_states is not None, "EMA teacher must return student_hidden_states for DSM2 training."
-            return teacher_hidden_states
+            teacher_hidden_states = tuple(teacher_hidden_states)
+            return tuple(hidden_state.detach() for hidden_state in teacher_hidden_states)
 
     def _aggregate_s_max(self, all_s_max_patches):
         assert len(all_s_max_patches) > 0, "Cannot aggregate s_max from an empty patch list."
@@ -220,8 +225,9 @@ class DSM2Trainer(BasePatchBatchTrainer):
         aux_loss_scale = self._aux_loss_warmup_scale(training=training, use_teacher=use_teacher)
         scaled_alpha_jepa = self.loss_config.alpha_jepa * aux_loss_scale
         scaled_alpha_contrastive = self.loss_config.alpha_contrastive * aux_loss_scale
+        needs_teacher_states = use_teacher and ((scaled_alpha_jepa > 0.0) or (scaled_alpha_contrastive > 0.0))
         active_teacher = None
-        if use_teacher:
+        if needs_teacher_states:
             unwrapped_model = extract_model_from_parallel(self.model)
             active_teacher = self._select_active_teacher(unwrapped_model)
 
@@ -232,7 +238,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
 
             teacher_hidden_states = None
             alpha_jepa = 0.0
-            if use_teacher:
+            if needs_teacher_states:
                 assert active_teacher is not None, "active_teacher must be set when teacher losses are enabled."
                 teacher_hidden_states = self._forward_teacher_patch(active_teacher, patch_input_ids, patch_attention_mask)
                 alpha_jepa = scaled_alpha_jepa
@@ -252,13 +258,13 @@ class DSM2Trainer(BasePatchBatchTrainer):
             if dsm2_patch_output.jepa_loss is not None:
                 total_jepa_loss += dsm2_patch_output.jepa_loss * weight
 
-            if use_teacher and (scaled_alpha_contrastive > 0.0):
+            if needs_teacher_states and (scaled_alpha_contrastive > 0.0):
                 assert teacher_hidden_states is not None, "teacher_hidden_states must be set when contrastive loss is enabled."
                 with torch.no_grad():
-                    teacher_pooled = pool_states(teacher_hidden_states)
+                    teacher_pooled = pool_states(teacher_hidden_states, attention_mask=patch_attention_mask)
                 student_hidden_states = dsm2_patch_output.student_hidden_states
                 assert student_hidden_states is not None, "DSM2 output must contain student_hidden_states for contrastive loss."
-                student_pooled = pool_states(student_hidden_states)
+                student_pooled = pool_states(student_hidden_states, attention_mask=patch_attention_mask)
                 all_teacher_pooled.append(teacher_pooled)
                 all_student_pooled.append(student_pooled)
 
@@ -272,7 +278,7 @@ class DSM2Trainer(BasePatchBatchTrainer):
             all_mask_labels.append(dsm2_patch_output.mask_labels)
             all_input_ids.append(patch_input_ids)
 
-        if use_teacher and (scaled_alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
+        if needs_teacher_states and (scaled_alpha_contrastive > 0.0) and (len(all_teacher_pooled) > 0):
             stacked_teacher_pooled = torch.cat(all_teacher_pooled, dim=1)
             stacked_student_pooled = torch.cat(all_student_pooled, dim=1)
             total_contrastive_loss = contrastive_loss_from_pooled(
@@ -284,18 +290,38 @@ class DSM2Trainer(BasePatchBatchTrainer):
             reduced_s_max = self._aggregate_s_max(all_s_max_patches)
             self._set_optimizer_s_max(reduced_s_max)
 
-        loss = (
-            (self.loss_config.alpha_ce * total_ce_loss)
-            + (scaled_alpha_jepa * total_jepa_loss)
-            + (scaled_alpha_contrastive * total_contrastive_loss)
-        )
+        if not isinstance(total_ce_loss, torch.Tensor):
+            total_ce_loss = torch.tensor(total_ce_loss, device=self.device, dtype=torch.float32)
+        total_jepa_loss = torch.as_tensor(total_jepa_loss, device=self.device, dtype=total_ce_loss.dtype)
+        total_contrastive_loss = torch.as_tensor(total_contrastive_loss, device=self.device, dtype=total_ce_loss.dtype)
+
+        weighted_ce_loss = self.loss_config.alpha_ce * total_ce_loss
+        weighted_jepa_loss = scaled_alpha_jepa * total_jepa_loss
+        weighted_contrastive_loss = scaled_alpha_contrastive * total_contrastive_loss
+        weighted_aux_loss_pre_guard = weighted_jepa_loss + weighted_contrastive_loss
+        weighted_aux_loss = weighted_aux_loss_pre_guard
+        aux_guard_scale = 1.0
+        if training and (self.loss_config.max_aux_to_ce_ratio > 0.0):
+            ce_term_magnitude = float(torch.abs(weighted_ce_loss.detach()).item())
+            aux_term_magnitude = float(torch.abs(weighted_aux_loss.detach()).item())
+            max_aux_magnitude = ce_term_magnitude * self.loss_config.max_aux_to_ce_ratio
+            if (aux_term_magnitude > max_aux_magnitude) and (aux_term_magnitude > 0.0):
+                aux_guard_scale = max_aux_magnitude / aux_term_magnitude
+                weighted_aux_loss = weighted_aux_loss * aux_guard_scale
+
+        loss = weighted_ce_loss + weighted_aux_loss
 
         metrics = {
-            "ce_loss": float(total_ce_loss.detach().item() if isinstance(total_ce_loss, torch.Tensor) else total_ce_loss),
-            "jepa_loss": float(total_jepa_loss.detach().item() if isinstance(total_jepa_loss, torch.Tensor) else total_jepa_loss),
-            "contrastive_loss": float(
-                total_contrastive_loss.detach().item() if isinstance(total_contrastive_loss, torch.Tensor) else total_contrastive_loss
-            ),
+            "ce_loss": float(total_ce_loss.detach().item()),
+            "jepa_loss": float(total_jepa_loss.detach().item()),
+            "contrastive_loss": float(total_contrastive_loss.detach().item()),
+            "weighted_ce_loss": float(weighted_ce_loss.detach().item()),
+            "weighted_jepa_loss": float(weighted_jepa_loss.detach().item()),
+            "weighted_contrastive_loss": float(weighted_contrastive_loss.detach().item()),
+            "weighted_aux_loss_pre_guard": float(weighted_aux_loss_pre_guard.detach().item()),
+            "weighted_aux_loss": float(weighted_aux_loss.detach().item()),
+            "aux_loss_scale": float(aux_loss_scale),
+            "aux_guard_scale": float(aux_guard_scale),
         }
 
         eval_payload = {
