@@ -181,11 +181,15 @@ class DSM2(E1ForMaskedLM, GenerateMixin):
         last_hidden_state = outputs.last_hidden_state
         lm_logits = self.mlm_head(last_hidden_state)
 
-        joint_mask = mask_indices & attention_mask.bool()
-        if not joint_mask.any():
-            joint_mask = attention_mask.bool()
-        distill_mask = (~mask_indices) & attention_mask.bool() & ~special_mask
-        assert distill_mask.any(), "distill_mask must include at least one non-special, non-padding token."
+        attention_mask_bool = attention_mask.bool()
+        joint_mask = mask_indices & attention_mask_bool
+        # Avoid Python branching on tensor values in compiled mode.
+        joint_mask = torch.where(joint_mask.any(), joint_mask, attention_mask_bool)
+
+        distill_mask = (~mask_indices) & attention_mask_bool & ~special_mask
+        fallback_distill_mask = attention_mask_bool & ~special_mask
+        distill_mask = torch.where(distill_mask.any(), distill_mask, fallback_distill_mask)
+        distill_mask = torch.where(distill_mask.any(), distill_mask, attention_mask_bool)
 
         token_loss = self.ce_loss(
             lm_logits[joint_mask].view(-1, self.vocab_size),

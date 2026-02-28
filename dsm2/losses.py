@@ -99,7 +99,6 @@ def jepa_loss(
         f"distill_mask shape {distill_mask.shape} must match hidden-state shape {(batch_size, seq_len)}."
     )
     mask = distill_mask.bool()
-    assert mask.any(), "distill_mask must include at least one token."
     for layer_idx in range(num_layers):
         student_shape = student_hidden_states[layer_idx].shape
         teacher_shape = teacher_hidden_states[layer_idx].shape
@@ -123,8 +122,7 @@ def jepa_loss(
 
     weighted_mse = mse_per_token * depth_weights
 
-    # Filter out padding tokens and sum up
-    valid_mse = weighted_mse[:, mask]
-
-    # Average over valid tokens and layers
-    return valid_mse.mean()
+    # Branch-free masked reduction is friendlier to torch.compile.
+    mask_float = mask.to(weighted_mse.dtype).unsqueeze(0)
+    denom = mask_float.sum().clamp_min(1.0)
+    return (weighted_mse * mask_float).sum() / denom
