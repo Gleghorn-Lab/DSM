@@ -6,8 +6,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import LambdaLR
 from typing import Sequence
 
-from dsm2.dsm2_callbacks import DSM2TrainerCallback, TrainerCallbackState
-from dsm2.dsm2_config import DSM2OptimizationConfig, DSM2RuntimeConfig
+from dsm2.callbacks import DSM2TrainerCallback, TrainerCallbackState
+from dsm2.config import DSM2OptimizationConfig, DSM2RuntimeConfig
 from dsm2.model_utils import extract_model_from_parallel
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
 
@@ -124,7 +124,7 @@ class BaseRuntimeTrainer:
         max_steps = self.optimization_config.max_steps
         assert max_steps > 0, "max_steps must be > 0."
         warmup_steps = max(1, int(max_steps * 0.01))
-        plateau_steps = max(1, int(max_steps * 0.49))
+        plateau_steps = max(1, int(max_steps * 0.69))
         cooldown_steps = max(1, int(max_steps * 0.30))
         total_phased_steps = warmup_steps + plateau_steps + cooldown_steps
         assert total_phased_steps <= max_steps, (

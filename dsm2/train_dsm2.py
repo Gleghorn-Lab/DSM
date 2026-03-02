@@ -12,8 +12,8 @@ from huggingface_hub import hf_hub_download, login
 from tqdm.auto import tqdm
 from torchinfo import summary
 
-from dsm2.dsm2_callbacks import EMATeacherCallback
-from dsm2.dsm2_config import (
+from dsm2.callbacks import EMATeacherCallback
+from dsm2.config import (
     DSM2DataConfig,
     DSM2EMAConfig,
     DSM2LossConfig,
@@ -23,7 +23,7 @@ from dsm2.dsm2_config import (
     DSM2TrainConfigBundle,
     apply_bugfix_profile,
 )
-from dsm2.dsm2_data import build_dsm2_data_bundle, build_dsm2_dataloaders
+from dsm2.data import build_dsm2_data_bundle, build_dsm2_dataloaders
 from dsm2.trainer_utils import infer_rank_world_size_local_rank
 
 
@@ -309,9 +309,9 @@ def print_run_overview(
 
 
 def main(config: DSM2TrainConfigBundle, wandb_enabled: bool, wandb_module):
-    from dsm2.dsm2_metrics import ComputeDSM2Metrics
-    from dsm2.dsm2_teacher import load_teacher_model
-    from dsm2.dsm2_trainer import DSM2Trainer
+    from dsm2.metrics import ComputeDSM2Metrics
+    from dsm2.teacher import load_teacher_model
+    from dsm2.trainer import DSM2Trainer
     from dsm2.model_utils import extract_model_from_parallel, patch_accelerate_extract_model_from_parallel
 
     patch_accelerate_extract_model_from_parallel()

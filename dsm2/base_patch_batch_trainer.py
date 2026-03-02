@@ -7,8 +7,8 @@ from typing import Dict, List, Sequence
 from tqdm.auto import tqdm
 
 from dsm2.base_runtime_trainer import BaseRuntimeTrainer
-from dsm2.dsm2_callbacks import DSM2TrainerCallback
-from dsm2.dsm2_config import DSM2OptimizationConfig, DSM2RuntimeConfig
+from dsm2.callbacks import DSM2TrainerCallback
+from dsm2.config import DSM2OptimizationConfig, DSM2RuntimeConfig
 from dsm2.trainer_utils import gather_object_across_ranks, reduce_loss_sum_and_count, reduce_mean_float
 
 

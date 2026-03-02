@@ -1,0 +1,857 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{\textbf{DSM2: Distilled Sequence Model v2}\\
+\large Technical Report of the Training Pipeline}
+\author{GleghornLab}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+DSM2 (Distilled Sequence Model v2) is a self-supervised protein language model (pLM) trained via
+knowledge distillation from a frozen, large-scale teacher pLM.  The student is an E1-architecture
+transformer that learns to (i) reconstruct masked amino-acid tokens (masked language modelling,
+MLM), (ii) match the intermediate hidden-state representations of the teacher on a per-token basis
+(JEPA loss), and (iii) preserve the intra-batch relational geometry of the teacher's representations
+at the sequence level (contrastive loss).
+
+The training pipeline has three sequential loss phases, an exponential-moving-average (EMA) teacher
+that eventually replaces the external teacher, and supports both standard AdamW and the MuonClip
+optimizer (Muon + QK-Clip).  Distributed data-parallel (DDP) training is supported out of the box.
+
+The default teacher is \texttt{Synthyra/DPLM-3B}; the default student has a hidden dimension of
+256, trained for 100\,000 optimiser steps on \texttt{Synthyra/uniref50}.
+
+% ============================================================
+\section{Model Architecture}
+% ============================================================
+
+\subsection{Teacher Model}
+
+The teacher is a frozen, pre-trained protein language model loaded in \texttt{bfloat16} and moved to
+the target device.  All teacher parameters have \texttt{requires\_grad = False}; the teacher is kept
+in \texttt{eval()} mode throughout training.  The teacher is selected by inspecting the model path
+string:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Path substring} & \textbf{Class loaded} \\
+\midrule
+\texttt{dplm2} & \texttt{DPLM2Model} \\
+\texttt{dplm}  & \texttt{DPLMModel} \\
+\texttt{esm2}, \texttt{fastesm} & \texttt{FastEsmModel} \\
+\texttt{e1}    & \texttt{E1ForMaskedLM} \\
+(default)      & \texttt{ESMplusplusModel} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The teacher exposes \texttt{config.num\_hidden\_layers} (number of transformer layers) and
+\texttt{config.hidden\_size} ($d_T$, teacher hidden dimension), both of which are used to configure
+the student.
+
+\subsection{Student Model (DSM2 / E1 Backbone)}
+
+The student model is an instance of \texttt{DSM2}, a subclass of \texttt{E1ForMaskedLM} augmented
+with distillation infrastructure.  The E1 backbone is a decoder-style transformer with pre- and
+post-attention RMSNorm, grouped-query attention (GQA), and a SwiGLU (or standard) MLP.
+
+\subsubsection{Configuration (\texttt{DSM2Config})}
+
+\texttt{DSM2Config} extends \texttt{E1Config} with two additional fields:
+
+\begin{itemize}
+  \item \texttt{teacher\_hidden\_size} ($d_T$): hidden dimension of the teacher (default 768).
+  \item \texttt{use\_teacher\_projections}: whether to attach a linear projection per layer that
+        maps student representations into teacher space (default \texttt{True}; disabled after the
+        EMA teacher takes over).
+\end{itemize}
+
+The student is initialised from scratch when \texttt{pretrained\_weights} is \texttt{None}; the
+following derived quantities are computed from the CLI arguments:
+
+\begin{align*}
+  d_s &= \texttt{student\_hidden\_size} \quad (\text{must satisfy } d_s \bmod 64 = 0) \\
+  d_{\mathrm{ff}} &= \lfloor d_s \times \texttt{student\_expansion\_ratio} \rfloor \\
+  H   &= d_s / 64 \quad (\text{number of attention heads, also number of KV heads})\\
+  N   &= \texttt{teacher.config.num\_hidden\_layers} \quad (\text{shared with teacher})
+\end{align*}
+
+\subsubsection{E1 Transformer Backbone}
+
+Each of the $N$ transformer layers consists of:
+
+\begin{enumerate}
+  \item \textbf{Pre-attention RMSNorm} applied to the residual stream.
+  \item \textbf{Grouped-query self-attention} with rotary positional embeddings (see
+        Section~\ref{sec:rope}).  Projections: $W_Q \in \mathbb{R}^{d_s \times (H \cdot h_d)}$,
+        $W_K \in \mathbb{R}^{d_s \times (H_k \cdot h_d)}$,
+        $W_V \in \mathbb{R}^{d_s \times (H_k \cdot h_d)}$,
+        $W_O \in \mathbb{R}^{(H \cdot h_d) \times d_s}$, all without bias, where
+        $h_d = d_s / H$ is the per-head dimension.
+  \item \textbf{Post-attention RMSNorm} added to the residual before the MLP.
+  \item \textbf{MLP} (SwiGLU variant by default):
+        \begin{equation}
+          \mathrm{FFN}(x) = W_2\!\bigl(\sigma(W_1 x) \odot W_3 x\bigr), \quad \sigma = \mathrm{SiLU}
+        \end{equation}
+        where $W_1, W_3 \in \mathbb{R}^{d_{\mathrm{ff}} \times d_s}$ and
+        $W_2 \in \mathbb{R}^{d_s \times d_{\mathrm{ff}}}$.
+        The standard (non-gated) MLP applies $W_2(\sigma(W_1 x))$ without a gate branch.
+\end{enumerate}
+
+The backbone concludes with a final \textbf{RMSNorm} applied to the last hidden state.
+
+\subsubsection{MLM Head}
+
+The masked-language-modelling head converts the final hidden state into logits over the vocabulary:
+
+\begin{equation}
+  \mathrm{MLMHead}(h) = W_{\mathrm{out}}\bigl(\mathrm{LayerNorm}(\mathrm{GELU}(W_{\mathrm{in}}\, h + b_{\mathrm{in}}))\bigr) + b_{\mathrm{out}}
+\end{equation}
+
+where $W_{\mathrm{in}} \in \mathbb{R}^{d_s \times d_s}$,
+$W_{\mathrm{out}} \in \mathbb{R}^{V \times d_s}$, and $V$ is the vocabulary size.
+
+\subsubsection{Teacher Projection Layers}
+
+When \texttt{use\_teacher\_projections = True}, the student has $N$ additional linear layers, one
+per transformer layer:
+
+\begin{equation}
+  \phi^{(\ell)} : \mathbb{R}^{d_s} \to \mathbb{R}^{d_T}, \quad \phi^{(\ell)}(h) = W_{\phi}^{(\ell)} h
+\end{equation}
+
+These projections are used to match the dimensionality of the student's hidden states to the
+teacher's before computing the JEPA and contrastive losses.  They are removed from the model
+(and from the optimiser's parameter groups) when the EMA teacher becomes active, since the EMA
+teacher already operates in student-space $\mathbb{R}^{d_s}$.
+
+\subsection{Attention Backends}
+\label{sec:attn_backends}
+
+The attention computation is selectable via \texttt{attn\_backend}:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Backend} & \textbf{Implementation} \\
+\midrule
+\texttt{kernels\_flash} & Flash-Attention 3/2 via the \texttt{kernels} package \\
+\texttt{flash\_attn}    & Flash-Attention 2 via the \texttt{flash\_attn} package \\
+\texttt{flex}           & PyTorch \texttt{FlexAttention} with sliding-window + dilation mask \\
+\texttt{sdpa}           & PyTorch \texttt{scaled\_dot\_product\_attention} \\
+\texttt{auto}           & Resolved at runtime to the best available backend \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The \texttt{flex} backend applies a local sliding-window attention mask of size
+\texttt{sliding\_window\_size} combined with a dilated global attention pattern with factor
+\texttt{dilation}, enabling sub-quadratic attention on long sequences.
+
+% ============================================================
+\section{Tokenizer and Positional Encoding}
+\label{sec:rope}
+% ============================================================
+
+\subsection{Tokenizer}
+
+The tokenizer is loaded from \texttt{tokenizer.json} (sourced from
+\texttt{Synthyra/Profluent-E1-150M}).  It is an amino-acid tokenizer with special tokens including
+\texttt{<bos>}, \texttt{<eos>}, \texttt{<pad>}, and a mask token (the \texttt{?} character).
+Boundary tokens \texttt{1} and \texttt{2} are used to delimit multi-chain inputs.
+
+\subsection{Dual Rotary Positional Embedding}
+
+Each token in the input carries two sets of position indices:
+
+\begin{itemize}
+  \item \textbf{Within-sequence position IDs} (\texttt{within\_seq\_position\_ids}): the
+        position of a token within its own protein chain, up to
+        \texttt{max\_num\_positions\_within\_seq} = 8\,192.
+  \item \textbf{Global position IDs} (\texttt{global\_position\_ids}): the position of a token
+        across the full packed context window.
+\end{itemize}
+
+Rotary embeddings are applied at each attention layer.  The within-sequence RoPE uses base
+$\theta_{\mathrm{local}} = 10\,000$, while the global RoPE uses
+$\theta_{\mathrm{global}} = 100\,000$.  Layers alternate between the two depending on
+\texttt{global\_attention\_every\_n\_layers}: when this parameter is 0 (the default for DSM2),
+all layers use within-sequence RoPE.
+
+For an attention head dimension $h_d$, the rotary embedding for a position $p$ is the block-diagonal
+matrix $R(p)$ with $2\times 2$ rotation blocks:
+
+\begin{equation}
+  R(p)_{2k,2k} = \cos\!\bigl(p\,\theta^{-2k/h_d}\bigr), \quad
+  R(p)_{2k,2k+1} = -\sin\!\bigl(p\,\theta^{-2k/h_d}\bigr)
+\end{equation}
+
+for $k = 0,\ldots,h_d/2 - 1$, applied to both query and key vectors before the dot-product.
+
+\subsection{Multi-Chain Packing}
+
+The \texttt{E1BatchPreparer} utility handles multi-sequence inputs (e.g.\ comma-separated chains).
+Up to \texttt{max\_num\_sequences} = 512 chains may be packed into one context window, each
+assigned a unique sequence-type embedding from \texttt{embed\_seq\_id}
+$\in \mathbb{R}^{512 \times d_s}$ that is added to the token embedding before the first layer.
+
+% ============================================================
+\section{Data Pipeline}
+% ============================================================
+
+\subsection{Dataset}
+
+By default, the model trains on \texttt{Synthyra/uniref50}, a HuggingFace dataset providing
+\texttt{train}, \texttt{valid}, and \texttt{test} splits of UniRef50 protein sequences.
+The dataset is loaded via \texttt{datasets.load\_dataset}, shuffled with a fixed
+\texttt{shuffle\_seed}, and optionally truncated to \texttt{train\_limit},
+\texttt{valid\_limit}, and \texttt{test\_limit} samples respectively.
+
+Each sample is a raw amino-acid string from the column specified by \texttt{sequence\_column}
+(default \texttt{"sequence"}).  Sequences are tokenised and padded/truncated to at most
+\texttt{max\_length} = 2\,048 tokens by the \texttt{SequenceCollator}.
+
+\subsection{Batch Hierarchy: Patches and Patch Groups}
+
+DSM2 uses a two-level batching scheme:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Level} & \textbf{Parameter} & \textbf{Default} \\
+\midrule
+Micro-batch (\emph{patch}) & \texttt{patch\_size} & 16 sequences \\
+Patch group (per grad-accum step) & \texttt{patch\_accum} $= \lfloor\texttt{batch\_size}/\texttt{patch\_size}\rfloor$ & 4 patches \\
+Gradient accumulation & \texttt{grad\_accum} & 4 steps \\
+\midrule
+Effective batch per optimiser step (single GPU) & \texttt{batch\_size} $\times$ \texttt{grad\_accum} & 256 sequences \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The DataLoader emits micro-batches of size \texttt{patch\_size}.  The trainer collects
+\texttt{patch\_accum} consecutive micro-batches into a \emph{patch group}, computes the combined
+loss (accumulating gradients inside \texttt{model.no\_sync()} where applicable), and repeats for
+\texttt{grad\_accum} patch groups before calling \texttt{optimizer.step()}.
+
+The effective number of sequences seen per optimiser step across all distributed ranks is:
+
+\begin{equation}
+  N_{\mathrm{eff}} = \texttt{patch\_size} \times \texttt{patch\_accum} \times \texttt{grad\_accum} \times \texttt{world\_size}
+\end{equation}
+
+\subsection{Distributed Sampling}
+
+In multi-GPU runs (\texttt{world\_size} $> 1$), the training DataLoader uses
+\texttt{DistributedSampler} with \texttt{drop\_last=True}.  Validation and test loaders also use
+\texttt{DistributedSampler} with \texttt{drop\_last=False} and no shuffling.  In single-GPU runs,
+\texttt{RandomSampler} is used for all splits.
+
+On Windows, the number of workers for evaluation loaders is forced to 0 to avoid expensive
+\texttt{spawn} latency; on Linux, \texttt{eval\_num\_workers} matches the training worker count.
+
+% ============================================================
+\section{Training Objective}
+% ============================================================
+
+\subsection{Stochastic Masking}
+\label{sec:masking}
+
+For each sequence $i$ in a micro-batch of size $B$, a per-sample mask rate is drawn:
+
+\begin{equation}
+  t_i \sim \mathrm{Uniform}(\varepsilon,\; 1), \qquad \varepsilon = 10^{-3}
+\end{equation}
+
+During evaluation the mask rate is fixed:
+
+\begin{equation}
+  t_i = 0.15 \quad \forall\, i
+\end{equation}
+
+A token at position $j$ (length $L$) is replaced by the mask token \texttt{[MASK]} with probability
+$t_i$, subject to the constraint that special tokens (BOS, EOS, PAD, boundary tokens) and padding
+positions are never masked:
+
+\begin{equation}
+  m_{ij} = \mathbf{1}\!\bigl[\mathrm{Uniform}(0,1) < t_i\bigr]
+            \cdot \mathbf{1}\!\bigl[x_{ij} \notin \mathcal{S}\bigr]
+            \cdot \mathrm{attn}_{ij}
+\end{equation}
+
+where $\mathcal{S}$ is the set of special token IDs and $\mathrm{attn}_{ij}$ is the attention mask.
+The noisy input is $\hat{x}_{ij} = \texttt{[MASK]}$ if $m_{ij}=1$, otherwise $\hat{x}_{ij} = x_{ij}$.
+
+The teacher always receives the \emph{original, unmasked} tokens $x_i$, while the student always
+receives the masked tokens $\hat{x}_i$.
+
+Two derived masks are computed from $m_{ij}$:
+
+\begin{align}
+  \mathcal{M} &= \{(i,j) : m_{ij} = 1\} && \text{(masked positions, CE targets)} \\
+  \mathcal{D} &= \{(i,j) : m_{ij} = 0,\;\mathrm{attn}_{ij}=1,\;x_{ij}\notin\mathcal{S}\}
+              && \text{(unmasked non-special positions, JEPA targets)}
+\end{align}
+
+If $\mathcal{D}$ is empty after masking (edge case), $\mathcal{D}$ falls back to all valid
+attention-mask positions.  Similarly, if $\mathcal{M}$ is empty, CE falls back to all valid
+attention-mask positions.
+
+\subsection{Importance-Weighted Cross-Entropy Loss}
+\label{sec:ce_loss}
+
+The student's logits $P_\theta(x_{ij} \mid \hat{x}_i)$ are computed by the MLM head over all
+positions.  Cross-entropy is evaluated only at masked positions and re-weighted by the inverse of
+the sample's mask rate (importance weight $1/t_i$) to correct for the varying number of masked
+tokens per sequence:
+
+\begin{equation}
+  \boxed{
+    \mathcal{L}_{\mathrm{CE}} = \frac{1}{B \cdot L}
+    \sum_{(i,j)\in\mathcal{M}}
+    \frac{-\log P_\theta(x_{ij} \mid \hat{x}_i)}{t_i}
+  }
+\end{equation}
+
+This importance weighting makes the expected gradient contribution of each sequence equal regardless
+of how many tokens happen to be masked in that sample (a lower $t_i$ means fewer masked tokens but
+each is up-weighted by $1/t_i$, and vice versa).
+
+\subsection{JEPA Distillation Loss}
+\label{sec:jepa_loss}
+
+The Joint Embedding Predictive Architecture (JEPA) loss encourages the student's intermediate
+representations—after projection into teacher space—to match the teacher's representations at
+the unmasked context positions $\mathcal{D}$.
+
+Let $\hat{h}_{ij}^{(\ell)} = \phi^{(\ell)}(h_{s,ij}^{(\ell)}) \in \mathbb{R}^{d_T}$ be the
+$\ell$-th projected student hidden state at token $(i,j)$, and let
+$h_{t,ij}^{(\ell)} \in \mathbb{R}^{d_T}$ be the corresponding teacher hidden state.
+
+The loss applies \emph{depth weighting} $w_\ell = \ell / N$ that linearly increases with layer
+depth, emphasising higher-level semantic representations:
+
+\begin{equation}
+  \boxed{
+    \mathcal{L}_{\mathrm{JEPA}} =
+    \frac{1}{|\mathcal{D}| \cdot N}
+    \sum_{\ell=1}^{N} \frac{\ell}{N}
+    \sum_{(i,j)\in\mathcal{D}}
+    \frac{1}{d_T}\bigl\|\hat{h}_{ij}^{(\ell)} - h_{t,ij}^{(\ell)}\bigr\|_2^2
+  }
+\end{equation}
+
+The factor $1/d_T$ comes from averaging the squared difference over the hidden dimension before
+summing.  The denominator $|\mathcal{D}| \cdot N$ normalises jointly over valid token positions and
+layers.  All computations are performed in \texttt{float32} for numerical stability.
+
+\subsection{Contrastive Representation Loss}
+\label{sec:contrastive_loss}
+
+The contrastive loss aligns the \emph{relational structure} of student and teacher representations
+across the batch.  Instead of matching token-level representations directly, it matches the
+self-similarity matrices of pooled sequence representations at each layer.
+
+\textbf{Step 1: Mean-variance pooling.}
+For each layer $\ell$ and sample $i$, the student and teacher hidden states are pooled over valid
+(attended) token positions into a $2d_T$-dimensional vector:
+
+\begin{equation}
+  \bar{s}_i^{(\ell)} = \bigl[\mu\bigl(\hat{H}_i^{(\ell)}\bigr);\; \sigma^2\bigl(\hat{H}_i^{(\ell)}\bigr)\bigr]
+  \in \mathbb{R}^{2d_T}
+\end{equation}
+
+where $\mu$ and $\sigma^2$ are the masked mean and variance over the sequence dimension.
+This yields tensors $\bar{s}^{(\ell)}, \bar{t}^{(\ell)} \in \mathbb{R}^{B \times 2d_T}$.
+
+\textbf{Step 2: Self-similarity matrices.}
+For each layer, compute the normalised intra-batch similarity matrices:
+
+\begin{equation}
+  S_{ij}^{(\ell)} = \mathrm{softmax}\!\bigl(\bar{s}^{(\ell)}\,\bar{s}^{(\ell)\top}\bigr)_{ij},
+  \qquad
+  T_{ij}^{(\ell)} = \mathrm{softmax}\!\bigl(\bar{t}^{(\ell)}\,\bar{t}^{(\ell)\top}\bigr)_{ij}
+\end{equation}
+
+where softmax is applied row-wise over the $B$ columns, yielding
+$S^{(\ell)}, T^{(\ell)} \in \mathbb{R}^{B \times B}$.
+
+\textbf{Step 3: Depth-weighted MSE.}
+The loss is the depth-weighted mean squared error between the two similarity matrices, averaged
+over layers and batch pairs:
+
+\begin{equation}
+  \boxed{
+    \mathcal{L}_{\mathrm{contrastive}} =
+    \frac{1}{B^2 \cdot N}
+    \sum_{\ell=1}^{N} \frac{\ell}{N}
+    \sum_{i=1}^{B} \sum_{j=1}^{B}
+    \bigl(S_{ij}^{(\ell)} - T_{ij}^{(\ell)}\bigr)^2
+  }
+\end{equation}
+
+Note: the contrastive loss operates over the \emph{full patch group} (all patches concatenated),
+not per micro-batch, so $B$ here is the effective group batch size.  All computations are in
+\texttt{float32}.
+
+\subsection{Auxiliary Loss Warmup Scale}
+\label{sec:aux_warmup}
+
+The auxiliary losses (JEPA and contrastive) are gated by a scalar warmup factor $\gamma \in [0,1]$
+that depends on the current optimiser step $s$:
+
+\begin{equation}
+  \gamma(s) =
+  \begin{cases}
+    0 & s < T_{\mathrm{free}} \\[4pt]
+    \dfrac{s - T_{\mathrm{free}}}{T_{\mathrm{warm}}} & T_{\mathrm{free}} \le s < T_{\mathrm{free}} + T_{\mathrm{warm}} \\[8pt]
+    1 & s \ge T_{\mathrm{free}} + T_{\mathrm{warm}}
+  \end{cases}
+\end{equation}
+
+where:
+\begin{align*}
+  T_{\mathrm{free}} &= \lfloor S_{\max} \times \texttt{teacher\_free\_percent} \rfloor \\
+  T_{\mathrm{warm}} &= \lfloor S_{\max} \times \texttt{aux\_loss\_warmup\_percent} \rfloor
+\end{align*}
+
+The effective auxiliary weights are $\tilde\alpha_{\mathrm{JEPA}} = \gamma \cdot \alpha_{\mathrm{JEPA}}$
+and $\tilde\alpha_{\mathrm{contrastive}} = \gamma \cdot \alpha_{\mathrm{contrastive}}$.
+
+\subsection{Auxiliary-to-CE Ratio Guard}
+
+To prevent instabilities caused by auxiliary losses dominating the CE signal, an adaptive scaling
+factor $\kappa \in (0, 1]$ is applied to the total weighted auxiliary loss whenever it exceeds a
+specified fraction $r_{\max}$ of the CE loss magnitude:
+
+\begin{equation}
+  A = \bigl|\tilde\alpha_{\mathrm{JEPA}}\,\mathcal{L}_{\mathrm{JEPA}}
+          + \tilde\alpha_{\mathrm{contrastive}}\,\mathcal{L}_{\mathrm{contrastive}}\bigr|, \qquad
+  C = \bigl|\alpha_{\mathrm{CE}}\,\mathcal{L}_{\mathrm{CE}}\bigr|
+\end{equation}
+
+\begin{equation}
+  \kappa =
+  \begin{cases}
+    r_{\max} \cdot C \,/\, A & A > r_{\max} \cdot C \text{ and } A > 0 \\
+    1 & \text{otherwise}
+  \end{cases}
+\end{equation}
+
+Default $r_{\max} = 0.25$ (set \texttt{max\_aux\_to\_ce\_ratio} $\le 0$ to disable the guard).
+
+\subsection{Combined Loss Function}
+
+The total scalar loss for a patch group is:
+
+\begin{equation}
+  \boxed{
+    \mathcal{L} =
+    \alpha_{\mathrm{CE}}\,\mathcal{L}_{\mathrm{CE}}
+    + \kappa\!\left(\tilde\alpha_{\mathrm{JEPA}}\,\mathcal{L}_{\mathrm{JEPA}}
+                  + \tilde\alpha_{\mathrm{contrastive}}\,\mathcal{L}_{\mathrm{contrastive}}\right)
+  }
+\end{equation}
+
+Each loss component is accumulated in a weighted sum over the patch group; the weight of patch $p$
+with $B_p$ sequences is $B_p / B_{\mathrm{total}}$ where $B_{\mathrm{total}} = \sum_p B_p$.
+CE and JEPA contributions are accumulated per-patch; the contrastive loss is computed once over the
+full concatenated batch of pooled representations.
+
+% ============================================================
+\section{Training Schedule}
+% ============================================================
+
+\subsection{Three-Phase Loss Schedule}
+
+Training proceeds through three consecutive phases controlled by \texttt{teacher\_free\_percent}
+and \texttt{aux\_loss\_warmup\_percent}:
+
+\begin{enumerate}
+  \item \textbf{Teacher-free phase} (steps $[0, T_{\mathrm{free}})$, default 10\% of total): only
+        the CE loss is active ($\gamma = 0$).  The teacher is not forwarded, saving compute.
+
+  \item \textbf{Auxiliary warmup phase} (steps $[T_{\mathrm{free}}, T_{\mathrm{free}}+T_{\mathrm{warm}})$,
+        default next 10\%): $\gamma$ ramps linearly from 0 to 1.  The teacher is forwarded and
+        JEPA + contrastive losses are gradually introduced.
+
+  \item \textbf{Full training phase} (steps $\ge T_{\mathrm{free}}+T_{\mathrm{warm}}$, default
+        remaining 80\%): all three losses are active at full weight, subject only to the ratio guard.
+\end{enumerate}
+
+\subsection{EMA Teacher Transition}
+\label{sec:ema}
+
+At step $\lfloor S_{\max} \times \texttt{ema\_start\_percent}\rfloor$ (default 40\% of total
+steps), the \texttt{EMATeacherCallback} activates.  A deep copy of the current student weights is
+made, frozen, compiled with \texttt{torch.compile}, and attached to the model as
+\texttt{model.ema\_teacher}.
+
+Thereafter, at the end of every optimiser step, the EMA teacher parameters $\theta_T$ are updated:
+
+\begin{equation}
+  \theta_T \leftarrow \delta\,\theta_T + (1 - \delta)\,\theta_S
+\end{equation}
+
+where $\delta = \texttt{ema\_decay}$ (default 0.999) and $\theta_S$ are the current student
+parameters.
+
+Once the EMA teacher is active, the trainer switches the active teacher from the external frozen
+model to the EMA copy, and performs a one-time cleanup:
+
+\begin{itemize}
+  \item The teacher projection layers $\{\phi^{(\ell)}\}$ are removed from both the student and the
+        EMA teacher (they are no longer needed since the EMA teacher lives in student-space $\mathbb{R}^{d_s}$).
+  \item The corresponding parameters are removed from the optimiser's parameter groups.
+  \item The original external teacher model is set to \texttt{None} and its GPU memory is freed via
+        \texttt{torch.cuda.empty\_cache()}.
+\end{itemize}
+
+The EMA teacher is forwarded by calling the student's own \texttt{forward} with
+$\alpha_{\mathrm{CE}} = \alpha_{\mathrm{JEPA}} = \alpha_{\mathrm{contrastive}} = 0$, retrieving
+\texttt{student\_hidden\_states} from the output rather than hidden states from the transformer backbone.
+
+\subsection{Learning Rate Schedule}
+
+The learning rate follows a three-phase piecewise schedule defined as a multiplier on the base
+learning rate \texttt{lr}:
+
+\begin{equation}
+  \lambda(s) =
+  \begin{cases}
+    \dfrac{s+1}{W}
+      & 0 \le s < W \quad (\text{linear warmup},\ W = \lceil 0.01\,S_{\max} \rceil) \\[8pt]
+    1.0
+      & W \le s < W + P \quad (\text{plateau},\ P = \lceil 0.49\,S_{\max} \rceil) \\[8pt]
+    \dfrac{1}{2}\!\left(1 + \cos\!\left(\pi \cdot \dfrac{s - (W+P) + 1}{C}\right)\right)
+      & W+P \le s < W+P+C \quad (\text{cosine cooldown},\ C = \lceil 0.30\,S_{\max} \rceil) \\[8pt]
+    0
+      & s \ge W + P + C
+  \end{cases}
+\end{equation}
+
+The schedule is implemented as \texttt{torch.optim.lr\_scheduler.LambdaLR}.  The remaining $\approx
+20\%$ of steps after the cooldown have zero learning rate.
+
+% ============================================================
+\section{Optimisation}
+% ============================================================
+
+\subsection{Standard AdamW Path}
+
+When \texttt{--muon} is not supplied, all student parameters are optimised with AdamW:
+
+\begin{equation}
+  \texttt{AdamW}(\theta,\; \text{lr}=\texttt{lr},\; \text{weight\_decay}=0)
+\end{equation}
+
+\subsection{MuonClip Path}
+
+When \texttt{--muon} is supplied, parameters are partitioned into three groups:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Group} & \textbf{Selection rule} & \textbf{Optimiser} \\
+\midrule
+\texttt{muon\_params} & \texttt{ndim} $\ge 2$, name does not contain \texttt{embed},
+                        \texttt{lm\_head}, or \texttt{mlm\_head} & MuonClip (Muon + QK-Clip) \\
+\texttt{adamw\_params} & embeddings and LM-head weight matrices & AdamW \\
+\texttt{attention\_params} & $(W_Q, W_K)$ pairs from every attention layer (QK-Clip targets) & (used inside MuonClip) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The \texttt{MuonAdamWWrapper} combines both sub-optimisers behind a single
+\texttt{torch.optim.Optimizer} interface.
+
+\subsubsection{Muon (Momentum + Orthogonalisation)}
+
+The Muon update for a weight matrix $W \in \mathbb{R}^{m \times n}$ applies Nesterov momentum and
+then orthogonalises the update via five steps of the Newton–Schulz iteration before scaling by the
+learning rate:
+
+\begin{equation}
+  \tilde{G} = \mathrm{NewtonSchulz5}(G_t), \qquad W \leftarrow W - \eta_{\mathrm{muon}}\,\tilde{G}
+\end{equation}
+
+where $G_t$ is the current (momentum-adjusted) gradient and $\mathrm{NewtonSchulz5}$ maps $G_t$ to
+a matrix with approximately orthonormal rows (or columns), stabilising the effective learning rate
+across layers of different widths.
+
+\subsubsection{QK-Clip}
+
+For each attention layer $\ell$ and head $h$, the maximum attention logit magnitude observed during
+the most recent forward pass is tracked:
+
+\begin{equation}
+  s_{\max}^{(\ell, h)} = \max_{i,j} \frac{\langle q_i^{(\ell,h)},\, k_j^{(\ell,h)} \rangle}{\sqrt{h_d}}
+\end{equation}
+
+where the max is over sequence positions.  When \texttt{output\_s\_max = True} (default during
+training), the model collects these values and passes them back as \texttt{DSM2Output.s\_max}.  The
+trainer aggregates $s_{\max}$ across patches by taking the element-wise maximum:
+
+\begin{equation}
+  s_{\max}^{(\ell,h)} \leftarrow \max_{p}\; s_{\max,p}^{(\ell,h)}
+\end{equation}
+
+Before the optimiser step, $s_{\max}$ is injected into the \texttt{MuonClip} instance.  QK-Clip
+then limits the effective step size on $W_Q$ and $W_K$ to prevent the attention logit magnitude from
+growing beyond the threshold $\tau = \texttt{muon\_tau}$ (default 100).
+
+\subsubsection{Gradient Clipping}
+
+When \texttt{max\_grad\_norm} $> 0$, global gradient clipping is applied to the student model
+before \texttt{optimizer.step()}:
+
+\begin{equation}
+  g \leftarrow g \cdot \min\!\left(1,\; \frac{\texttt{max\_grad\_norm}}{\|g\|_2}\right)
+\end{equation}
+
+% ============================================================
+\section{Distributed Training}
+% ============================================================
+
+\subsection{Process Group Initialisation}
+
+If \texttt{world\_size} $> 1$ and \texttt{--no\_init\_distributed} is not set, the trainer calls
+\texttt{torch.distributed.init\_process\_group} with the specified \texttt{distributed\_backend}
+(default \texttt{gloo}) and \texttt{init\_method="env://"}.  Environment variables
+\texttt{RANK}, \texttt{WORLD\_SIZE}, and \texttt{LOCAL\_RANK} are read by
+\texttt{infer\_rank\_world\_size\_local\_rank}.
+
+\subsection{Model Parallelism}
+
+After \texttt{torch.compile}, the model is wrapped in
+\texttt{DistributedDataParallel} (DDP) on CUDA runs:
+
+\begin{verbatim}
+DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank)
+\end{verbatim}
+
+Gradient synchronisation across ranks is deferred during inner patch-group accumulation steps using
+\texttt{model.no\_sync()}.  A full \texttt{all\_reduce} occurs only at the final patch of each
+gradient accumulation step.
+
+\subsection{Distributed Loss Reduction}
+
+During evaluation, per-rank losses are reduced via \texttt{dist.all\_reduce} (sum, then divide by
+world size).  Logits and labels are gathered across ranks with
+\texttt{dist.all\_gather\_object} and concatenated on the main process (rank 0) before metric
+computation.
+
+% ============================================================
+\section{Evaluation}
+% ============================================================
+
+\subsection{Evaluation Protocol}
+
+An initial evaluation on the test set is performed before training begins.  During training,
+evaluation runs on the validation set every \texttt{eval\_every} optimiser steps (defaulting to
+\texttt{save\_every} = 1\,000 when not specified).  A final evaluation on the test set is performed
+after training completes.
+
+\subsection{Metrics}
+
+The \texttt{ComputeDSM2Metrics} class computes the following metrics from the predicted logits
+$\hat{Y} \in \mathbb{R}^{B \times L \times V}$ and ground-truth token IDs $Y \in \mathbb{Z}^{B
+\times L}$ (positions with label $-100$ are ignored):
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Metric} & \textbf{Definition / Notes} \\
+\midrule
+\textbf{Cross-entropy loss} & $\mathcal{L}_{\mathrm{CE}}$ computed in \texttt{float32} over masked positions \\
+\textbf{Alignment score}   & Per-sequence alignment score from \texttt{GetAlignmentScoreFromLogits}, averaged over batch \\
+\textbf{Accuracy}          & Top-1 accuracy $\hat{y}_{ij} = \arg\max_v \hat{Y}_{ijv}$ at masked positions \\
+\textbf{F1 (weighted)}     & Weighted-average F1 over residue classes at masked positions \\
+\textbf{Precision (weighted)} & Weighted-average precision at masked positions \\
+\textbf{Recall (weighted)} & Weighted-average recall at masked positions \\
+\textbf{MCC}               & Matthews correlation coefficient at masked positions \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All classification metrics are computed with \texttt{scikit-learn} functions after flattening
+valid (non-$-100$) positions.
+
+% ============================================================
+\section{Checkpointing and Logging}
+% ============================================================
+
+\subsection{Checkpointing}
+
+Every \texttt{save\_every} optimiser steps, the main process (rank 0) saves:
+
+\begin{itemize}
+  \item The unwrapped student model via \texttt{save\_pretrained} into
+        \texttt{<save\_path>/checkpoint-step-<N>/}.
+  \item Optimiser state to \texttt{optimizer.pt}.
+  \item Scheduler state to \texttt{scheduler.pt}.
+\end{itemize}
+
+At the end of training, when an HF token is provided, the final model is pushed to the HuggingFace
+Hub at the path specified by \texttt{save\_path} (private repository).
+
+\subsection{Weights \& Biases Logging}
+
+When both \texttt{WANDB\_AVAILABLE=true} and \texttt{--wandb\_token} are provided, the following
+are logged every \texttt{logging\_steps} optimiser steps under the \texttt{train/} prefix and after
+each evaluation under \texttt{valid/} or \texttt{test/} prefixes:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Key} & \textbf{Description} \\
+\midrule
+\texttt{ce\_loss} & Raw (unweighted) CE loss for the patch group \\
+\texttt{jepa\_loss} & Raw JEPA loss \\
+\texttt{contrastive\_loss} & Raw contrastive loss \\
+\texttt{weighted\_ce\_loss} & $\alpha_{\mathrm{CE}} \cdot \mathcal{L}_{\mathrm{CE}}$ \\
+\texttt{weighted\_jepa\_loss} & $\tilde\alpha_{\mathrm{JEPA}} \cdot \mathcal{L}_{\mathrm{JEPA}}$ \\
+\texttt{weighted\_contrastive\_loss} & $\tilde\alpha_{\mathrm{contrastive}} \cdot \mathcal{L}_{\mathrm{contrastive}}$ \\
+\texttt{weighted\_aux\_loss\_pre\_guard} & Weighted aux sum before ratio guard \\
+\texttt{weighted\_aux\_loss} & Weighted aux sum after ratio guard \\
+\texttt{aux\_loss\_scale} & Current $\gamma(s)$ \\
+\texttt{aux\_guard\_scale} & Current $\kappa$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Hyperparameters}
+% ============================================================
+
+Table~\ref{tab:hparams} lists every command-line argument, its type, default value, and purpose.
+
+\begin{longtable}{p{5.2cm} p{1.3cm} p{3.2cm} p{5.0cm}}
+\caption{All DSM2 training arguments and their defaults.\label{tab:hparams}} \\
+\toprule
+\textbf{Argument} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\tablename~\thetable{} (continued)} \\
+\toprule
+\textbf{Argument} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+
+% Runtime
+\texttt{--hf\_token} & str & \texttt{None} & HuggingFace authentication token \\
+\texttt{--wandb\_token} & str & \texttt{None} & Weights \& Biases API token \\
+\texttt{--wandb\_project} & str & \texttt{DSM2} & W\&B project name \\
+\texttt{--save\_path} & str & \texttt{GleghornLab/DSM2\_600} & HF Hub repo and local checkpoint prefix \\
+\texttt{--distributed\_backend} & str & \texttt{gloo} & \texttt{torch.distributed} backend \\
+\texttt{--no\_init\_distributed} & flag & \texttt{False} & Skip \texttt{init\_process\_group} \\
+\texttt{--no\_pin\_memory} & flag & \texttt{False} & Disable pinned-memory DataLoaders \\
+\texttt{--bugfix} & flag & \texttt{False} & Use tiny debug configuration \\
+\midrule
+
+% Model
+\texttt{--teacher\_model\_path} & str & \texttt{Synthyra/DPLM-3B} & HF path for the teacher model \\
+\texttt{--pretrained\_weights} & str & \texttt{None} & HF path to seed student weights; skips projection layers if set \\
+\texttt{--student\_hidden\_size} & int & \texttt{256} & $d_s$, must satisfy $d_s \bmod 64 = 0$ \\
+\texttt{--student\_expansion\_ratio} & float & \texttt{4.0} & $d_{\mathrm{ff}} / d_s$ ratio for the MLP \\
+\texttt{--sliding\_window\_size} & int & \texttt{512} & Sliding-window size for \texttt{flex} attention \\
+\texttt{--dilation} & int & \texttt{16} & Dilation factor for \texttt{flex} attention \\
+\texttt{--attn\_backend} & str & \texttt{auto} & Attention backend (see Section~\ref{sec:attn_backends}) \\
+\midrule
+
+% Data
+\texttt{--data\_path} & str & \texttt{Synthyra/uniref50} & HuggingFace dataset identifier \\
+\texttt{--sequence\_column} & str & \texttt{sequence} & Column name containing amino-acid sequences \\
+\texttt{--max\_length} & int & \texttt{2048} & Maximum tokenised sequence length \\
+\texttt{--train\_limit} & int & \texttt{0} & Max train samples ($\le 0$ = all) \\
+\texttt{--valid\_limit} & int & \texttt{1000} & Max validation samples \\
+\texttt{--test\_limit} & int & \texttt{1000} & Max test samples \\
+\texttt{--shuffle\_seed} & int & \texttt{42} & Random seed for dataset shuffling \\
+\texttt{--dataloader\_num\_workers} & int & \texttt{0} & DataLoader worker processes \\
+\texttt{--dataloader\_prefetch\_factor} & int & \texttt{2} & Prefetch factor when workers $> 0$ \\
+\midrule
+
+% Optimisation
+\texttt{--lr} & float & \texttt{1e-4} & Base learning rate for AdamW \\
+\texttt{--batch\_size} & int & \texttt{64} & Effective batch size metadata; sets \texttt{patch\_accum} $= \lfloor\texttt{batch\_size}/\texttt{patch\_size}\rfloor$ \\
+\texttt{--patch\_size} & int & \texttt{16} & Micro-batch size per forward pass \\
+\texttt{--grad\_accum} & int & \texttt{4} & Gradient accumulation steps \\
+\texttt{--max\_steps} & int & \texttt{100000} & Total optimiser steps $S_{\max}$ \\
+\texttt{--max\_grad\_norm} & float & \texttt{0.0} & Gradient clipping norm ($0$ = disabled) \\
+\texttt{--muon} & flag & \texttt{False} & Enable MuonClip optimiser \\
+\texttt{--muon\_lr} & float & \texttt{0.001} & Learning rate for the Muon sub-optimiser \\
+\texttt{--muon\_tau} & float & \texttt{100.0} & QK-Clip $\tau$ threshold \\
+\midrule
+
+% Loss
+\texttt{--alpha\_ce} & float & \texttt{1.0} & Weight $\alpha_{\mathrm{CE}}$ on CE loss \\
+\texttt{--alpha\_jepa} & float & \texttt{0.1} & Weight $\alpha_{\mathrm{JEPA}}$ on JEPA loss \\
+\texttt{--alpha\_contrastive} & float & \texttt{1.0} & Weight $\alpha_{\mathrm{contrastive}}$ on contrastive loss \\
+\texttt{--teacher\_free\_percent} & float & \texttt{0.1} & Fraction of steps in CE-only phase \\
+\texttt{--aux\_loss\_warmup\_percent} & float & \texttt{0.1} & Fraction of steps for aux-loss linear warmup \\
+\texttt{--max\_aux\_to\_ce\_ratio} & float & \texttt{0.25} & Cap $r_{\max}$ on aux/CE ratio ($\le 0$ = disabled) \\
+\midrule
+
+% EMA
+\texttt{--ema\_start\_percent} & float & \texttt{0.4} & Fraction of steps before EMA teacher activates \\
+\texttt{--ema\_decay} & float & \texttt{0.999} & EMA decay $\delta$ \\
+\midrule
+
+% Logging / checkpointing
+\texttt{--save\_every} & int & \texttt{1000} & Save checkpoint every $N$ optimiser steps \\
+\texttt{--eval\_every} & int & \texttt{0} & Evaluate every $N$ steps ($\le 0$ uses \texttt{save\_every}) \\
+\texttt{--logging\_steps} & int & \texttt{100} & Log training metrics every $N$ steps \\
+\end{longtable}
+
+% ============================================================
+\section{Summary of Training Phases}
+% ============================================================
+
+Figure~\ref{fig:phases} summarises the interplay of all training phases across the total number of
+optimiser steps $S_{\max}$ under the default hyperparameter settings.
+
+\begin{center}
+\small
+\begin{tabular}{ccccc}
+\toprule
+\textbf{Step range} & \textbf{\% of $S_{\max}$} & \textbf{CE} & \textbf{JEPA + Contrastive} & \textbf{Teacher source} \\
+\midrule
+$[0,\; 0.10\,S_{\max})$   & 10\% & \checkmark & $\times$ & (not forwarded) \\
+$[0.10,\; 0.20\,S_{\max})$ & 10\% & \checkmark & linear ramp $\gamma \in [0,1]$ & External (frozen) \\
+$[0.20,\; 0.40\,S_{\max})$ & 20\% & \checkmark & \checkmark (full) & External (frozen) \\
+$[0.40,\; 1.00\,S_{\max})$ & 60\% & \checkmark & \checkmark (full) & EMA (student self-distillation) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\captionof*{table}{Figure~1: Training phase schedule under default settings.  At step 0.40$\,S_{\max}$ the
+EMA teacher activates and the external teacher + projection layers are discarded.}
+\label{fig:phases}
+
+\end{document}

@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset, DistributedSampler, RandomSamp
 from typing import Optional
 
 from data.data_collators import SequenceCollator
-from dsm2.dsm2_config import DSM2DataConfig
+from dsm2.config import DSM2DataConfig
 
 
 class HFSequenceDataset(Dataset):

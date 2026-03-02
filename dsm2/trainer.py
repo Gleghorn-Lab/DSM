@@ -3,11 +3,11 @@ from torch.utils.data import DataLoader, Dataset
 from typing import Dict, List, Sequence
 
 from dsm2.base_patch_batch_trainer import BasePatchBatchTrainer
-from dsm2.dsm2_callbacks import DSM2TrainerCallback
-from dsm2.dsm2_config import DSM2LossConfig, DSM2OptimizationConfig, DSM2RuntimeConfig
+from dsm2.callbacks import DSM2TrainerCallback
+from dsm2.config import DSM2LossConfig, DSM2OptimizationConfig, DSM2RuntimeConfig
 from dsm2.losses import contrastive_loss_from_pooled, pool_states
 from dsm2.model_utils import extract_model_from_parallel
-from dsm2.dsm2_optim import MuonAdamWWrapper, create_muonclip_optimizer, partition_dsm2_parameters
+from dsm2.optim import MuonAdamWWrapper, create_muonclip_optimizer, partition_dsm2_parameters
 
 
 class DSM2Trainer(BasePatchBatchTrainer):
