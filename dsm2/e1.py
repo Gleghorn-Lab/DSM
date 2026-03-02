@@ -1,14 +1,13 @@
 import os
-from dataclasses import dataclass
-from enum import Enum
-from typing import Any, List, TypedDict
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, List, TypedDict
 from einops import rearrange, repeat
 from tokenizers import Tokenizer
-from torch.nn.utils.rnn import pad_sequence
 from transformers import PreTrainedModel, PreTrainedTokenizerFast, PretrainedConfig
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import ModelOutput
@@ -1633,7 +1632,7 @@ class FAST_E1_ENCODER(E1PreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.embed_seq_id = nn.Embedding(config.max_num_sequences, config.hidden_size)
+        self.embed_seq_id = nn.Embedding(config.max_num_sequences, config.hidden_s`ize)
         self.layers = nn.ModuleList([DecoderLayer(config, i) for i in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.gradient_checkpointing = config.gradient_checkpointing
