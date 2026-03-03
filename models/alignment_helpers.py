@@ -2,7 +2,6 @@ import biotite.sequence.align as align
 import numpy as np
 import torch
 from typing import Union
-from transformers import EsmTokenizer
 from biotite.sequence.align import align_optimal
 from biotite.sequence import ProteinSequence
 
