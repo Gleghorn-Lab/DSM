@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="PD-L1 Experimental Binding KD KD by expression">
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<style><![CDATA[
+text { font-family: Arial, Helvetica, sans-serif; fill: #1F2933; }
+.subtitle { font-size: 15px; fill: #4B5563; }
+.axis-label { font-size: 18px; font-weight: 600; }
+.tick { font-size: 14px; fill: #4B5563; }
+.variant { font-size: 13px; fill: #2D3748; }
+.mask-rate { font-size: 11px; fill: #667085; }
+.legend-title { font-size: 16px; font-weight: 700; }
+.legend { font-size: 14px; fill: #2D3748; }
+.template-label { font-size: 14px; font-weight: 700; fill: #374151; }
+.grid { stroke: #E5E7EB; stroke-width: 1; }
+.axis { stroke: #374151; stroke-width: 1.5; }
+]]></style>
+<text class="subtitle" x="92" y="42">KD in nM on log scale; lower is better</text>
+<line class="grid" x1="92" x2="1050" y1="572" y2="572"/>
+<text class="tick" x="80" y="577" text-anchor="end">0.010</text>
+<line class="grid" x1="92" x2="1050" y1="478.056" y2="478.056"/>
+<text class="tick" x="80" y="483.056" text-anchor="end">0.10</text>
+<line class="grid" x1="92" x2="1050" y1="384.112" y2="384.112"/>
+<text class="tick" x="80" y="389.112" text-anchor="end">1.00</text>
+<line class="grid" x1="92" x2="1050" y1="290.168" y2="290.168"/>
+<text class="tick" x="80" y="295.168" text-anchor="end">10.0</text>
+<line class="grid" x1="92" x2="1050" y1="196.224" y2="196.224"/>
+<text class="tick" x="80" y="201.224" text-anchor="end">100</text>
+<line class="grid" x1="92" x2="1050" y1="102.28" y2="102.28"/>
+<text class="tick" x="80" y="107.28" text-anchor="end">1,000</text>
+<line class="grid" x1="92" x2="1050" y1="74" y2="74"/>
+<text class="tick" x="80" y="79" text-anchor="end">2,000</text>
+<line class="axis" x1="92" x2="92" y1="74" y2="572"/>
+<line class="axis" x1="92" x2="1050" y1="572" y2="572"/>
+<line x1="92" x2="1050" y1="513.351" y2="513.351" stroke="#374151" stroke-width="2" stroke-dasharray="4 7"/>
+<text class="template-label" x="1062" y="503.351">Template KD 0.042 nM</text>
+<rect x="103.933" y="298.967" width="40" height="273.033" fill="#2F7D32" rx="2"/>
+<text class="tick" x="123.933" y="291" text-anchor="middle">8.06</text>
+<g transform="translate(123.933 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_7</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.05</text>
+</g>
+<rect x="167.8" y="274.035" width="40" height="297.965" fill="#2F7D32" rx="2"/>
+<text class="tick" x="187.8" y="266" text-anchor="middle">14.9</text>
+<g transform="translate(187.8 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_6</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.11</text>
+</g>
+<rect x="231.667" y="242.331" width="40" height="329.669" fill="#2F7D32" rx="2"/>
+<text class="tick" x="251.667" y="234" text-anchor="middle">32.3</text>
+<g transform="translate(251.667 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_2</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.13</text>
+</g>
+<rect x="295.533" y="199.251" width="40" height="372.749" fill="#2F7D32" rx="2"/>
+<text class="tick" x="315.533" y="191" text-anchor="middle">92.9</text>
+<g transform="translate(315.533 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_16</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.09</text>
+</g>
+<rect x="359.4" y="176.667" width="40" height="395.333" fill="#2F7D32" rx="2"/>
+<text class="tick" x="379.4" y="169" text-anchor="middle">162</text>
+<g transform="translate(379.4 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_4</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.09</text>
+</g>
+<rect x="423.267" y="174.815" width="40" height="397.185" fill="#2F7D32" rx="2"/>
+<text class="tick" x="443.267" y="167" text-anchor="middle">169</text>
+<g transform="translate(443.267 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_8</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.11</text>
+</g>
+<rect x="487.133" y="165.567" width="40" height="406.433" fill="#2F7D32" rx="2"/>
+<text class="tick" x="507.133" y="158" text-anchor="middle">212</text>
+<g transform="translate(507.133 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_11</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.16</text>
+</g>
+<rect x="551" y="149.281" width="40" height="422.719" fill="#2F7D32" rx="2"/>
+<text class="tick" x="571" y="141" text-anchor="middle">316</text>
+<g transform="translate(571 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_19</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.18</text>
+</g>
+<rect x="614.867" y="126.413" width="40" height="445.587" fill="#2F7D32" rx="2"/>
+<text class="tick" x="634.867" y="118" text-anchor="middle">554</text>
+<g transform="translate(634.867 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_17</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.13</text>
+</g>
+<rect x="678.733" y="114.372" width="40" height="457.628" fill="#2F7D32" rx="2"/>
+<text class="tick" x="698.733" y="106" text-anchor="middle">744</text>
+<g transform="translate(698.733 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_12</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.16</text>
+</g>
+<rect x="742.6" y="112.275" width="40" height="459.725" fill="#2F7D32" rx="2"/>
+<text class="tick" x="762.6" y="104" text-anchor="middle">783</text>
+<g transform="translate(762.6 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_5</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.09</text>
+</g>
+<rect x="806.467" y="111.359" width="40" height="460.641" fill="#2F7D32" rx="2"/>
+<text class="tick" x="826.467" y="103" text-anchor="middle">801</text>
+<g transform="translate(826.467 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_13</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.03</text>
+</g>
+<rect x="870.333" y="104.674" width="40" height="467.326" fill="#2F7D32" rx="2"/>
+<text class="tick" x="890.333" y="97" text-anchor="middle">943</text>
+<g transform="translate(890.333 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_18</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.18</text>
+</g>
+<rect x="934.2" y="99.895" width="40" height="472.105" fill="#2F7D32" rx="2"/>
+<text class="tick" x="954.2" y="92" text-anchor="middle">1,060</text>
+<g transform="translate(954.2 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_3</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.08</text>
+</g>
+<rect x="998.067" y="91.869" width="40" height="480.131" fill="#2F7D32" rx="2"/>
+<text class="tick" x="1018.067" y="90" text-anchor="middle">1,291</text>
+<g transform="translate(1018.067 588) rotate(-45)">
+<text class="variant" text-anchor="end">dsm_pdl1_9</text>
+<text class="mask-rate" y="15" text-anchor="end">mask-rate: 0.19</text>
+</g>
+<g transform="translate(28 323) rotate(-90)">
+<text class="axis-label" text-anchor="middle">KD (nM, log scale; lower is better)</text>
+</g>
+<text class="axis-label" x="571" y="696" text-anchor="middle">Variants, best to worst KD</text>
+<text class="legend-title" x="1078" y="104">Expression</text>
+<rect x="1078" y="117" width="15" height="15" fill="#2F7D32" rx="2"/>
+<text class="legend" x="1102" y="130">High</text>
+</svg>
